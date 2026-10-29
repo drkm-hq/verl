@@ -543,11 +543,12 @@ class ReplayBuffer:
         attempts = self.prompt_attempt[partition_id]
         exhausted = {uid for uid in stuck if attempts.get(uid, 1) > self.max_inflight_reissues}
         to_reissue = stuck - exhausted
-        if reissue_budget is not None and (to_reissue or exhausted):
+        if reissue_budget is not None and ((to_reissue | exhausted) - dead_owned):
             # A re-issue and the failure that ends an exhausted prompt (the refill path then starts another
-            # generation) are both TTL-induced discards: the step budget bounds their sum.
-            allowed = self._within_reissue_budget(
-                partition_id, to_reissue | exhausted, eviction_metrics, reissue_budget
+            # generation) are both TTL-induced discards: the step budget bounds their sum. A dead worker's
+            # prompts are retired regardless and never charged.
+            allowed = dead_owned | self._within_reissue_budget(
+                partition_id, (to_reissue | exhausted) - dead_owned, eviction_metrics, reissue_budget
             )
             to_reissue, exhausted = to_reissue & allowed, exhausted & allowed
         if exhausted and keep_last_finishable:
@@ -586,7 +587,7 @@ class ReplayBuffer:
                 f"{self.max_inflight_reissues}; marking them failure: {sorted(exhausted)[:4]}"
             )
             self._fail_groups(partition_id, exhausted, fresh_uid=True)
-        self._ttl_discards_in_step[partition_id] += len(reissued) + len(exhausted)
+        self._ttl_discards_in_step[partition_id] += len(reissued - dead_owned) + len(exhausted - dead_owned)
 
         count("inflight_reissued", len(reissued))
         count("inflight_dead_worker_reissued", len(reissued & dead_owned))

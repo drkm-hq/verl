@@ -865,3 +865,35 @@ def test_hold_back_is_lifted_once_another_group_finished_so_a_dead_writer_is_pad
         assert rb._ttl_discards_in_step[partition_id] == 1, "the failure is charged normally"
     finally:
         _clear_partition(partition_id)
+
+
+def test_dead_worker_prompts_are_reissued_even_when_the_ttl_budget_is_spent(tq_init, partition_id):
+    """The step budget bounds the TTL only: with the budget already spent an expired prompt waits (TTL
+    suspended), while a prompt whose worker the liveness probe reports dead is still re-issued, and that
+    re-issue does not count against the budget."""
+    expired, dead = _uid(), _uid()
+    _submit_prompt(partition_id, expired, "running", 1, dispatched_at=time.time() - 100)
+    _submit_prompt(partition_id, dead, "running", 1, dispatched_at=time.time())
+    reissuer = RecordingReissuer(partition_id)
+    try:
+        rb = _make_rb(
+            inflight_ttl_s=1,
+            max_inflight_reissues_per_step=1,
+            reissue_fn=reissuer,
+            liveness_fn=lambda inflight: {dead} & inflight,
+            liveness_period_s=0.0,
+        )
+        rb._begin_ttl_budget(partition_id, 1)
+        rb._ttl_discards_in_step[partition_id] = 1  # the step's budget is already spent
+        rb._sync_metadata_from_transfer_queue()
+        metrics: dict = {}
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is True
+        assert reissuer.calls == [[dead]]
+        assert metrics[f"{PREFIX}/inflight_reissued"] == 1
+        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 1
+        assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1
+        rb._sync_metadata_from_transfer_queue()
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is False
+        assert reissuer.calls == [[dead]] and expired in rb.running_keys[partition_id]
+    finally:
+        _clear_partition(partition_id)
