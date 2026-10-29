@@ -22,12 +22,14 @@ whole-mini-batch loss and the critic loss 1.155x / 2.076x, with the gradients of
 equal-width split [4, 4] and the other four modes were exact. ``validate_config`` now resolves a null factor to
 ``actor_rollout_ref.rollout.response_length`` for the actor and the critic, which restores the documented
 constant horizon. These tests build the worker configs the way the trainer does (compose ``ppo_trainer``,
-``validate_config``, ``omega_conf_to_dataclass``) and drive the real loss functions. No GPU or model weights are
-needed; ``validate_config`` reads the model config and tokenizer from the CI snapshot under ``~/models``.
+``validate_config``, ``omega_conf_to_dataclass``) and drive the real loss functions. No GPU, model weights or
+tokenizer are needed: the model path is a stub directory holding a tiny ``config.json`` (tokenizer loading off).
 """
 
 import functools
+import json
 import os
+import tempfile
 
 import pytest
 import torch
@@ -40,8 +42,6 @@ from verl.utils.config import omega_conf_to_dataclass, validate_config
 from verl.workers.utils.losses import ppo_loss, value_loss
 
 _CONFIG_DIR = os.path.dirname(trainer_config.__file__)
-# config.json + tokenizer only, no weights: the snapshot tests/workers/config/test_model_config_on_cpu.py uses too
-_MODEL_PATH = os.path.expanduser("~/models/Qwen/Qwen2.5-0.5B")
 _RESPONSE_LENGTH = 16  # the configured rollout.response_length; every response below is shorter
 _PROMPT_LENS = [4, 3, 5, 2, 6, 3, 4, 5]
 _RESP_LENS = [12, 1, 3, 7, 12, 2, 9, 5]
@@ -54,7 +54,26 @@ _SPLITS = {
     "singles": [[i] for i in range(_BATCH)],  # padded width = each response length
 }
 
-pytestmark = pytest.mark.skipif(not os.path.isdir(_MODEL_PATH), reason=f"needs the CI model snapshot at {_MODEL_PATH}")
+
+@functools.cache
+def _stub_model_dir():
+    """A model directory with only a tiny ``config.json``: ``HFModelConfig`` needs nothing else once tokenizer loading
+    is off, so the tests run without the ``~/models`` snapshot."""
+    path = tempfile.mkdtemp(prefix="verl_loss_horizon_stub_model_")
+    hf_config = {
+        "model_type": "qwen2",
+        "architectures": ["Qwen2ForCausalLM"],
+        "hidden_size": 16,
+        "intermediate_size": 32,
+        "num_attention_heads": 2,
+        "num_key_value_heads": 2,
+        "num_hidden_layers": 1,
+        "vocab_size": 128,
+        "max_position_embeddings": 64,
+    }
+    with open(os.path.join(path, "config.json"), "w") as f:
+        json.dump(hf_config, f)
+    return path
 
 
 @functools.cache
@@ -62,8 +81,10 @@ def _validated_config(mode, factor=None, loss_mode="vanilla", critic_mode=None):
     """Compose ``ppo_trainer`` and run ``validate_config`` on it, as ``main_ppo`` does before launching."""
     overrides = [
         f"data.max_response_length={_RESPONSE_LENGTH}",
-        f"actor_rollout_ref.model.path={_MODEL_PATH}",
-        f"critic.model.path={_MODEL_PATH}",
+        f"actor_rollout_ref.model.path={_stub_model_dir()}",
+        f"critic.model.path={_stub_model_dir()}",
+        "+actor_rollout_ref.model.load_tokenizer=false",
+        "+critic.model.load_tokenizer=false",
         f"actor_rollout_ref.actor.loss_agg_mode={mode}",
         f"actor_rollout_ref.actor.loss_scale_factor={'null' if factor is None else factor}",
         f"actor_rollout_ref.actor.policy_loss.loss_mode={loss_mode}",
@@ -205,6 +226,13 @@ def test_validate_config_leaves_other_modes_untouched(mode):
     assert config.critic.loss_scale_factor is None
 
 
+@pytest.mark.parametrize("factor", [0, -1])
+def test_validate_config_rejects_a_non_positive_factor(factor):
+    """An explicit factor divides the loss, so 0 or a negative value is a configuration error, not a silent 1/0."""
+    with pytest.raises(ValueError, match="loss_scale_factor must be > 0"):
+        _validated_config("seq-mean-token-sum-norm", factor=factor)
+
+
 def test_validate_config_resolves_the_critic_on_its_own():
     """The critic inherits the actor's mode by default but may select Dr. GRPO normalization alone."""
     config = _validated_config("token-mean", critic_mode="seq-mean-token-sum-norm")
@@ -212,27 +240,30 @@ def test_validate_config_resolves_the_critic_on_its_own():
     assert config.critic.loss_scale_factor == _RESPONSE_LENGTH
 
 
+# Non-strict on purpose: these record the state of other open PRs (#7916 for geo_mean, #7830 for kl_cov). Once one
+# merges, its case XPASSes, which must not fail that PR's CPU job (cpu_unit_tests.yml runs pytest -x); drop the
+# mark then.
 @pytest.mark.parametrize(
     "loss_mode",
     [
         pytest.param(
             "geo_mean",
             marks=pytest.mark.xfail(
-                strict=True,
+                strict=False,
                 reason="geo_mean takes a micro-batch-local torch.mean and bypasses agg_loss (issue #7913, PR #7916)",
             ),
         ),
         pytest.param(
             "kl_cov",
             marks=pytest.mark.xfail(
-                strict=True, reason="kl_cov selects its top-k covariance tokens per micro-batch (issue #7829, PR #7830)"
+                strict=False,
+                reason="kl_cov selects its top-k covariance tokens per micro-batch (issue #7829, PR #7830)",
             ),
         ),
     ],
 )
 def test_known_non_invariant_policy_losses(loss_mode):
-    """Policy losses known not to be micro-batch invariant, kept as strict xfails so the suite flips when their
-    fixes land. Not touched here."""
+    """Policy losses known not to be micro-batch invariant, recorded as (non-strict) xfails. Not touched here."""
     actor_config, _ = _worker_configs("token-mean", loss_mode=loss_mode)
     data, model_output, seq_lens = _make_batch()
 
