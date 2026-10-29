@@ -702,9 +702,11 @@ def find_train_mode_dependent_modules(module: nn.Module | Sequence[nn.Module]) -
     when the rate is > 0, an ``nn.Identity`` otherwise), BatchNorm / InstanceNorm with running statistics,
     DropPath / StochasticDepth modules with a rate > 0, and modules carrying a dropout / jitter / layerdrop /
     drop-path attribute > 0, numeric or a dict / list of numbers (functional dropout, MoE router jitter, peft
-    lycoris ``rank_dropout``). The walk is structural: it rejects every train-mode-dependent module or rate that
-    is visible as a module or a named attribute; a train-mode branch written into a forward (a hard-coded
-    ``F.dropout(p)``, a rate read from the config inside ``forward``) is not detectable. FSDP1-wrapped and
+    lycoris ``rank_dropout``), and verl's ``QATLinear`` in W4A4 mode (its activation observer runs in train
+    mode only; W4A16 is weight-only and not flagged). The walk is structural: it rejects every
+    train-mode-dependent module or rate that is visible as a module or a named attribute; a train-mode branch
+    written into a forward (a hard-coded ``F.dropout(p)``, a rate read from the config inside ``forward``) is
+    not detectable. FSDP1-wrapped and
     FSDP2-sharded modules keep their sub-modules, so the walk sees them. Example:
     ``[("model.layers.0.self_attn", "attention_dropout=0.5")]``. A list of modules (pipeline chunks) is walked
     with an ``[i].`` prefix."""
@@ -727,6 +729,13 @@ def find_train_mode_dependent_modules(module: nn.Module | Sequence[nn.Module]) -
                 rate = getattr(sub, "drop_prob", getattr(sub, "p", None))
                 if _is_positive_rate(rate):
                     found.append((path, f"{class_name}(p={rate})"))
+                continue
+            mode = getattr(sub, "mode", None)
+            if hasattr(sub, "_fake_quantize_activation") and getattr(mode, "value", mode) == "w4a4":
+                # verl's QATLinear in W4A4 mode: _fake_quantize_activation runs the activation observer only when
+                # self.training, so train and eval quantize with different input_global_scale values
+                reason = "the activation observer updates input_global_scale in train mode only"
+                found.append((path, f"{class_name}(mode=w4a4): {reason}"))
                 continue
             for attr, value in vars(sub).items():
                 if attr.startswith("_") or not any(fragment in attr for fragment in _TRAIN_MODE_ATTR_FRAGMENTS):

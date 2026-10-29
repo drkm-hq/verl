@@ -193,7 +193,9 @@ pass by using the rollout engine's log-probs, a different estimator); the ``opti
 estimators; ``calculate_sum_pi_squared``; distillation; router replay ``R2``; the ``separate_async``
 trainer mode (it restores the old policy from a CPU snapshot); the legacy trainer
 (``trainer.use_v1=False``); dropout or another train-mode-only setting in the effective model config or
-the LoRA adapter (see above); and every engine other than the FSDP family (``actor.strategy``
+the LoRA adapter (see above); W4A4 QAT (``actor.fsdp_config.qat.enable=True`` with ``mode=w4a4``: its
+activation observers update the quantization scale in train mode only, so the two passes would quantize
+with different scales; W4A16 is weight-only and accepted, but untested with the skip); and every engine other than the FSDP family (``actor.strategy``
 fsdp, fsdp2 and fsdp_turbo, which shares the FSDP engine's forward and output path; megatron, veomni,
 torchtitan and automodel are rejected: their update-pass output path exists but is unverified, and
 Megatron's update-pass entropy would add a (T, V) logits copy).

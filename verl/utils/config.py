@@ -244,6 +244,19 @@ def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
                 "LoHa / LoKr rank_dropout and module_dropout are train-mode rates)"
             )
         violations.append(message)
+    # the FSDP engine reads engine_config.qat; ActorConfig.__post_init__ aliases engine = fsdp_config
+    qat = (
+        (actor.get("fsdp_config", None) or {}).get("qat", None)
+        or (actor.get("engine", None) or {}).get("qat", None)
+        or {}
+    )
+    if qat.get("enable", False) and str(qat.get("mode", "")).lower() == "w4a4":
+        violations.append(
+            "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the "
+            "activation quantization scale in train mode only, so the update pass would quantize with different "
+            "scales than the eval-mode old-log-prob pass; W4A16 is weight-only and accepted, but untested with "
+            "the skip)"
+        )
     if trainer_mode == "separate_async":
         violations.append(
             "trainer.v1.trainer_mode=separate_async (it restores pi_old from a CPU snapshot, so the update "

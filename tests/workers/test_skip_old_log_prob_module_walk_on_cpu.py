@@ -243,3 +243,59 @@ def test_hard_coded_functional_dropout_is_outside_the_walk():
     module.train()
     assert not torch.equal(module(x), y_eval)
     assert find_train_mode_dependent_modules(module) == []
+
+
+def _qat_classes():
+    """verl's unmodified ``QATMode`` / ``QATLinear`` class definitions loaded from source without the Triton kernels,
+    the CUDA quantizer replaced by a spy (the trick of Nick's follow-up probe, R2-01)."""
+    import ast
+    from enum import Enum
+    from pathlib import Path
+    from typing import Optional
+
+    import torch.nn.functional as F
+
+    import verl
+
+    source = Path(verl.__file__).resolve().parent / "utils" / "qat" / "linear.py"
+    nodes = [
+        node
+        for node in ast.parse(source.read_text()).body
+        if isinstance(node, ast.ClassDef) and node.name in {"QATMode", "QATLinear"}
+    ]
+    assert len(nodes) == 2
+
+    class QuantizerSpy:
+        seen_amax = []
+
+        @staticmethod
+        def apply(x, global_amax, group_size):
+            QuantizerSpy.seen_amax.append(global_amax.detach().clone())
+            return x
+
+    scope = dict(torch=torch, nn=nn, F=F, Enum=Enum, Optional=Optional, FP4_E2M1_MAX=6.0, FP8_E4M3_MAX=448.0)
+    scope["STEFP4QuantTriton"] = QuantizerSpy
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), scope)
+    return scope["QATMode"], scope["QATLinear"], QuantizerSpy
+
+
+def test_w4a4_qat_linear_is_found_and_the_worker_refuses_it():
+    """R2-01: the W4A4 activation observer runs only in train mode, so eval and train quantize the same input with
+    different scales; the walk flags the module by its ``mode`` attribute. W4A16 (weight-only) is not flagged."""
+    QATMode, QATLinear, spy = _qat_classes()
+    module = QATLinear(16, 16, mode=QATMode.W4A4, activation_observer="static_minmax")
+    module.input_amax.fill_(1.0)
+    module.input_global_scale.fill_(6.0 * 448.0)
+    reason = "QATLinear(mode=w4a4): the activation observer updates input_global_scale in train mode only"
+    assert find_train_mode_dependent_modules(module) == [("", reason)]
+    with pytest.raises(ValueError, match=r"QATLinear\(mode=w4a4\)"):
+        ActorRolloutRefWorker._check_actor_for_on_policy_skip(_worker(module))
+    x = torch.full((1, 16), 2.0)
+    module.eval()
+    module._fake_quantize_activation(x)
+    eval_scale = module.input_global_scale.item()
+    module.train()
+    module._fake_quantize_activation(x)
+    assert module.input_global_scale.item() != eval_scale
+    assert not torch.equal(spy.seen_amax[0], spy.seen_amax[1])
+    assert find_train_mode_dependent_modules(QATLinear(16, 16, mode=QATMode.W4A16)) == []

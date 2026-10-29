@@ -83,6 +83,13 @@ def test_single_mini_batch_on_policy_config_is_accepted(on_policy_config):
         ({"actor_rollout_ref.actor.strategy": "megatron"}, "actor.strategy=megatron"),
         ({"actor_rollout_ref.actor.strategy": "veomni"}, "actor.strategy=veomni"),
         ({"actor_rollout_ref.actor.strategy": "torchtitan"}, "actor.strategy=torchtitan"),
+        (
+            {
+                "actor_rollout_ref.actor.fsdp_config.qat.enable": True,
+                "actor_rollout_ref.actor.fsdp_config.qat.mode": "w4a4",
+            },
+            "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True",
+        ),
     ],
 )
 def test_each_inexact_condition_is_rejected_by_name(on_policy_config, updates, expected):
@@ -202,3 +209,20 @@ def test_hf_config_dropouts_scans_every_nested_sub_config(tmp_path):
 def test_every_fsdp_family_strategy_is_accepted(on_policy_config, strategy):
     """fsdp_turbo subclasses the FSDP engine and inherits its forward / output path (fsdp_turbo_impl.py)."""
     _validate_skip_old_log_prob_config(_with(on_policy_config, **{"actor_rollout_ref.actor.strategy": strategy}))
+
+
+def test_w4a4_qat_is_rejected_for_its_train_mode_observers_and_w4a16_is_accepted(on_policy_config):
+    """Nick's follow-up review R2-01: verl's ``QATLinear`` updates its activation quantization scale only in
+    train mode (``_fake_quantize_activation`` runs the observer under ``self.training``), so the update pass and
+    the eval-mode old-log-prob pass would quantize with different scales. W4A16 is weight-only (no activation
+    observer branch): accepted, untested rather than proven."""
+    qat = "actor_rollout_ref.actor.fsdp_config.qat"
+    with pytest.raises(ValueError) as excinfo:
+        _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": "w4a4"}))
+    assert (
+        "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the activation "
+        "quantization scale in train mode only, so the update pass would quantize with different scales than the "
+        "eval-mode old-log-prob pass; W4A16 is weight-only and accepted, but untested with the skip)"
+    ) in str(excinfo.value)
+    _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": "w4a16"}))
+    _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": False, f"{qat}.mode": "w4a4"}))
