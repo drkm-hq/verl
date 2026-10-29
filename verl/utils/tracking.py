@@ -728,26 +728,32 @@ class ValidationGenerationsLogger:
         self._log_generations_to_wandb(samples, step, wandb)
 
     def _log_generations_to_wandb(self, samples, step, wandb):
-        """Log samples to wandb as a table"""
+        """Log samples to wandb as a table.
 
+        One input/output/score column triple per sample. The sample count may change between validations
+        (a group whose agent loop worker died is failed without rows): a shorter row is padded with ``None``
+        to the table's width, a longer one widens the table and pads the earlier rows, so the column count
+        never mismatches. Nothing is logged for an empty sample list.
+        """
+        if not samples:
+            return
+
+        existing = getattr(self, "validation_table", None)
+        width = max(len(samples), (len(existing.columns) - 1) // 3 if existing is not None else 0)
         # Create column names for all samples
-        columns = ["step"] + sum(
-            [[f"input_{i + 1}", f"output_{i + 1}", f"score_{i + 1}"] for i in range(len(samples))], []
-        )
+        columns = ["step"] + sum([[f"input_{i + 1}", f"output_{i + 1}", f"score_{i + 1}"] for i in range(width)], [])
 
-        if not hasattr(self, "validation_table"):
-            # Initialize the table on first call
-            self.validation_table = wandb.Table(columns=columns)
-
-        # Create a new table with same columns and existing data
+        # Create a new table with same columns and existing data (padded to the width)
         # Workaround for https://github.com/wandb/wandb/issues/2981#issuecomment-1997445737
-        new_table = wandb.Table(columns=columns, data=self.validation_table.data)
+        existing_rows = [list(row) + [None] * (len(columns) - len(row)) for row in existing.data] if existing else []
+        new_table = wandb.Table(columns=columns, data=existing_rows)
 
         # Add new row with all data
         row_data = []
         row_data.append(step)
         for sample in samples:
             row_data.extend(sample)
+        row_data.extend([None] * (len(columns) - len(row_data)))
 
         new_table.add_data(*row_data)
 

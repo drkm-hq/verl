@@ -1132,6 +1132,7 @@ class PPOTrainer(ABC):
         expected_acc_counts: dict[tuple[str, str], int] = {}
         # Sampling-time recovery counters (dead-worker groups failed in place), summed over the batches.
         recovery_metrics: dict[str, float] = {}
+        prompts_expected = prompts_without_rows = 0
 
         for batch_dict in self.val_dataloader:
             # 1. put batch to agent loop manager
@@ -1148,6 +1149,7 @@ class PPOTrainer(ABC):
             ):
                 rollout_n = int(rollout_n)
                 expected_acc_counts[(str(data_source), str(uid))] = rollout_n
+            prompts_expected += batch_size
 
             batch = tu.get_tensordict(batch_dict)
             tu.assign_non_tensor_data(batch, "global_steps", self.global_steps)
@@ -1165,12 +1167,14 @@ class PPOTrainer(ABC):
             for key, value in sample_metrics.items():
                 recovery_metrics[key] = recovery_metrics.get(key, 0) + value
             if not batch.keys:
-                # Every group of this batch lost its worker and was failed in place: there is no row to score,
-                # fetch, decode, dump or clear (TransferQueue rejects an empty key list). The sessions stay in
-                # expected_acc_counts and count as acc = 0 wherever their data source reports acc.
+                # Every group of this batch ended without a trajectory (a dead worker's groups failed in place,
+                # or a live worker marked them failure): there is no row to score, fetch, decode, dump or clear
+                # (TransferQueue rejects an empty key list). The sessions stay in expected_acc_counts and count
+                # as acc = 0 wherever their data source reports acc.
+                prompts_without_rows += batch_size
                 logger.warning(
                     f"[PPOTrainer] validation batch of {batch_size} prompts has no rows to score: every group "
-                    "lost its agent loop worker; its sessions count as failures"
+                    "ended without a trajectory; its sessions count as failures"
                 )
                 continue
 
@@ -1302,12 +1306,22 @@ class PPOTrainer(ABC):
         # here so a relaunch during the final validation is logged with it instead of lost.
         metrics.update(recovery_metrics)
         metrics.update(self._consume_recovery_metrics(prefix="validation"))
+        if not metrics:
+            # No row and no recovery counter (e.g. a live worker that failed every group): report the counts
+            # instead of an empty dict, which fit() rejects for val_before_train.
+            metrics["validation/prompts_expected"] = prompts_expected
+            metrics["validation/prompts_without_rows"] = prompts_without_rows
         return metrics
 
     def _maybe_log_val_generations(self, inputs, outputs, scores):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""
         generations_to_log = self.config.trainer.log_val_generations
         if generations_to_log == 0:
+            return
+        if not inputs:
+            # Every validation group ended without a row (its worker died, or it failed): nothing to show, and
+            # an empty table row would not match the columns the logger built on a healthy validation.
+            logger.warning("[PPOTrainer] no validation sample materialized at this step; generations not logged")
             return
 
         # Create tuples of (input, output, score) and sort by input text

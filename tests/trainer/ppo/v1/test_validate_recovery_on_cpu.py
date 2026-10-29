@@ -247,3 +247,89 @@ def test_single_dead_worker_owning_every_batch_counts_each_batch_and_drains_the_
     assert workers.recovery_metrics == Counter(), "drained by the validation, not double-counted by the step"
     workers.recovery_metrics["dead_workers_relaunched"] = 2
     assert trainer._consume_recovery_metrics() == {"rollout/dead_workers_relaunched": 2}
+
+
+class ScheduledWorkers(Workers):
+    """``healthy_per_batch`` taken per dispatch from ``schedule`` (0 = the chunk's worker is dead)."""
+
+    def __init__(self, memory: MemoryTQ, schedule, score: float = 1.0):
+        super().__init__(memory, healthy_per_batch=0, score=score)
+        self.schedule = list(schedule)
+
+    def generate_sequences(self, batch) -> None:
+        self.healthy_per_batch = self.schedule.pop(0) if self.schedule else 0
+        super().generate_sequences(batch)
+
+
+class LiveWorkersFailingEverySession(Workers):
+    """Upstream failure shape: the worker is alive and marks every group ``failure`` without a row."""
+
+    def generate_sequences(self, batch) -> None:
+        uids = _chunk_uids(batch)
+        self.dispatched.append(uids)
+        for uid in uids:
+            self.memory.kv_put(uid, "val", tag={"status": "failure"})
+
+
+def _with_real_wandb_logger(trainer, generations_to_log: int = 1):
+    """The real ``_maybe_log_val_generations`` and a real ``ValidationGenerationsLogger`` building real wandb
+    tables; ``wandb.run`` is None, so nothing is sent."""
+    import wandb
+
+    from verl.utils.tracking import ValidationGenerationsLogger
+
+    assert wandb.run is None
+    trainer.config.trainer.logger = ["wandb"]
+    trainer.config.trainer.log_val_generations = generations_to_log
+    trainer.validation_generations_logger = ValidationGenerationsLogger()
+    trainer._maybe_log_val_generations = PPOTrainer._maybe_log_val_generations.__get__(trainer)
+    return trainer
+
+
+@pytest.mark.parametrize("schedule", [[0, 1], [1, 0]])
+def test_generations_logger_survives_an_all_lost_validation_before_or_after_a_healthy_one(monkeypatch, schedule):
+    """Stock ``trainer.logger: [..., wandb]`` with ``log_val_generations > 0``: an all-lost validation logs no
+    generations (one warning) and leaves the wandb table as it was, so the healthy validation before or after
+    it keeps its column count."""
+    memory = MemoryTQ()
+    memory.install(monkeypatch)
+    workers = ScheduledWorkers(memory, schedule)
+    trainer = _with_real_wandb_logger(_make_trainer(workers, batches=(["a"],)))
+    results = [trainer._validate(), trainer._validate()]
+    lost, healthy = (results[0], results[1]) if schedule == [0, 1] else (results[1], results[0])
+    assert lost == {"validation/inflight_dead_worker_failed": 1}
+    assert healthy["val-core/test/acc/mean@1"] == pytest.approx(1.0)
+    table = trainer.validation_generations_logger.validation_table
+    assert len(table.data) == 1 and table.columns == ["step", "input_1", "output_1", "score_1"]
+
+
+def test_generations_logger_pads_a_partially_lost_validation_to_the_table_width(monkeypatch):
+    """Fewer samples than before (one of two groups lost) pad their row with None; more samples widen the
+    table and pad the earlier rows."""
+    memory = MemoryTQ()
+    memory.install(monkeypatch)
+    workers = ScheduledWorkers(memory, [2, 1, 2])
+    trainer = _with_real_wandb_logger(_make_trainer(workers, batches=(["a", "b"],)), generations_to_log=4)
+    trainer._validate()
+    partial = trainer._validate()
+    trainer._validate()
+    assert partial["validation/inflight_dead_worker_failed"] == 1
+    table = trainer.validation_generations_logger.validation_table
+    assert len(table.columns) == 1 + 3 * 2 and len(table.data) == 3
+    assert table.data[1][4:] == [None, None, None] and None not in table.data[0] and None not in table.data[2]
+
+
+def test_live_worker_failing_every_session_without_rows_reports_counts_not_a_dead_worker(monkeypatch, caplog):
+    """A live worker that marks every group ``failure`` without rows reaches the same guard: the warning is
+    neutral and ``_validate`` returns the counts instead of the empty dict ``fit()`` rejects."""
+    caplog.set_level(logging.WARNING, logger=trainer_base.__name__)
+    memory = MemoryTQ()
+    memory.install(monkeypatch)
+    workers = LiveWorkersFailingEverySession(memory)
+    trainer = _make_trainer(workers, batches=(["a", "b"], ["c"]))
+    trainer.replay_buffer.liveness_fn = lambda uids: set()  # every worker answers the probe
+    metrics = trainer._validate()
+    assert metrics == {"validation/prompts_expected": 3, "validation/prompts_without_rows": 3}
+    assert memory.batch_get_calls == [] and memory.tags["val"] == {}
+    assert not any("lost its agent loop worker" in record.message for record in caplog.records)
+    assert sum("has no rows to score" in record.message for record in caplog.records) == 2
