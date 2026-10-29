@@ -85,6 +85,46 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         )
 
 
+# HF config fields that switch on dropout somewhere in a decoder (the update pass runs in train mode)
+_HF_DROPOUT_KEYS = (
+    "attention_dropout",
+    "hidden_dropout",
+    "dropout",
+    "resid_pdrop",
+    "embd_pdrop",
+    "attn_pdrop",
+    "hidden_dropout_prob",
+    "attention_probs_dropout_prob",
+    "activation_dropout",
+    "ffn_dropout",
+)
+
+
+def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
+    """The dropout rates > 0 set in the actor's HF config (top level and ``text_config``), or None when the
+    config cannot be loaded here (missing path, offline hub, custom loader)."""
+    path = model_config.get("hf_config_path", None) or model_config.get("path", None)
+    if not path:
+        return None
+    try:
+        from transformers import AutoConfig
+
+        from verl.utils.fs import copy_to_local
+
+        hf_config = AutoConfig.from_pretrained(
+            copy_to_local(path), trust_remote_code=model_config.get("trust_remote_code", False)
+        )
+    except Exception:
+        return None
+    found = []
+    for cfg in (hf_config, getattr(hf_config, "text_config", None)):
+        for key in _HF_DROPOUT_KEYS:
+            value = getattr(cfg, key, None) if cfg is not None else None
+            if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
+                found.append((key, float(value)))
+    return found
+
+
 def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
     """``actor.skip_old_log_prob_when_on_policy`` is exact only when the whole sampled batch is updated in one
     optimizer step at the sampling weights and nothing before the update reads ``old_log_probs``. Reject every
@@ -103,6 +143,28 @@ def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
     violations = []
     if not trainer.get("use_v1", True):
         violations.append("trainer.use_v1=False (the legacy trainer does not implement the skip)")
+    strategy = actor.get("strategy", None)
+    if strategy not in ("fsdp", "fsdp2"):
+        violations.append(
+            f"actor.strategy={strategy} (the skip is implemented and verified for the FSDP engines only; Megatron, "
+            "VeOmni, TorchTitan and automodel keep the old-log-prob pass: their update-pass output path is "
+            "untested, Megatron's update-pass entropy would add a (T, V) logits copy and its dynamic context "
+            "parallel drops the training outputs)"
+        )
+    dropouts = _hf_config_dropouts(config.actor_rollout_ref.model)
+    if dropouts is None:
+        print(
+            "WARNING: actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True could not load the model's HF "
+            "config to check for dropout; the skip stores the update pass's train-mode log-probs as old_log_probs, "
+            "which is exact only for a dropout-free model."
+        )
+    elif dropouts:
+        violations.append(
+            "the model's HF config enables dropout ("
+            + ", ".join(f"{key}={value}" for key, value in dropouts)
+            + "): the update pass runs in train mode, so its log-probs would be dropout-sampled instead of the "
+            "eval-mode old log-probs"
+        )
     if trainer_mode == "separate_async":
         violations.append(
             "trainer.v1.trainer_mode=separate_async (it restores pi_old from a CPU snapshot, so the update "

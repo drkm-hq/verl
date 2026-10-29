@@ -22,7 +22,8 @@ import pytest
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-from verl.utils.config import _validate_skip_old_log_prob_config, validate_config
+from verl.utils import config as config_module
+from verl.utils.config import _hf_config_dropouts, _validate_skip_old_log_prob_config, validate_config
 
 _CONFIG_DIR = Path(__file__).resolve().parents[2] / "verl" / "trainer" / "config"
 
@@ -79,6 +80,9 @@ def test_single_mini_batch_on_policy_config_is_accepted(on_policy_config):
         ({"trainer.use_v1": False}, "trainer.use_v1=False"),
         ({"distillation.enabled": True}, "distillation.enabled=True"),
         ({"actor_rollout_ref.actor.engine.router_replay.mode": "R2"}, "router_replay.mode=R2"),
+        ({"actor_rollout_ref.actor.strategy": "megatron"}, "actor.strategy=megatron"),
+        ({"actor_rollout_ref.actor.strategy": "veomni"}, "actor.strategy=veomni"),
+        ({"actor_rollout_ref.actor.strategy": "torchtitan"}, "actor.strategy=torchtitan"),
     ],
 )
 def test_each_inexact_condition_is_rejected_by_name(on_policy_config, updates, expected):
@@ -116,3 +120,53 @@ def test_flag_off_never_validates(on_policy_config):
         **{"actor_rollout_ref.actor.skip_old_log_prob_when_on_policy": False, "actor_rollout_ref.actor.ppo_epochs": 2},
     )
     _validate_skip_old_log_prob_config(config)
+
+
+def test_megatron_engine_is_rejected_from_its_own_config_group():
+    """The Megatron data path is untested with the skip (and dynamic context parallel drops the training
+    outputs): the composed megatron config is rejected by strategy, with or without dynamic CP."""
+    with initialize_config_dir(version_base=None, config_dir=str(_CONFIG_DIR)):
+        config = compose(
+            config_name="ppo_trainer",
+            overrides=[
+                "model_engine=megatron",
+                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
+                "data.train_batch_size=8",
+                "actor_rollout_ref.actor.ppo_mini_batch_size=8",
+                "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
+                "actor_rollout_ref.rollout.n=2",
+            ],
+        )
+    assert config.actor_rollout_ref.actor.strategy == "megatron"
+    with pytest.raises(ValueError, match="actor.strategy=megatron"):
+        _validate_skip_old_log_prob_config(config)
+    with pytest.raises(ValueError, match="actor.strategy=megatron"):
+        _validate_skip_old_log_prob_config(
+            _with(config, **{"actor_rollout_ref.actor.megatron.dynamic_context_parallel": True})
+        )
+
+
+def test_dropout_in_the_model_config_is_rejected(on_policy_config, monkeypatch):
+    monkeypatch.setattr(config_module, "_hf_config_dropouts", lambda model_config: [("attention_dropout", 0.1)])
+    with pytest.raises(ValueError, match="attention_dropout=0.1"):
+        _validate_skip_old_log_prob_config(on_policy_config)
+    # a dropout-free config passes; an unloadable config only warns (the shipped default path does not exist here)
+    monkeypatch.setattr(config_module, "_hf_config_dropouts", lambda model_config: [])
+    _validate_skip_old_log_prob_config(on_policy_config)
+    monkeypatch.setattr(config_module, "_hf_config_dropouts", lambda model_config: None)
+    _validate_skip_old_log_prob_config(on_policy_config)
+
+
+def test_hf_config_dropouts_reads_a_saved_config(tmp_path):
+    from transformers import Qwen3Config
+
+    Qwen3Config(attention_dropout=0.1, num_hidden_layers=1, hidden_size=8, intermediate_size=8).save_pretrained(
+        tmp_path / "with_dropout"
+    )
+    Qwen3Config(num_hidden_layers=1, hidden_size=8, intermediate_size=8).save_pretrained(tmp_path / "no_dropout")
+    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "with_dropout")})) == [
+        ("attention_dropout", 0.1)
+    ]
+    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "no_dropout")})) == []
+    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "missing")})) is None
+    assert _hf_config_dropouts(OmegaConf.create({"path": None})) is None
