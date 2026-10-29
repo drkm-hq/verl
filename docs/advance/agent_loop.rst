@@ -256,7 +256,8 @@ environment says so):
    ``extra_fields["episode_done"]`` the ``done`` signal; a ``custom_reward_function`` sees all three
    in ``extra_info`` under every reward manager (``naive``, ``dapo``, ``gdpo``, ``rate_limited``,
    ``remote`` build it with ``RewardManagerBase.extra_info_for_reward_fn``, a copy of the dataset's
-   ``extra_info`` merged with the loop's metadata plus ``num_turns``). With the flag off the
+   ``extra_info`` merged with copies of the loop's metadata plus ``num_turns``; a dataset whose
+   ``extra_info`` is not a mapping is handed over unchanged, with one warning). With the flag off the
    trajectory metadata is exactly what it is today.
 
 3. **A dense reward tensor** (``actor_rollout_ref.rollout.multi_turn.turn_level_rewards: True``):

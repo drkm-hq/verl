@@ -107,6 +107,43 @@ async def test_custom_reward_function_sees_the_turn_level_metadata_under_every_m
     assert data.non_tensor_batch["tool_extra_fields"][0] == TOOL_EXTRA_FIELDS
 
 
+@pytest.mark.asyncio
+async def test_list_valued_tool_fields_are_copied_so_a_reward_function_cannot_edit_the_row(caplog):
+    def mutating(data_source, solution_str, ground_truth, extra_info, **kwargs):
+        extra_info["generated_turn_spans"].append((9, 9))
+        extra_info["turn_rewards"][0] = -1.0
+        extra_info["new_key"] = 1
+        return 1.0
+
+    data = _batch()
+    await _manager(NaiveRewardManager, mutating).run_single(data)
+    assert data.non_tensor_batch["tool_extra_fields"][0] == TOOL_EXTRA_FIELDS
+    assert data.non_tensor_batch["extra_info"][0] == DATASET_EXTRA_INFO
+
+
+@pytest.mark.parametrize("cls", [DAPORewardManager, NaiveRewardManager])
+@pytest.mark.asyncio
+async def test_a_non_mapping_extra_info_is_passed_through_unchanged_with_one_warning(cls, caplog):
+    """main's DAPO handed a ``str`` extra_info to the reward function untouched; so does every manager now."""
+    from verl.experimental.reward_loop.reward_manager import base
+
+    seen = []
+
+    def compute_score(data_source, solution_str, ground_truth, extra_info, **kwargs):
+        seen.append(extra_info)
+        return 1.0
+
+    data = _batch()
+    data.non_tensor_batch["extra_info"] = np.array(['{"split": "train"}'], dtype=object)
+    base._NON_MAPPING_EXTRA_INFO_WARNED.clear()
+    with caplog.at_level("WARNING", logger=base.logger.name):
+        for _ in range(2):
+            result = await _manager(cls, compute_score).run_single(data)
+    assert result["reward_score"] == 1.0 and seen == ['{"split": "train"}', '{"split": "train"}']
+    warnings_ = [r for r in caplog.records if "not a mapping" in r.getMessage()]
+    assert len(warnings_) == 1 and "str" in warnings_[0].getMessage(), "one warning per type, naming it"
+
+
 def test_extra_info_for_reward_fn_without_metadata_or_dataset_extra_info():
     data = _batch()
     data.non_tensor_batch.pop("tool_extra_fields")
