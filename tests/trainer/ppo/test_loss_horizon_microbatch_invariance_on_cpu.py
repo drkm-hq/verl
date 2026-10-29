@@ -29,7 +29,6 @@ tokenizer are needed: the model path is a stub directory holding a tiny ``config
 import functools
 import json
 import os
-import tempfile
 
 import pytest
 import torch
@@ -55,11 +54,11 @@ _SPLITS = {
 }
 
 
-@functools.cache
-def _stub_model_dir():
-    """A model directory with only a tiny ``config.json``: ``HFModelConfig`` needs nothing else once tokenizer loading
-    is off, so the tests run without the ``~/models`` snapshot."""
-    path = tempfile.mkdtemp(prefix="verl_loss_horizon_stub_model_")
+@pytest.fixture(scope="module")
+def model_dir(tmp_path_factory):
+    """A model directory holding only a tiny ``config.json``: ``HFModelConfig`` needs nothing else once tokenizer
+    loading is off, so the tests run without the ``~/models`` snapshot. pytest cleans the directory up."""
+    path = tmp_path_factory.mktemp("loss_horizon_stub_model")
     hf_config = {
         "model_type": "qwen2",
         "architectures": ["Qwen2ForCausalLM"],
@@ -71,20 +70,18 @@ def _stub_model_dir():
         "vocab_size": 128,
         "max_position_embeddings": 64,
     }
-    with open(os.path.join(path, "config.json"), "w") as f:
-        json.dump(hf_config, f)
-    return path
+    (path / "config.json").write_text(json.dumps(hf_config))
+    return str(path)
 
 
 @functools.cache
-def _validated_config(mode, factor=None, loss_mode="vanilla", critic_mode=None):
+def _validated_config(model_dir, mode, factor=None, loss_mode="vanilla", critic_mode=None):
     """Compose ``ppo_trainer`` and run ``validate_config`` on it, as ``main_ppo`` does before launching."""
     overrides = [
         f"data.max_response_length={_RESPONSE_LENGTH}",
-        f"actor_rollout_ref.model.path={_stub_model_dir()}",
-        f"critic.model.path={_stub_model_dir()}",
-        "+actor_rollout_ref.model.load_tokenizer=false",
-        "+critic.model.load_tokenizer=false",
+        f"actor_rollout_ref.model.path={model_dir}",
+        f"critic.model.path={model_dir}",
+        "+critic.model.load_tokenizer=false",  # validate_config instantiates the critic's HFModelConfig
         f"actor_rollout_ref.actor.loss_agg_mode={mode}",
         f"actor_rollout_ref.actor.loss_scale_factor={'null' if factor is None else factor}",
         f"actor_rollout_ref.actor.policy_loss.loss_mode={loss_mode}",
@@ -102,9 +99,9 @@ def _validated_config(mode, factor=None, loss_mode="vanilla", critic_mode=None):
 
 
 @functools.cache
-def _worker_configs(mode, loss_mode="vanilla"):
+def _worker_configs(model_dir, mode, loss_mode="vanilla"):
     """The dataclasses the workers build from the validated config (engine_workers.py / v1/trainer_base.py)."""
-    config = _validated_config(mode, loss_mode=loss_mode)
+    config = _validated_config(model_dir, mode, loss_mode=loss_mode)
     return omega_conf_to_dataclass(config.actor_rollout_ref.actor), omega_conf_to_dataclass(config.critic)
 
 
@@ -166,12 +163,12 @@ def _accumulate(kind, config, data, model_output, seq_lens, splits):
 @pytest.mark.parametrize("split", list(_SPLITS))
 @pytest.mark.parametrize("mode", _MODES)
 @pytest.mark.parametrize("kind", ["actor", "critic"])
-def test_loss_and_gradient_invariant_to_micro_batch_split(kind, mode, split):
+def test_loss_and_gradient_invariant_to_micro_batch_split(kind, mode, split, model_dir):
     """Summing the per-micro-batch losses (and accumulating their gradients) gives the whole-mini-batch loss and
     gradient for every ``loss_agg_mode`` and every split, actor and critic. For "seq-mean-token-sum-norm" this
     holds because the resolved ``loss_scale_factor`` gives every micro-batch the same horizon; without the
     resolution the uneven splits fail (loss ratios 8.996x / 48.2x actor, 1.155x / 2.076x critic)."""
-    actor_config, critic_config = _worker_configs(mode)
+    actor_config, critic_config = _worker_configs(model_dir, mode)
     config = actor_config if kind == "actor" else critic_config
     data, model_output, seq_lens = _make_batch()
 
@@ -184,13 +181,13 @@ def test_loss_and_gradient_invariant_to_micro_batch_split(kind, mode, split):
 
 @pytest.mark.parametrize("split", ["whole", *_SPLITS])
 @pytest.mark.parametrize("kind", ["actor", "critic"])
-def test_seq_mean_token_sum_norm_horizon_is_response_length(kind, split):
+def test_seq_mean_token_sum_norm_horizon_is_response_length(kind, split, model_dir):
     """The Dr. GRPO normalizer is the configured ``rollout.response_length`` (16 here), not the padded width of
     the micro-batch at hand (12, 3 or less): "seq-mean-token-sum-norm" equals "seq-mean-token-sum" divided by
     ``response_length`` for every micro-batch, in loss and gradient."""
     index = 0 if kind == "actor" else 1
-    norm_config = _worker_configs("seq-mean-token-sum-norm")[index]
-    sum_config = _worker_configs("seq-mean-token-sum")[index]
+    norm_config = _worker_configs(model_dir, "seq-mean-token-sum-norm")[index]
+    sum_config = _worker_configs(model_dir, "seq-mean-token-sum")[index]
     data, model_output, seq_lens = _make_batch()
     splits = _WHOLE if split == "whole" else _SPLITS[split]
 
@@ -201,41 +198,42 @@ def test_seq_mean_token_sum_norm_horizon_is_response_length(kind, split):
     torch.testing.assert_close(norm_grad, sum_grad / _RESPONSE_LENGTH)
 
 
-def test_validate_config_resolves_null_factor_to_response_length():
+def test_validate_config_resolves_null_factor_to_response_length(model_dir):
     """``loss_scale_factor: null`` under "seq-mean-token-sum-norm" becomes ``rollout.response_length`` for the
     actor and the critic, and the worker dataclasses carry the resolved constant."""
-    config = _validated_config("seq-mean-token-sum-norm")
+    config = _validated_config(model_dir, "seq-mean-token-sum-norm")
     assert config.actor_rollout_ref.actor.loss_scale_factor == _RESPONSE_LENGTH
     assert config.critic.loss_scale_factor == _RESPONSE_LENGTH
 
-    actor_config, critic_config = _worker_configs("seq-mean-token-sum-norm")
+    actor_config, critic_config = _worker_configs(model_dir, "seq-mean-token-sum-norm")
     assert actor_config.loss_scale_factor == _RESPONSE_LENGTH
     assert critic_config.loss_scale_factor == _RESPONSE_LENGTH
 
 
-def test_validate_config_keeps_an_explicit_factor():
-    config = _validated_config("seq-mean-token-sum-norm", factor=4096)
+def test_validate_config_keeps_an_explicit_factor(model_dir):
+    config = _validated_config(model_dir, "seq-mean-token-sum-norm", factor=4096)
     assert config.actor_rollout_ref.actor.loss_scale_factor == 4096
     assert config.critic.loss_scale_factor == 4096
 
 
 @pytest.mark.parametrize("mode", [mode for mode in _MODES if mode != "seq-mean-token-sum-norm"])
-def test_validate_config_leaves_other_modes_untouched(mode):
-    config = _validated_config(mode)
+def test_validate_config_leaves_other_modes_untouched(mode, model_dir):
+    config = _validated_config(model_dir, mode)
     assert config.actor_rollout_ref.actor.loss_scale_factor is None
     assert config.critic.loss_scale_factor is None
 
 
-@pytest.mark.parametrize("factor", [0, -1])
-def test_validate_config_rejects_a_non_positive_factor(factor):
-    """An explicit factor divides the loss, so 0 or a negative value is a configuration error, not a silent 1/0."""
-    with pytest.raises(ValueError, match="loss_scale_factor must be > 0"):
-        _validated_config("seq-mean-token-sum-norm", factor=factor)
+@pytest.mark.parametrize("factor", [0, -1, "sixteen"])
+def test_validate_config_rejects_an_invalid_factor(factor, model_dir):
+    """An explicit factor divides the loss, so 0, a negative value or a non-number is a configuration error with a
+    named message, not a silent 1/0 or a TypeError later."""
+    with pytest.raises(ValueError, match="loss_scale_factor must be a positive number"):
+        _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)
 
 
-def test_validate_config_resolves_the_critic_on_its_own():
+def test_validate_config_resolves_the_critic_on_its_own(model_dir):
     """The critic inherits the actor's mode by default but may select Dr. GRPO normalization alone."""
-    config = _validated_config("token-mean", critic_mode="seq-mean-token-sum-norm")
+    config = _validated_config(model_dir, "token-mean", critic_mode="seq-mean-token-sum-norm")
     assert config.actor_rollout_ref.actor.loss_scale_factor is None
     assert config.critic.loss_scale_factor == _RESPONSE_LENGTH
 
@@ -262,9 +260,9 @@ def test_validate_config_resolves_the_critic_on_its_own():
         ),
     ],
 )
-def test_known_non_invariant_policy_losses(loss_mode):
+def test_known_non_invariant_policy_losses(loss_mode, model_dir):
     """Policy losses known not to be micro-batch invariant, recorded as (non-strict) xfails. Not touched here."""
-    actor_config, _ = _worker_configs("token-mean", loss_mode=loss_mode)
+    actor_config, _ = _worker_configs(model_dir, "token-mean", loss_mode=loss_mode)
     data, model_output, seq_lens = _make_batch()
 
     whole_loss, whole_grad = _accumulate("actor", actor_config, data, model_output, seq_lens, _WHOLE)

@@ -109,10 +109,11 @@ def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
             continue
         factor = section.get("loss_scale_factor")
         if factor is not None:
-            if factor <= 0:
+            if isinstance(factor, bool) or not isinstance(factor, int | float) or factor <= 0:
                 raise ValueError(
-                    f"{name}.loss_scale_factor must be > 0 for loss_agg_mode=seq-mean-token-sum-norm (it divides the "
-                    f"loss), got {factor}. Leave it null to use actor_rollout_ref.rollout.response_length."
+                    f"{name}.loss_scale_factor must be a positive number for loss_agg_mode=seq-mean-token-sum-norm "
+                    f"(it divides the loss), got {factor!r}. Leave it null to use "
+                    "actor_rollout_ref.rollout.response_length."
                 )
             continue
         if response_length is None:
