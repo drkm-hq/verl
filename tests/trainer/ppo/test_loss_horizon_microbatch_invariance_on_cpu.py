@@ -216,9 +216,10 @@ def test_validate_config_resolves_null_factor_to_response_length(model_dir):
     assert critic_config.loss_scale_factor == _RESPONSE_LENGTH
 
 
-@pytest.mark.parametrize("factor", [4096, 0.5])
+@pytest.mark.parametrize("factor", [4096, 0.5, 2**63 - 1])
 def test_validate_config_keeps_an_explicit_factor(factor, model_dir):
-    """Any finite positive number is kept as given (a float divides the loss just as well); the critic inherits it."""
+    """Any finite positive number is kept as given (a float divides the loss just as well; an int may go up to the int64
+    maximum torch accepts as a scalar); the critic inherits it."""
     config = _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)
     assert config.actor_rollout_ref.actor.loss_scale_factor == factor
     assert config.critic.loss_scale_factor == factor
@@ -231,11 +232,25 @@ def test_validate_config_leaves_other_modes_untouched(mode, model_dir):
     assert config.critic.loss_scale_factor is None
 
 
-@pytest.mark.parametrize("factor", [float("nan"), float("inf"), float("-inf"), 0, -1, "sixteen", True])
+@pytest.mark.parametrize(
+    "factor",
+    [
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        0,
+        -1,
+        "sixteen",
+        True,
+        pytest.param(2**63, id="int64-overflow"),
+        pytest.param(10**400, id="beyond-float"),
+    ],
+)
 def test_validate_config_rejects_an_invalid_explicit_factor(factor, model_dir):
-    """An explicit factor divides the loss, so NaN, an infinity, 0, a negative value, a non-number or a bool is a
-    configuration error with a message naming the key and the value, not a NaN / inf / zero-division loss or a
-    TypeError later. (``nan <= 0`` and ``inf <= 0`` are both False, so a sign check alone lets them through.)"""
+    """An explicit factor divides the loss, so NaN, an infinity, 0, a negative value, a non-number, a bool or an int
+    torch cannot take as a scalar (2**63 and above: OverflowError inside ``agg_loss``) is a configuration error with a
+    message naming the key and the value, not a NaN / inf / zero-division / overflow inside the loss or a TypeError
+    later. (``nan <= 0`` and ``inf <= 0`` are both False, so a sign check alone lets them through.)"""
     pattern = r"actor_rollout_ref\.actor\.loss_scale_factor must be a finite positive number"
     with pytest.raises(ValueError, match=pattern) as e:
         _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)

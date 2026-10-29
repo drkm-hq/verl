@@ -89,11 +89,17 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         )
 
 
+_INT64_MAX = 2**63 - 1  # torch wraps a Python int scalar as int64; a larger int raises OverflowError inside the loss
+
+
 def _is_finite_positive_number(value: Any) -> bool:
-    """An ``int`` or ``float`` (not a ``bool``) that is finite and ``> 0``: what a loss divisor has to be."""
+    """An ``int`` or ``float`` (not a ``bool``), ``> 0``, that torch takes as a scalar divisor: a finite float or an
+    int that fits int64 (``loss /= loss_scale_factor`` in ``agg_loss`` raises OverflowError on a larger int)."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return False
-    return value > 0 and (isinstance(value, int) or math.isfinite(value))
+    if isinstance(value, int):
+        return 0 < value <= _INT64_MAX
+    return math.isfinite(value) and value > 0
 
 
 def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
