@@ -317,8 +317,10 @@ Actor/Rollout/Reference Policy
   separate old-log-prob forward pass when the actor update is strictly
   on-policy (``ppo_epochs=1``, ``ppo_mini_batch_size`` equal to the sampled
   batch, no shuffle, nothing reading ``old_log_probs`` before the update,
-  FSDP engines only): the update pass then computes the old log-probs itself.
-  Rejected at config validation otherwise; see the Performance Tuning Guide.
+  FSDP engines only, an actor free of dropout and other train-mode-only
+  behaviour after overrides and LoRA adapter): the update pass then computes
+  the old log-probs itself. Rejected at config validation otherwise, and again
+  on the built actor module; see the Performance Tuning Guide.
   Default ``False``.
 
 - ``actor_rollout_ref.actor.optim``: Actor's optimizer parameters

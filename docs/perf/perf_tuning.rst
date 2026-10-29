@@ -165,10 +165,17 @@ pass:
   Critic-warmup steps have no actor update and run the old-log-prob pass as before.
 
 What changes semantically: the stored old log-probs are the update pass's **train-mode** values (the
-old-log-prob pass runs in eval mode). For the dropout-free models verl trains this is the same number;
-a model whose HF config enables dropout is rejected (when the config cannot be loaded at validation
-time a warning is printed instead). With ``use_fused_kernels=True`` the fused kernel's entropy stays
-attached to the graph, so that path saves no memory (it saves the forward only).
+old-log-prob pass runs in eval mode). For the dropout-free models verl trains this is the same number.
+An actor whose forward depends on the mode is rejected twice: at config validation from the *effective*
+model, i.e. the HF config after ``override_config`` (every nested sub-config included) scanned for
+dropout, MoE router jitter (Mixtral's ``router_jitter_noise``, DBRX's ``moe_jitter_eps``), layer drop and
+drop path, plus the ``lora_dropout`` of a ``lora_adapter_path`` adapter (``lora_rank > 0``; verl's own
+``LoraConfig`` sets none); and again on every rank when the actor is built, by walking the module for
+``nn.Dropout`` modules with ``p > 0`` (peft's ``lora_dropout`` included), DropPath / StochasticDepth
+modules and modules carrying a dropout / jitter / layerdrop rate > 0, which lists the offending module
+paths. When the config cannot be loaded at validation time a warning says so and the module walk in the
+worker is the guarantee. With ``use_fused_kernels=True`` the fused kernel's entropy stays attached to the
+graph, so that path saves no memory (it saves the forward only).
 
 The flag is rejected at config validation (and again when the trainer is built), naming every
 violated condition, whenever the skip would not be exact: ``ppo_epochs != 1``;
@@ -179,8 +186,8 @@ the sampling weights, so multi-mini-batch configurations gain nothing); ``actor.
 pass by using the rollout engine's log-probs, a different estimator); the ``optimal_token_baseline``
 estimators; ``calculate_sum_pi_squared``; distillation; router replay ``R2``; the ``separate_async``
 trainer mode (it restores the old policy from a CPU snapshot); the legacy trainer
-(``trainer.use_v1=False``); dropout anywhere in the model config (nested ``text_config`` /
-``vision_config`` / ... included); and every engine other than the FSDP family (``actor.strategy``
+(``trainer.use_v1=False``); dropout or another train-mode-only setting in the effective model config or
+the LoRA adapter (see above); and every engine other than the FSDP family (``actor.strategy``
 fsdp, fsdp2 and fsdp_turbo, which shares the FSDP engine's forward and output path; megatron, veomni,
 torchtitan and automodel are rejected: their update-pass output path exists but is unverified, and
 Megatron's update-pass entropy would add a (T, V) logits copy).
