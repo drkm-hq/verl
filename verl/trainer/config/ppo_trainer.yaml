@@ -326,7 +326,7 @@ trainer:
       # pending healthy work completes. The per-prompt cap alone does not bound a step: the
       # refill that replaces an exhausted prompt starts at attempt 1. Without
       # sync_refill_failed_groups a failure is padded, not replaced, so the sampler never lets the
-      # TTL fail its last finishable groups: it holds them back and waits instead.
+      # TTL fail its last finishable groups: it holds them back (re-checked every poll) and waits.
       # null = (max_inflight_reissues + 1) x data.train_batch_size; otherwise a positive integer
       # (to turn the TTL off set inflight_ttl_s to null).
       max_inflight_reissues_per_step: null

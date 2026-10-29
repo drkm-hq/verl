@@ -779,3 +779,32 @@ def test_padding_mode_never_lets_the_ttl_fail_the_last_finishable_groups(tq_init
         assert {key.split("_")[0] for key in batch.keys} == {done}, "the failure group is padded, not materialized"
     finally:
         _clear_partition(partition_id)
+
+
+def test_hold_back_is_lifted_once_another_group_finished_so_a_dead_writer_is_padded(tq_init, partition_id, caplog):
+    """Padding mode, TTL below the healthy generation time: a prompt whose writer is dead beside a healthy slow
+    one. Both expire together and are held back (nothing else finishable). The hold-back charges nothing and is
+    re-evaluated every poll: once the healthy group has finished, the dead one is failed under the normal budget
+    and the step completes padded, instead of hanging on it."""
+    caplog.set_level(logging.WARNING, logger=ReplayBuffer.__module__)
+    dead, healthy = _uid(), _uid()
+    for uid in (dead, healthy):
+        _submit_prompt(partition_id, uid, "running", 1, dispatched_at=time.time() - 100)
+    reissuer = RecordingReissuer(partition_id)
+    try:
+        rb = _make_rb(inflight_ttl_s=1, max_inflight_reissues=0, reissue_fn=reissuer)
+        thread = SampleThread(lambda: rb.sample(global_steps=1, partition_id=partition_id, batch_size=2))
+        thread.start()
+        deadline = time.time() + 10
+        while not any("holding them back" in record.message for record in caplog.records):
+            assert thread.is_alive() and time.time() < deadline, "the last groups were not held back"
+            time.sleep(POLL_INTERVAL)
+        assert rb._ttl_discards_in_step[partition_id] == 0, "a hold-back charges nothing"
+        _finish(partition_id, healthy, 1)  # the healthy generation finishes; the dead writer never does
+        batch, metrics = thread.result_or_raise()
+        assert [key.split("_")[0] for key in batch.keys] == [healthy], "trained on the healthy row, dead one padded"
+        assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 1 and dead in rb._retired_uids[partition_id]
+        assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1 and reissuer.calls == []
+        assert rb._ttl_discards_in_step[partition_id] == 1, "the failure is charged normally"
+    finally:
+        _clear_partition(partition_id)

@@ -444,18 +444,17 @@ class ReplayBuffer:
         self, partition_id: str, held: set[str], eviction_metrics: dict, reissue_budget: int | None
     ) -> None:
         """The padding-mode sampler's guard: failing ``held`` would leave the step without a finishable group
-        (no finished group, nothing else in flight) and nothing replaces a failure, so the TTL is suspended for
-        the step instead and their generations are waited for (``{prefix}/inflight_ttl_suspended`` = 1)."""
+        (no finished group, nothing else in flight) and nothing replaces a failure, so they are held back for
+        this poll and their generations are waited for (``{prefix}/inflight_ttl_suspended`` = 1, one warning
+        per step). Re-evaluated on every poll and charged nothing: once another group is finished or in
+        flight, an exhausted prompt is failed under the normal step budget."""
         eviction_metrics[f"{self._metrics_prefix(partition_id)}/inflight_ttl_suspended"] = 1
-        if reissue_budget is not None:
-            self._ttl_discards_in_step[partition_id] = max(self._ttl_discards_in_step[partition_id], reissue_budget)
         if partition_id not in self._ttl_suspension_warned:
             self._ttl_suspension_warned.add(partition_id)
             logger.warning(
                 f"[V1ReplayBuffer] the in-flight TTL would fail the last {len(held)} finishable groups of step "
                 f"{self._ttl_budget_step.get(partition_id)} (past max_inflight_reissues; nothing replaces a failed "
-                "group without sync_refill_failed_groups): holding them back, suspending the TTL for the step and "
-                "waiting for their generations"
+                "group without sync_refill_failed_groups): holding them back and waiting for their generations"
             )
 
     def _recover_stuck_inflight(
@@ -474,7 +473,7 @@ class ReplayBuffer:
         TTL-induced discards (re-issues and exhaustion failures) of the step opened by ``_begin_ttl_budget``
         (``None``: no cap); the drain's discard is never charged or delayed. With ``keep_last_finishable`` (the
         padding-mode sampler, where a failure is not replaced) an exhaustion failure that would leave no finished
-        group and nothing else in flight is held back instead (see ``_hold_back_last_groups``).
+        group and nothing else in flight is held back for this poll instead (see ``_hold_back_last_groups``).
         """
         if self.reissue_fn is None:
             return False
