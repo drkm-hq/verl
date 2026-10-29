@@ -308,6 +308,11 @@ def test_dense_turn_rewards_reach_gae_and_reinforce_plus_plus_only_on_generated_
         pytest.param([(0, 2), (3, 9)], id="past-the-row-end"),
         pytest.param([(0, 2), (9, 11)], id="starting-past-the-row-end"),
         pytest.param([(0, 2), (3,)], id="not-a-pair"),
+        pytest.param([(0.9, 2.1)], id="float-offsets"),
+        pytest.param([(False, True)], id="bool-offsets"),
+        pytest.param([(np.float64(0.0), 2)], id="numpy-float-offset"),
+        pytest.param([(torch.tensor(True), torch.tensor(2))], id="torch-bool-offset"),
+        pytest.param("ab", id="string-row"),
     ],
 )
 def test_malformed_spans_raise_naming_the_row(bad):
@@ -322,6 +327,51 @@ def test_malformed_spans_raise_naming_the_row(bad):
     compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)  # the well-formed batch passes
     with pytest.raises(ValueError, match="3 rows for a batch of 2"):
         compute_turn_rloo_advantage(rewards, mask, index, turn_spans=np.empty(3, dtype=object))
+
+
+def test_offsets_must_be_integral_ints_rejected_by_name_and_a_non_sequence_column_is_named():
+    rewards, mask, index = torch.zeros(2, 4), torch.ones(2, 4), np.array(["g", "g"], dtype=object)
+    ok = np.empty(2, dtype=object)
+    ok[0], ok[1] = [(np.int64(0), torch.tensor(2)), (2, 4)], [(0, 4)]  # numpy and 0-d torch ints are integral
+    compute_turn_rloo_advantage(rewards, mask, index, turn_spans=ok)
+    cases = [([(0.9, 2.1)], "float"), ([(False, True)], "bool"), ([(torch.tensor(1.0), 2)], r"Tensor\[torch.float32\]")]
+    for bad, name in cases:
+        spans = np.empty(2, dtype=object)
+        spans[0], spans[1] = [(0, 4)], bad
+        with pytest.raises(ValueError, match=rf"turn_spans\[1\]: .* has a {name} offset"):
+            compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)
+    with pytest.raises(ValueError, match=r"one entry per row \(2 rows\), got a int"):
+        compute_turn_rloo_advantage(rewards, mask, index, turn_spans=5)
+
+
+def test_wrappers_receive_the_spans_only_when_their_own_signature_can_take_them(monkeypatch):
+    """A wrapper must expose what it forwards: a transparent functools.wraps wrapper gets the spans, one whose
+    own signature cannot take the keyword gets none (rloo behaviour) instead of a TypeError at call time."""
+    import functools
+
+    import verl.trainer.ppo.core_algos as core_algos
+    from verl.trainer.ppo.core_algos import adv_estimator_takes_turn_spans
+    from verl.trainer.ppo.ray_trainer import compute_advantage
+
+    @functools.wraps(compute_turn_rloo_advantage)
+    def transparent(*args, **kwargs):
+        return compute_turn_rloo_advantage(*args, **kwargs)
+
+    @functools.wraps(compute_turn_rloo_advantage)
+    def incompatible(token_level_rewards, response_mask, index, config=None):
+        return compute_turn_rloo_advantage(token_level_rewards, response_mask, index, config=config)
+
+    assert adv_estimator_takes_turn_spans(transparent) and not adv_estimator_takes_turn_spans(incompatible)
+    monkeypatch.setitem(core_algos.ADV_ESTIMATOR_REGISTRY, "transparent", transparent)
+    monkeypatch.setitem(core_algos.ADV_ESTIMATOR_REGISTRY, "incompatible", incompatible)
+    spans = [[(0, 3), (3, 4)], [(0, 2), (3, 4)], [(0, 2)], [(0, 4)]]
+    turn = compute_advantage(_spans_batch(True, spans), adv_estimator="turn_rloo").batch["advantages"]
+    rloo = compute_advantage(_spans_batch(True, spans), adv_estimator="rloo").batch["advantages"]
+    assert not torch.allclose(turn, rloo)
+    got = compute_advantage(_spans_batch(True, spans), adv_estimator="transparent").batch["advantages"]
+    torch.testing.assert_close(got, turn)
+    got = compute_advantage(_spans_batch(True, spans), adv_estimator="incompatible").batch["advantages"]
+    torch.testing.assert_close(got, rloo)
 
 
 def test_adv_estimator_takes_turn_spans_reads_the_signature():

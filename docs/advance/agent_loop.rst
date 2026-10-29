@@ -313,6 +313,12 @@ outer :math:`\gamma^t` weight, the convention ``reinforce_plus_plus`` uses: it i
 instead of ``[0.25, 0.125]``), so treat discounting as a heuristic. Outputs of one V1 multi-output
 session share ``uid`` and are correlated, outside the argument.
 
+**Custom estimators and the spans.** An estimator opts into the spans by declaring a ``turn_spans``
+parameter; ``**kwargs`` alone does not. A wrapper must expose what it forwards:
+``adv_estimator_takes_turn_spans`` reads the outermost callable's own signature, and a ``functools.wraps``
+wrapper receives the spans only when it takes ``**kwargs`` and the wrapped estimator declares ``turn_spans``;
+otherwise no spans are passed and ``turn_rloo`` behaves like ``rloo``.
+
 A minimal device tool, with the configuration that trains on its step rewards:
 
 .. code:: python

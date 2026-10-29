@@ -21,6 +21,7 @@ implement PPO-like algorithms.
 __all__ = ["register_adv_est", "get_adv_estimator_fn", "AdvantageEstimator"]
 
 import inspect
+import operator
 from collections import defaultdict
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -152,14 +153,22 @@ def get_adv_estimator_fn(name_or_enum):
 
 
 def adv_estimator_takes_turn_spans(adv_estimator) -> bool:
-    """Whether an advantage estimator declares a ``turn_spans`` parameter.
+    """Whether an advantage estimator takes a ``turn_spans`` keyword.
 
-    ``adv_estimator`` is a registry name / enum or the function itself. The tool agent loop's
-    ``generated_turn_spans`` (``rollout.multi_turn.turn_level_rewards``) reach only estimators that declare
-    the parameter (``**kwargs`` alone does not opt in), so by-name estimators keep working unchanged and the
-    trainers skip the span bookkeeping for every other estimator.
+    ``adv_estimator`` is a registry name / enum or the callable itself. The tool agent loop's
+    ``generated_turn_spans`` (``rollout.multi_turn.turn_level_rewards``) reach only estimators that opt in, so
+    by-name estimators keep working unchanged and the trainers skip the span bookkeeping for every other
+    estimator. The outermost callable's own signature decides: an explicit ``turn_spans`` parameter opts in;
+    ``**kwargs`` alone does not; a wrapper carrying ``__wrapped__`` (``functools.wraps``) opts in only when it
+    takes ``**kwargs`` and the wrapped chain declares ``turn_spans``, i.e. a wrapper must expose what it forwards.
     """
     fn = adv_estimator if callable(adv_estimator) else get_adv_estimator_fn(adv_estimator)
+    own = inspect.signature(fn, follow_wrapped=False).parameters
+    if "turn_spans" in own:
+        return True
+    forwards_kwargs = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in own.values())
+    if not forwards_kwargs or not hasattr(fn, "__wrapped__"):
+        return False
     return "turn_spans" in inspect.signature(fn).parameters
 
 
@@ -649,6 +658,18 @@ def compute_rloo_outcome_advantage(
     return scores, scores
 
 
+def _span_offset(row: int, span, value) -> int:
+    """An integral span offset (Python, numpy or 0-d torch integers); floats and bools are rejected by name."""
+    is_bool = isinstance(value, bool | np.bool_) or (isinstance(value, torch.Tensor) and value.dtype == torch.bool)
+    if not is_bool:
+        try:
+            return operator.index(value)
+        except TypeError:
+            pass
+    name = f"{type(value).__name__}[{value.dtype}]" if isinstance(value, torch.Tensor) else type(value).__name__
+    raise ValueError(f"turn_spans[{row}]: span {span!r} has a {name} offset; offsets must be integral ints")
+
+
 def _validated_turn_spans(row: int, spans, length: int) -> list[tuple[int, int]]:
     """The ``[start, end)`` pairs of one row, checked to be ordered, non-empty, non-overlapping and within the row.
 
@@ -662,9 +683,10 @@ def _validated_turn_spans(row: int, spans, length: int) -> list[tuple[int, int]]
     previous_end = 0
     for span in spans:
         try:
-            start, end = (int(v) for v in span)
+            first, second = span
         except (TypeError, ValueError) as e:
             raise ValueError(f"turn_spans[{row}]: span {span!r} is not an (int, int) pair") from e
+        start, end = _span_offset(row, span, first), _span_offset(row, span, second)
         if start < previous_end or start >= end or end > length:
             raise ValueError(
                 f"turn_spans[{row}]: span ({start}, {end}) must satisfy {previous_end} <= start < end <= {length} "
@@ -695,12 +717,12 @@ def compute_turn_rloo_advantage(
     and the advantage of every generated token of turn ``t`` is ``G[i, t] - mean_{j != i, m_j > t} G[j, t]``:
     the baseline averages the other group members that reached turn ``t`` and is 0 when none did
     (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
-    Tokens outside a span (tool observations) get 0. Spans must be ordered, non-empty, non-overlapping
-    and within the row (``ValueError`` naming the row otherwise). A row without spans is one turn ``[0, L)``,
-    so without ``turn_spans`` the estimator gives the same policy advantages as ``rloo`` (``returns``
-    differ: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its advantages). The tool agent
-    loop exports spans only under ``rollout.multi_turn.turn_level_rewards``; with that flag off
-    ``turn_rloo`` behaves like ``rloo`` on multi-turn data too.
+    Tokens outside a span (tool observations) get 0. Spans must be ordered, non-empty, non-overlapping,
+    within the row and made of integral ints (``ValueError`` naming the row otherwise). A row without
+    spans is one turn ``[0, L)``, so without ``turn_spans`` the estimator gives the same policy advantages
+    as ``rloo`` (``returns`` differ: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its
+    advantages). The tool agent loop exports spans only under ``rollout.multi_turn.turn_level_rewards``;
+    with that flag off ``turn_rloo`` behaves like ``rloo`` on multi-turn data too.
 
     Normalising each turn by the group mean of the *same turn's reward* (the MT-GRPO shape) is biased
     whenever the policy decides whether a later turn happens at all; the leave-one-out return-to-go
@@ -737,7 +759,15 @@ def compute_turn_rloo_advantage(
     """
     bs, length = token_level_rewards.shape
     gamma = config.gamma if config is not None else 1.0
-    rows = turn_spans if turn_spans is not None else [None] * bs
+    if turn_spans is None:
+        rows = [None] * bs
+    else:
+        try:
+            rows = list(turn_spans)
+        except TypeError as e:
+            raise ValueError(
+                f"turn_spans must hold one entry per row ({bs} rows), got a {type(turn_spans).__name__}"
+            ) from e
     if len(rows) != bs:
         raise ValueError(f"turn_spans has {len(rows)} rows for a batch of {bs}")
     spans_per_row = [_validated_turn_spans(i, spans, length) for i, spans in enumerate(rows)]
