@@ -230,8 +230,8 @@ they can call ``LLMServerClient.generate`` to generate response_ids.
            """
            ...
 
-Turn-level rewards and episode done
------------------------------------
+Turn-level rewards, episode done and ``turn_rloo``
+---------------------------------------------------
 
 .. versionadded:: 0.10.0
 
@@ -285,6 +285,18 @@ of ``response_ids``: a reward function that decodes the response never sees that
 and ``episode_done`` can be ``True`` while the trajectory ends with the assistant turn that triggered it.
 Budget ``response_length`` for the final observation when the scorer needs it.
 
+``algorithm.adv_estimator: turn_rloo`` adds the matching critic-free estimator (RFC #7244): for
+sample :math:`i` of a group that shares a prompt, the advantage of every token of turn :math:`t` is
+the return-to-go from that turn minus the mean return-to-go from turn :math:`t` of the *other* group
+members that reached turn :math:`t`, i.e.
+:math:`A_{i,t} = G_{i,t} - \frac{1}{|J_t| - 1} \sum_{j \in J_t, j \neq i} G_{j,t}` with
+:math:`G_{i,t} = \sum_{t' \ge t} \gamma^{t'-t} r_{i,t'}` (``algorithm.gamma`` discounts per turn;
+1.0 is the RFC's form). When no other member reached the turn the baseline is 0. Rows without spans
+are one turn, so on single-turn data the estimator equals ``rloo``. The simpler per-turn-index
+normalisation (subtracting the group mean of *the same turn's reward*) is biased as soon as the
+policy decides whether a later turn happens at all; ``tests/trainer/ppo/test_turn_rloo_on_cpu.py``
+checks both against the exact policy gradient of a two-turn MDP.
+
 A minimal device tool, with the configuration that trains on its step rewards:
 
 .. code:: python
@@ -306,7 +318,7 @@ A minimal device tool, with the configuration that trains on its step rewards:
          tool_config_path: workcell_tools.yaml
          turn_level_rewards: True
    algorithm:
-     adv_estimator: reinforce_plus_plus   # or gae; both read the dense rewards
+     adv_estimator: turn_rloo   # or reinforce_plus_plus / gae, which also read the dense rewards
      gamma: 1.0
 
 Next
