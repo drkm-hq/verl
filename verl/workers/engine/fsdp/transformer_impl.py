@@ -103,22 +103,18 @@ def _scale_logits_by_temperature(logits, temperature, *, is_unit_temperature: bo
     return logits / temperature.clamp(min=1e-8).to(logits.dtype)
 
 
-_LOGITS_TO_KEEP_KWARGS = ("logits_to_keep", "slice_logits_to_keep")
-
-
 def _probe_logits_to_keep_kwarg(module) -> str | None:
-    """Name of the row-selection kwarg ``module.forward`` accepts, or ``None``.
+    """``"logits_to_keep"`` when ``module.forward`` names that parameter, else ``None``.
 
-    HF text CausalLMs take a tensor of row indices as ``logits_to_keep`` (transformers 5.16) or
-    ``slice_logits_to_keep`` (later releases) and project the LM head for those rows only. Only a
-    parameter spelled out in the signature counts: a bare ``**kwargs`` would swallow the index and
-    the model would still project every row.
+    HF text CausalLMs take a tensor of row indices as ``logits_to_keep`` and project the LM head
+    for those rows only. Only a parameter spelled out in the signature counts: a bare ``**kwargs``
+    would swallow the index and the model would still project every row.
     """
     try:
         parameters = signature(module.forward).parameters
     except (TypeError, ValueError):
         return None
-    return next((name for name in _LOGITS_TO_KEEP_KWARGS if name in parameters), None)
+    return "logits_to_keep" if "logits_to_keep" in parameters else None
 
 
 def _scatter_rows(values: torch.Tensor, index: torch.Tensor, total_rows: int) -> torch.Tensor:
@@ -624,16 +620,22 @@ class FSDPEngine(BaseEngine):
         """Decide once, at build time, whether this engine projects the LM head for loss rows only.
 
         ``response_only_lm_head`` is kept only when the engine, the model and the parallel layout
-        can use it; otherwise one warning names the reason and every packed row is projected.
-        Conditions that vary per micro-batch (fused kernels, logits processors, SFT-shaped
-        batches) are checked in ``prepare_model_inputs`` instead.
+        can use it. ``use_remove_padding=False`` contradicts it and raises; every other fixed
+        condition logs one warning on rank 0 and projects every packed row. Conditions that vary
+        per micro-batch (logits processors, SFT-shaped batches) are checked in
+        ``prepare_model_inputs`` instead.
         """
         if not getattr(self.engine_config, "response_only_lm_head", False):
             return False
         if not self._supports_response_only_lm_head:
             reason = "this engine does not read a vocabulary projection"
         elif not self.use_remove_padding:
-            reason = "it requires use_remove_padding=True"
+            raise ValueError(
+                "response_only_lm_head=True requires use_remove_padding=True: the padded forward has no packed "
+                "rows to select. Set model.use_remove_padding=True or fsdp_config.response_only_lm_head=False."
+            )
+        elif self.model_config.use_fused_kernels:
+            reason = "use_fused_kernels=True: the fused forwards project every row"
         elif self.use_ulysses_sp:
             reason = "ulysses_sequence_parallel_size > 1 is not supported yet"
         elif self.engine_config.strategy == "fsdp_turbo":
@@ -641,10 +643,11 @@ class FSDPEngine(BaseEngine):
         elif hasattr(getattr(module, "config", None), "vision_config"):
             reason = "vision-language models project every row in their packed forward"
         elif self.logits_to_keep_kwarg is None:
-            reason = f"{type(module).__name__}.forward accepts neither logits_to_keep nor slice_logits_to_keep"
+            reason = f"{type(module).__name__}.forward does not accept logits_to_keep"
         else:
             return True
-        logger.warning("response_only_lm_head=True is ignored: %s. Projecting every packed row.", reason)
+        if getattr(self, "rank", 0) == 0:
+            logger.warning("response_only_lm_head=True is ignored: %s. Projecting every packed row.", reason)
         return False
 
     def _build_model_optimizer(self):
@@ -1349,10 +1352,10 @@ class FSDPEngineWithLMHead(FSDPEngine):
             # the LM head projects the K response rows instead of all T packed rows. The index is
             # built on the unpadded layout: the static pad is a suffix, so it stays valid, and SP is
             # excluded at build time, so no rank offset is needed.
-            loss_row_index = self._response_only_lm_head_index(micro_batch, use_fused_kernels)
-            if loss_row_index is not None:
-                model_inputs[getattr(self, "logits_to_keep_kwarg", None) or "logits_to_keep"] = loss_row_index
-                output_args["loss_row_index"] = loss_row_index
+            keep_index = self._response_only_lm_head_index(micro_batch, use_fused_kernels)
+            if keep_index is not None:
+                model_inputs["logits_to_keep"] = keep_index
+                output_args["loss_row_index"] = keep_index
 
         else:
             if pad_mode == DatasetPadMode.NO_PADDING:
@@ -1492,16 +1495,16 @@ class FSDPEngineWithLMHead(FSDPEngine):
                 # response_only_lm_head: the model projected only the loss rows chosen in
                 # prepare_model_inputs; score them with their own labels and temperature here and
                 # scatter the results back into the packed layout below.
-                loss_row_index = output_args.get("loss_row_index")
-                if loss_row_index is not None:
-                    if logits_rmpad.shape[0] != loss_row_index.numel():
+                keep_index = output_args.get("loss_row_index")
+                if keep_index is not None:
+                    if logits_rmpad.shape[0] != keep_index.numel():
                         raise RuntimeError(
-                            f"response_only_lm_head: asked the model for {loss_row_index.numel()} logits rows "
+                            f"response_only_lm_head: asked the model for {keep_index.numel()} logits rows "
                             f"but it returned {logits_rmpad.shape[0]}: its forward ignored the row index. "
                             "Set response_only_lm_head=False for this model."
                         )
-                    input_ids_rmpad_rolled = input_ids_rmpad_rolled[loss_row_index]
-                    temperature_rmpad = temperature_rmpad[loss_row_index]
+                    input_ids_rmpad_rolled = input_ids_rmpad_rolled[keep_index]
+                    temperature_rmpad = temperature_rmpad[keep_index]
                 logits_rmpad = _scale_logits_by_temperature(
                     logits_rmpad,
                     temperature_rmpad.unsqueeze(-1),
@@ -1549,15 +1552,14 @@ class FSDPEngineWithLMHead(FSDPEngine):
                         inplace_backward=inplace_backward,
                     )
 
-                if loss_row_index is not None:
+                if keep_index is not None:
                     # back to the full packed layout: zeros on the rows nobody reads
                     total_rows = output_args["input_ids_rmpad_rolled"].shape[0]
-                    if not distillation_only:
-                        log_probs = _scatter_rows(log_probs, loss_row_index, total_rows)
+                    log_probs = _scatter_rows(log_probs, keep_index, total_rows)
                     if calculate_entropy:
-                        entropy_rmpad = _scatter_rows(entropy_rmpad, loss_row_index, total_rows)
+                        entropy_rmpad = _scatter_rows(entropy_rmpad, keep_index, total_rows)
                     if calculate_sum_pi_squared:
-                        sum_pi_squared_rmpad = _scatter_rows(sum_pi_squared_rmpad, loss_row_index, total_rows)
+                        sum_pi_squared_rmpad = _scatter_rows(sum_pi_squared_rmpad, keep_index, total_rows)
 
             # gather across the ulysses sp group and drop the packed-sequence padding
             pad_size = output_args["pad_size"]

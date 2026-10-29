@@ -219,13 +219,6 @@ class TestIdentityWithTheFullProjection:
         assert packed_log_probs.shape[0] == micro_batch["input_ids"].offsets()[-1]
         assert (packed_log_probs[unread] == 0).all()
 
-    def test_the_probed_kwarg_name_is_used(self):
-        engine = _make_engine(True)
-        engine.logits_to_keep_kwarg = "slice_logits_to_keep"
-        model_inputs, output_args = engine.prepare_model_inputs(_make_micro_batch())
-        assert "logits_to_keep" not in model_inputs
-        assert torch.equal(model_inputs["slice_logits_to_keep"], output_args["loss_row_index"])
-
 
 class TestTheFlagIsANoOpWhenIneligible:
     @pytest.mark.parametrize(
@@ -275,6 +268,7 @@ def _bare_engine(cls, **attrs):
     engine.engine_config = SimpleNamespace(response_only_lm_head=True, strategy="fsdp2")
     engine.use_remove_padding = True
     engine.use_ulysses_sp = False
+    engine.model_config = SimpleNamespace(use_fused_kernels=False)
     engine.logits_to_keep_kwarg = "logits_to_keep"
     for name, value in attrs.items():
         setattr(engine, name, value)
@@ -282,15 +276,15 @@ def _bare_engine(cls, **attrs):
 
 
 class TestBuildTimeResolution:
-    def test_probe_accepts_either_spelling_and_rejects_bare_kwargs(self):
+    def test_probe_requires_the_named_parameter(self):
         def hf_forward(self, input_ids=None, logits_to_keep=0): ...
 
-        def later_hf_forward(self, input_ids=None, slice_logits_to_keep=0): ...
+        def renamed_forward(self, input_ids=None, keep_rows=0): ...
 
         def patched_vlm_forward(self, input_ids=None, **kwargs): ...
 
         assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=hf_forward)) == "logits_to_keep"
-        assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=later_hf_forward)) == "slice_logits_to_keep"
+        assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=renamed_forward)) is None
         assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=patched_vlm_forward)) is None
         assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=None)) is None
         assert _probe_logits_to_keep_kwarg(_make_model()) == "logits_to_keep"
@@ -311,7 +305,7 @@ class TestBuildTimeResolution:
         "cls, attrs, module, reason",
         [
             (FSDPEngineWithValueHead, {}, None, "vocabulary projection"),
-            (FSDPEngineWithLMHead, {"use_remove_padding": False}, None, "use_remove_padding=True"),
+            (FSDPEngineWithLMHead, {"model_config": SimpleNamespace(use_fused_kernels=True)}, None, "use_fused_kernels=True"),
             (FSDPEngineWithLMHead, {"use_ulysses_sp": True}, None, "ulysses_sequence_parallel_size"),
             (
                 FSDPEngineWithLMHead,
@@ -325,9 +319,9 @@ class TestBuildTimeResolution:
                 SimpleNamespace(config=SimpleNamespace(vision_config={}), forward=lambda logits_to_keep=0: None),
                 "vision-language",
             ),
-            (FSDPEngineWithLMHead, {"logits_to_keep_kwarg": None}, None, "accepts neither"),
+            (FSDPEngineWithLMHead, {"logits_to_keep_kwarg": None}, None, "does not accept logits_to_keep"),
         ],
-        ids=["value-head", "padded-inputs", "ulysses-sp", "fsdp-turbo", "vlm", "no-kwarg"],
+        ids=["value-head", "fused-kernels", "ulysses-sp", "fsdp-turbo", "vlm", "no-kwarg"],
     )
     def test_ineligible_layouts_warn_once_and_project_every_row(self, caplog, cls, attrs, module, reason):
         engine = _bare_engine(cls, **attrs)
@@ -335,3 +329,14 @@ class TestBuildTimeResolution:
             assert engine._resolve_response_only_lm_head(module or _make_model()) is False
         assert caplog.text.count("response_only_lm_head=True is ignored") == 1
         assert reason in caplog.text
+
+    def test_other_ranks_resolve_the_same_without_logging(self, caplog):
+        engine = _bare_engine(FSDPEngineWithLMHead, use_ulysses_sp=True, rank=1)
+        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
+            assert engine._resolve_response_only_lm_head(_make_model()) is False
+        assert "ignored" not in caplog.text
+
+    def test_padded_inputs_with_the_flag_on_are_rejected(self):
+        engine = _bare_engine(FSDPEngineWithLMHead, use_remove_padding=False)
+        with pytest.raises(ValueError, match="use_remove_padding=True"):
+            engine._resolve_response_only_lm_head(_make_model())
