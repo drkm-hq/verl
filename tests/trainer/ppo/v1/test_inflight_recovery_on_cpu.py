@@ -899,12 +899,13 @@ def test_dead_worker_prompts_are_reissued_even_when_the_ttl_budget_is_spent(tq_i
         _clear_partition(partition_id)
 
 
-def test_dead_worker_discards_are_bounded_per_step_and_fail_loudly(tq_init, partition_id):
+def test_dead_worker_death_events_are_bounded_per_step_and_fail_loudly(tq_init, partition_id):
     """A liveness probe that keeps reporting every replacement's worker dead (a worker that dies after every
     served dispatch, or a parked chunk whose worker never answers) must not re-issue and refill forever: the
-    dead-worker discards of a step are bounded by the same allowance as the TTL's, and beyond it the buffer
-    raises instead of looping or hanging."""
-    first, second = _uid(), _uid()
+    probes of a step that report dead workers (death events) are bounded by the same allowance as the TTL's
+    discards, and beyond it the buffer raises instead of looping or hanging. One death that orphans many prompts
+    is a single event, so a large recoverable death never trips the bound."""
+    first, second, third = _uid(), _uid(), _uid()
     for uid in (first, second):
         _submit_prompt(partition_id, uid, "running", 1, dispatched_at=time.time())
     reissuer = RecordingReissuer(partition_id)
@@ -920,10 +921,14 @@ def test_dead_worker_discards_are_bounded_per_step_and_fail_loudly(tq_init, part
         rb._begin_ttl_budget(partition_id, 1)
         rb._sync_metadata_from_transfer_queue()
         metrics: dict = {}
-        with pytest.raises(RuntimeError, match="agent-loop workers keep dying: 2 prompts of step 1"):
-            rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1)
-        assert reissuer.calls == [] and metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 2
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is True
+        assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 2, "one death orphaning two prompts: one event"
+        assert rb._dead_worker_events_in_step[partition_id] == 1 and rb._dead_worker_discards_in_step[partition_id] == 2
         assert rb._ttl_discards_in_step[partition_id] == 0, "dead-worker failures are not TTL discards"
-        assert rb._dead_worker_discards_in_step[partition_id] == 2
+        _submit_prompt(partition_id, third, "running", 1, dispatched_at=time.time())  # the refill, dead again
+        rb._sync_metadata_from_transfer_queue()
+        with pytest.raises(RuntimeError, match="agent-loop workers keep dying: 2 liveness probes of step 1"):
+            rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1)
+        assert reissuer.calls == [] and rb._dead_worker_discards_in_step[partition_id] == 3
     finally:
         _clear_partition(partition_id)

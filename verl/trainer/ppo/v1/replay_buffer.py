@@ -278,8 +278,10 @@ class ReplayBuffer:
         self._ttl_budget_step: dict[str, int] = {}
         self._ttl_discards_in_step: dict[str, int] = defaultdict(int)
         # partition_id => prompts re-issued or failed in the step because the liveness probe reported their
-        # worker dead; bounded by the same allowance (a worker that keeps dying must fail loudly, not loop).
+        # worker dead, and the probes that did so (death events): one death may orphan many prompts, so the
+        # events are what the allowance bounds (a worker that keeps dying must fail loudly, not loop).
         self._dead_worker_discards_in_step: dict[str, int] = defaultdict(int)
+        self._dead_worker_events_in_step: dict[str, int] = defaultdict(int)
         self._ttl_suspension_warned: set[str] = set()
         self._liveness_last_probe = 0.0
 
@@ -446,6 +448,7 @@ class ReplayBuffer:
             self._ttl_budget_step[partition_id] = global_steps
             self._ttl_discards_in_step[partition_id] = 0
             self._dead_worker_discards_in_step[partition_id] = 0
+            self._dead_worker_events_in_step[partition_id] = 0
             self._ttl_suspension_warned.discard(partition_id)
 
     def _within_reissue_budget(
@@ -604,14 +607,17 @@ class ReplayBuffer:
         dead_discards = len(reissued & dead_owned) + len(exhausted & dead_owned)
         if dead_discards and reissue_budget is not None:
             self._dead_worker_discards_in_step[partition_id] += dead_discards
-            if self._dead_worker_discards_in_step[partition_id] > reissue_budget:
+            self._dead_worker_events_in_step[partition_id] += 1
+            if self._dead_worker_events_in_step[partition_id] > reissue_budget:
                 raise RuntimeError(
                     f"[V1ReplayBuffer] agent-loop workers keep dying: "
+                    f"{self._dead_worker_events_in_step[partition_id]} liveness probes of step "
+                    f"{self._ttl_budget_step.get(partition_id)} reported dead workers and "
                     f"{self._dead_worker_discards_in_step[partition_id]} prompts of step "
-                    f"{self._ttl_budget_step.get(partition_id)} were re-issued or failed because the liveness probe "
-                    f"reported their worker dead, more than the allowance of {reissue_budget} (= "
-                    "(max_inflight_reissues + 1) x prompts per step); the re-created workers are not serving, "
-                    "giving up instead of regenerating forever (see rollout/dead_workers_relaunched)"
+                    f"{self._ttl_budget_step.get(partition_id)} were re-issued or failed because of it, more than "
+                    f"the allowance of {reissue_budget} death events (= (max_inflight_reissues + 1) x prompts per "
+                    "step); the re-created workers are not serving, giving up instead of regenerating forever "
+                    "(see rollout/dead_workers_relaunched)"
                 )
         return True
 
