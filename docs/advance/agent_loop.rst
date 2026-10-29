@@ -273,6 +273,14 @@ environment says so):
    the undiscounted return, step rewards plus outcome, instead of the outcome alone. The flag applies
    to validation rollouts too.
 
+**The response-budget boundary.** When the tokens of a tool response (the context merge) would make
+the response reach ``response_length``, the loop terminates *before* applying that merge, exactly as it
+did before this feature. The turn's step reward and ``done`` were recorded when the tool ran, so
+``turn_rewards`` / ``rm_scores`` and ``episode_done`` keep them, but the tool response itself is not part
+of ``response_ids``: a reward function that decodes the response never sees that terminal observation,
+and ``episode_done`` can be ``True`` while the trajectory ends with the assistant turn that triggered it.
+Budget ``response_length`` for the final observation when the scorer needs it.
+
 A minimal device tool, with the configuration that trains on its step rewards:
 
 .. code:: python

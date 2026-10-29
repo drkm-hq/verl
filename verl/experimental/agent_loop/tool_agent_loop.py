@@ -331,7 +331,8 @@ class ToolAgentLoop(AgentLoopBase):
             agent_data.response_logprobs if (agent_data.response_logprobs or output.log_probs) else None,
             assistant_logprobs=output.log_probs if output.log_probs else None,
         )
-        _align_generated_turn_spans(agent_data, merge_result)
+        if self.turn_level_rewards:
+            _align_generated_turn_spans(agent_data, merge_result)
         agent_data.prompt_ids = merge_result.token_ids
         agent_data.response_mask = response_mask
         if response_logprobs is not None:
@@ -454,8 +455,12 @@ class ToolAgentLoop(AgentLoopBase):
             tools=schemas,
         )
         if len(response_mask) >= self.response_length:
+            # The merged context would reach the response budget: terminate without applying the merge
+            # (as before this change). The turn's step reward and ``done`` above are kept; the tool
+            # response itself is not part of the trajectory (see docs/advance/agent_loop.rst).
             return AgentState.TERMINATED
-        _align_generated_turn_spans(agent_data, merge_result)
+        if self.turn_level_rewards:
+            _align_generated_turn_spans(agent_data, merge_result)
         agent_data.prompt_ids = merge_result.token_ids
         agent_data.response_mask = response_mask
         if agent_data.response_logprobs:

@@ -88,7 +88,9 @@ class ScriptedToolParser:
         return "final answer", []
 
 
-def make_loop(tool: ScriptedWorkcellTool, *, turn_level_rewards: bool, max_assistant_turns: int = 8) -> ToolAgentLoop:
+def make_loop(
+    tool: ScriptedWorkcellTool, *, turn_level_rewards: bool, max_assistant_turns: int = 8, response_length: int = 64
+) -> ToolAgentLoop:
     loop = object.__new__(ToolAgentLoop)
     loop.rollout_config = SimpleNamespace(full_determinism=False)
     loop.max_user_turns = None
@@ -98,7 +100,7 @@ def make_loop(tool: ScriptedWorkcellTool, *, turn_level_rewards: bool, max_assis
     loop.tool_response_truncate_side = "middle"
     loop.turn_level_rewards = turn_level_rewards
     loop.prompt_length = 16
-    loop.response_length = 64
+    loop.response_length = response_length
     loop.tools = {tool.name: tool}
     loop.tool_schemas = [tool.tool_schema.model_dump()]
     loop.tool_parser = ScriptedToolParser(tool_call_turns=len(tool.rewards))
@@ -182,6 +184,24 @@ async def test_without_done_the_loop_keeps_generating_until_the_model_stops_call
     expected = torch.zeros(18)
     expected[2], expected[7], expected[12], expected[17] = 0.25, -0.5, 1.0, 2.0
     torch.testing.assert_close(rm_scores, expected)
+
+
+@pytest.mark.asyncio
+async def test_step_reward_and_done_are_kept_when_the_final_context_merge_hits_the_response_budget():
+    """The documented exception: a context merge that would reach ``response_length`` is not applied (the loop
+    terminated there before this change too). The turn's step reward and ``done`` were already recorded and
+    stay; the terminal observation is absent from the trajectory an outcome scorer decodes."""
+    tool = ScriptedWorkcellTool([0.25, -0.5, 1.0], done_on_last=True)
+    # three turns and two observations are 13 tokens; the third observation would make 15 >= 14
+    loop = make_loop(tool, turn_level_rewards=True, response_length=14)
+    output = await loop.run({}, raw_prompt=[{"role": "user", "content": "place the part"}])
+
+    assert tool.calls == 3
+    assert output.response_mask == _expected_mask(3, trailing_observation=False)
+    assert output.extra_fields["generated_turn_spans"] == [(0, 3), (5, 8), (10, 13)]
+    assert output.extra_fields["turn_rewards"] == [0.25, -0.5, 1.0], "the step reward of the cut observation stays"
+    assert output.extra_fields["episode_done"] is True
+    assert output.extra_fields["tool_rewards"] == [0.25, -0.5, 1.0]
 
 
 @pytest.mark.asyncio

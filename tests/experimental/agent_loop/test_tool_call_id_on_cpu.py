@@ -133,6 +133,7 @@ class TestToolCallIdOnCpu(unittest.IsolatedAsyncioTestCase):
             response_length=128,
             tool_schemas=[],
             _assert_mm_supported=lambda has_multi_modal: None,
+            turn_level_rewards=False,
             ct_merge_context_msg=ct_merge_context_msg,
             _call_tool=call_tool,
         )
