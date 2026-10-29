@@ -85,6 +85,74 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         )
 
 
+def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
+    """``actor.skip_old_log_prob_when_on_policy`` is exact only when the whole sampled batch is updated in one
+    optimizer step at the sampling weights and nothing before the update reads ``old_log_probs``. Reject every
+    configuration where that does not hold, naming all violated conditions; there is no silent fallback."""
+    actor = config.actor_rollout_ref.actor
+    if not actor.get("skip_old_log_prob_when_on_policy", False):
+        return
+    trainer = config.trainer
+    v1 = trainer.get("v1", None) or {}
+    trainer_mode = v1.get("trainer_mode", None)
+    parameter_sync_step = (v1.get(trainer_mode, None) or {}).get("parameter_sync_step", 1) if trainer_mode else 1
+    sample_batch_size = config.data.train_batch_size // max(int(parameter_sync_step), 1)
+    algorithm = config.algorithm
+    distillation = config.get("distillation", None)
+
+    violations = []
+    if not trainer.get("use_v1", True):
+        violations.append("trainer.use_v1=False (the legacy trainer does not implement the skip)")
+    if trainer_mode == "separate_async":
+        violations.append(
+            "trainer.v1.trainer_mode=separate_async (it restores pi_old from a CPU snapshot, so the update "
+            "pass does not run at the sampling weights)"
+        )
+    if actor.ppo_epochs != 1:
+        violations.append(
+            f"actor.ppo_epochs={actor.ppo_epochs} (needs 1: the second epoch runs after an optimizer step)"
+        )
+    if actor.ppo_mini_batch_size != sample_batch_size:
+        violations.append(
+            f"actor.ppo_mini_batch_size={actor.ppo_mini_batch_size} != data.train_batch_size / parameter_sync_step "
+            f"= {sample_batch_size} (the sampled batch must be one mini-batch, i.e. one optimizer step; only the "
+            "first mini-batch is evaluated at the sampling weights)"
+        )
+    if actor.get("shuffle", False):
+        violations.append("actor.shuffle=True (the returned log-probs must stay row-aligned with the batch)")
+    if actor.get("calculate_sum_pi_squared", False):
+        violations.append("actor.calculate_sum_pi_squared=True (the variance proxy reads old_log_probs)")
+    if algorithm.get("use_kl_in_reward", False):
+        violations.append(
+            "algorithm.use_kl_in_reward=True (the reward KL penalty reads old_log_probs before the update)"
+        )
+    rollout_corr = algorithm.get("rollout_correction", None) or {}
+    if (
+        rollout_corr.get("bypass_mode", False)
+        or rollout_corr.get("rollout_is", None) is not None
+        or rollout_corr.get("rollout_rs", None) is not None
+    ):
+        violations.append(
+            "algorithm.rollout_correction has bypass_mode, rollout_is or rollout_rs set (bypass mode already avoids "
+            "the pass with a different estimator; IS weights and rejection sampling read old_log_probs before the "
+            "update); only the metrics-only default (rollout_is=null, rollout_rs=null, bypass_mode=false) is compatible"
+        )
+    router_replay = (actor.get("engine", None) or {}).get("router_replay", None) or {}
+    if router_replay.get("mode", "disabled") == "R2":
+        violations.append("actor.engine.router_replay.mode=R2 (it records expert routes during the old-log-prob pass)")
+    if algorithm.adv_estimator in ("optimal_token_baseline", "tir_optimal_token_baseline"):
+        violations.append(
+            f"algorithm.adv_estimator={algorithm.adv_estimator} (it reads old_log_probs before the update)"
+        )
+    if distillation is not None and distillation.get("enabled", False):
+        violations.append("distillation.enabled=True (the distillation losses read old_log_probs)")
+    if violations:
+        raise ValueError(
+            "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True requires a strictly on-policy update, "
+            "but: " + "; ".join(violations)
+        )
+
+
 def _validate_score_centering_config(config: DictConfig) -> None:
     algorithm_rc = config.algorithm.get("rollout_correction") or {}
     actor_rc = config.actor_rollout_ref.actor.policy_loss.get("rollout_correction") or {}
@@ -199,6 +267,7 @@ def validate_config(
     actor_config.validate(n_gpus, config.data.train_batch_size, config.actor_rollout_ref.model)
     _validate_router_replay_config(actor_config, config.algorithm.get("rollout_correction", None))
     _validate_score_centering_config(config)
+    _validate_skip_old_log_prob_config(config)
 
     if not config.actor_rollout_ref.actor.use_dynamic_bsz:
         if use_reference_policy:

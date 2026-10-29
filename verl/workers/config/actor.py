@@ -131,6 +131,8 @@ class ActorConfig(BaseConfig):
         kl_loss_type (str): Type of KL loss to use.
         ppo_epochs (int): Number of PPO epochs per training step.
         shuffle (bool): Whether to shuffle data during training.
+        skip_old_log_prob_when_on_policy (bool): Skip the separate old-log-prob forward pass when the update is
+            strictly on-policy (one optimizer step per sampled batch); see ``validate_config``.
         checkpoint (CheckpointConfig): Configuration for checkpointing.
         optim (OptimizerConfig): Configuration for optimizer.
         use_fused_kernels (bool): Whether to use custom fused kernels (e.g., FlashAttention, fused MLP).
@@ -175,6 +177,7 @@ class ActorConfig(BaseConfig):
     kl_loss_type: str = "low_var_kl"
     ppo_epochs: int = 1
     shuffle: bool = False
+    skip_old_log_prob_when_on_policy: bool = False
     data_loader_seed: int = 42
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     optim: OptimizerConfig = field(default_factory=OptimizerConfig)
