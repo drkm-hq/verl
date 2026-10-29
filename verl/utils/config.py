@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import math
 from dataclasses import is_dataclass
 from typing import Any, Optional
 
 from omegaconf import DictConfig, ListConfig, OmegaConf
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["omega_conf_to_dataclass", "validate_config"]
 
@@ -82,6 +86,70 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         raise ValueError(
             "router_replay.mode='R2' requires algorithm.rollout_correction.bypass_mode=False: "
             "R2 records routes while recomputing actor old_log_probs, but bypass mode skips that forward."
+        )
+
+
+_INT64_MAX = 2**63 - 1  # torch wraps a Python int scalar as int64; a larger int raises OverflowError inside the loss
+
+
+def _is_finite_positive_number(value: Any) -> bool:
+    """An ``int`` or ``float`` (not a ``bool``), ``> 0``, that torch takes as a scalar divisor: a finite float or an
+    int that fits int64 (``loss /= loss_scale_factor`` in ``agg_loss`` raises OverflowError on a larger int)."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    if isinstance(value, int):
+        return 0 < value <= _INT64_MAX
+    return math.isfinite(value) and value > 0
+
+
+def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
+    """Resolve ``loss_scale_factor=null`` to ``rollout.response_length`` for "seq-mean-token-sum-norm".
+
+    ``agg_loss`` divides by ``loss_mask.shape[-1]`` when the factor is None. Under the V1 trainer the loss
+    functions receive nested (jagged) micro-batches and pad them to the micro-batch's own max response length,
+    so that fallback horizon would differ between micro-batches and the accumulated gradient would depend on how
+    the mini-batch was split. Resolving the factor here keeps the documented constant
+    (``actor_rollout_ref.rollout.response_length``, the padded width the legacy trainer always had) for every
+    micro-batch, for the actor and the critic alike. A factor set explicitly by the user is left untouched (it must
+    be a finite positive number), and ``response_length`` must be a positive integer to be resolved to. The
+    resolution happens here, in the hook every in-tree launcher runs before building the worker dataclasses; a
+    launcher that bypasses ``validate_config`` has to set ``loss_scale_factor`` itself.
+    """
+    response_length = config.actor_rollout_ref.rollout.get("response_length", None)
+    sections = [("actor_rollout_ref.actor", config.actor_rollout_ref.actor)]
+    if use_critic and config.get("critic") is not None:
+        sections.append(("critic", config.critic))
+    for name, section in sections:
+        if section.get("loss_agg_mode") != "seq-mean-token-sum-norm":
+            continue
+        factor = section.get("loss_scale_factor")
+        if factor is not None:
+            if not _is_finite_positive_number(factor):
+                raise ValueError(
+                    f"{name}.loss_scale_factor must be a finite positive number for "
+                    f"loss_agg_mode=seq-mean-token-sum-norm (it divides the loss), got {factor!r}. Leave it null to "
+                    "use actor_rollout_ref.rollout.response_length."
+                )
+            continue
+        if response_length is None:
+            logger.warning(
+                "%s.loss_scale_factor is null and actor_rollout_ref.rollout.response_length is unset: "
+                "seq-mean-token-sum-norm will normalize each micro-batch by its own padded width.",
+                name,
+            )
+            continue
+        if isinstance(response_length, bool) or not isinstance(response_length, int) or response_length <= 0:
+            raise ValueError(
+                f"actor_rollout_ref.rollout.response_length must be a positive integer to resolve "
+                f"{name}.loss_scale_factor=null (loss_agg_mode=seq-mean-token-sum-norm), got {response_length!r}. "
+                f"Fix it or set {name}.loss_scale_factor explicitly."
+            )
+        section.loss_scale_factor = response_length
+        logger.info(
+            "%s.loss_agg_mode=seq-mean-token-sum-norm with loss_scale_factor=null: resolved loss_scale_factor to "
+            "actor_rollout_ref.rollout.response_length=%d so every micro-batch is normalized by the same constant.",
+            name,
+            response_length,
         )
 
 
@@ -193,6 +261,9 @@ def validate_config(
                     f"[{name}] You have set both '{name}.{param}' AND '{name}.{param_per_gpu}'. Please remove "
                     f"'{name}.{param}' because only '*_{param_per_gpu}' is supported (the former is deprecated)."
                 )
+
+    # Resolve the seq-mean-token-sum-norm normalizer before the worker configs are built from this DictConfig.
+    _resolve_loss_scale_factor(config, use_critic)
 
     # Actor validation done in ActorConfig.__post_init__ and validate()
     actor_config = omega_conf_to_dataclass(config.actor_rollout_ref.actor)
