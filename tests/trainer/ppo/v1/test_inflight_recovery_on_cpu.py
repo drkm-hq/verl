@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""In-flight prompt recovery in the V1 replay buffer (TTL re-issue, re-issue cap, retired-attempt sweep).
+"""In-flight prompt recovery in the V1 replay buffer (TTL, dead-worker re-issue, retired-attempt sweep).
 
 These run against a real (CPU-only) TransferQueue, mirroring ``test_replay_buffer_on_cpu.py`` and
 ``test_reissue_inflight_on_cpu.py``. Only the agent loop worker that runs a prompt writes its terminal
 status; if that worker dies or hangs, the prompt stays ``running`` forever and, on ``main``, ``sample``
-never returns. With ``inflight_ttl_s`` the buffer re-issues such prompts mid-run
+never returns. With ``inflight_ttl_s`` (or a ``liveness_fn``) the buffer re-issues such prompts mid-run
 through ``PPOTrainer._reissue_inflight_prompts(partition_id, uids)`` and keeps polling.
 """
 
@@ -31,6 +31,7 @@ import torch
 import transfer_queue as tq
 from tensordict import TensorDict
 
+from verl.trainer.ppo.v1 import replay_buffer as replay_buffer_module
 from verl.trainer.ppo.v1 import trainer_base
 from verl.trainer.ppo.v1.replay_buffer import ReplayBuffer, ReplayBufferAsync
 from verl.trainer.ppo.v1.trainer_base import PPOTrainer
@@ -315,6 +316,7 @@ def test_sync_sample_reissues_expired_prompt_and_reports_metrics(tq_init, partit
         assert reissuer.calls == [[stuck]]
         assert [key.split("_")[0] for key in batch.keys] == reissuer.replacements
         assert metrics[f"{PREFIX}/inflight_reissued"] == 1
+        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 0
         assert metrics[f"{PREFIX}/inflight_expired_age_max"] >= 100
     finally:
         _clear_partition(partition_id)
@@ -376,6 +378,35 @@ def test_ttl_off_keeps_the_pre_existing_blocking_behaviour(tq_init, partition_id
         batch, metrics = sampler.result_or_raise()
         assert [key.split("_")[0] for key in batch.keys] == [stuck]
         assert f"{PREFIX}/inflight_reissued" not in metrics
+    finally:
+        _clear_partition(partition_id)
+
+
+def test_liveness_fn_is_polled_and_dead_owned_prompts_are_reissued(tq_init, partition_id, monkeypatch):
+    monkeypatch.setattr(replay_buffer_module, "WORKER_LIVENESS_PERIOD_SECONDS", 0.0)
+    dead_owned, alive = _uid(), _uid()
+    _submit_prompt(partition_id, dead_owned, "running", 1, dispatched_at=time.time())
+    _submit_prompt(partition_id, alive, "running", 1, dispatched_at=time.time())
+    reissuer = RecordingReissuer(partition_id)
+    probes: list[set[str]] = []
+
+    def liveness_fn(inflight_uids: set[str]) -> set[str]:
+        probes.append(set(inflight_uids))
+        # Report the dead worker's prompt once; a uid that is no longer in flight must be ignored.
+        return {dead_owned, "stale-uid"} if dead_owned in inflight_uids else set()
+
+    try:
+        rb = _make_rb(reissue_fn=reissuer, liveness_fn=liveness_fn)  # no TTL: the probe alone drives recovery
+        sampler = SampleThread(lambda: rb.sample(global_steps=1, partition_id=partition_id, batch_size=2))
+        sampler.start()
+        _finish(partition_id, alive)
+        batch, metrics = sampler.result_or_raise()
+        assert reissuer.calls == [[dead_owned]]
+        assert probes[0] == {dead_owned, alive}
+        assert {key.split("_")[0] for key in batch.keys} == {alive, *reissuer.replacements}
+        assert metrics[f"{PREFIX}/inflight_reissued"] == 1
+        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 1
+        assert f"{PREFIX}/inflight_expired_age_max" not in metrics
     finally:
         _clear_partition(partition_id)
 
@@ -450,6 +481,32 @@ def test_exhausted_reissues_become_a_failure_group_that_the_refill_path_replaces
         assert not any(key.startswith(stuck) for key in _partition_items(partition_id))
     finally:
         _clear_partition(partition_id)
+
+
+def test_validation_prompts_of_a_dead_worker_are_failed_in_place(tq_init):
+    """Validation groups are never regenerated: the probe runs for ``val`` too and a dead worker's groups
+    are marked ``failure`` under their own uid, so ``_validate``'s sample returns."""
+    finished, orphaned = _uid(), _uid()
+    tq.kv_batch_put(
+        keys=[finished, orphaned],
+        partition_id="val",
+        tags=[{"is_prompt": True, "status": "running", "global_steps": 1, "dispatched_at": time.time()}] * 2,
+    )
+    _finish("val", finished)
+    reissuer = RecordingReissuer("val")
+    try:
+        rb = _make_rb(reissue_fn=reissuer, liveness_fn=lambda inflight: {orphaned} & inflight, liveness_period_s=0.0)
+        batch, metrics = SampleThread(
+            lambda: rb.sample(global_steps=1, partition_id="val", batch_size=2)
+        ).result_or_raise()
+        assert reissuer.calls == []
+        assert [key.split("_")[0] for key in batch.keys] == [finished]
+        assert metrics["validation/inflight_dead_worker_failed"] == 1
+        # Both groups were selected (a failure group is sampleable) and their prompt keys cleared as usual;
+        # nothing was regenerated: no new prompt key exists.
+        assert not any(tag.get("is_prompt") for tag in _partition_items("val").values())
+    finally:
+        _clear_partition("val")
 
 
 def test_draining_clears_expired_prompts_instead_of_regenerating(tq_init, partition_id):
@@ -806,5 +863,72 @@ def test_hold_back_is_lifted_once_another_group_finished_so_a_dead_writer_is_pad
         assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 1 and dead in rb._retired_uids[partition_id]
         assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1 and reissuer.calls == []
         assert rb._ttl_discards_in_step[partition_id] == 1, "the failure is charged normally"
+    finally:
+        _clear_partition(partition_id)
+
+
+def test_dead_worker_prompts_are_reissued_even_when_the_ttl_budget_is_spent(tq_init, partition_id):
+    """The step budget bounds the TTL only: with the budget already spent an expired prompt waits (TTL
+    suspended), while a prompt whose worker the liveness probe reports dead is still re-issued, and that
+    re-issue does not count against the budget."""
+    expired, dead = _uid(), _uid()
+    _submit_prompt(partition_id, expired, "running", 1, dispatched_at=time.time() - 100)
+    _submit_prompt(partition_id, dead, "running", 1, dispatched_at=time.time())
+    reissuer = RecordingReissuer(partition_id)
+    try:
+        rb = _make_rb(
+            inflight_ttl_s=1,
+            max_inflight_reissues_per_step=1,
+            reissue_fn=reissuer,
+            liveness_fn=lambda inflight: {dead} & inflight,
+            liveness_period_s=0.0,
+        )
+        rb._begin_ttl_budget(partition_id, 1)
+        rb._ttl_discards_in_step[partition_id] = 1  # the step's budget is already spent
+        rb._sync_metadata_from_transfer_queue()
+        metrics: dict = {}
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is True
+        assert reissuer.calls == [[dead]]
+        assert metrics[f"{PREFIX}/inflight_reissued"] == 1
+        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 1
+        assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1
+        rb._sync_metadata_from_transfer_queue()
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is False
+        assert reissuer.calls == [[dead]] and expired in rb.running_keys[partition_id]
+    finally:
+        _clear_partition(partition_id)
+
+
+def test_dead_worker_death_events_are_bounded_per_step_and_fail_loudly(tq_init, partition_id):
+    """A liveness probe that keeps reporting every replacement's worker dead (a worker that dies after every
+    served dispatch, or a parked chunk whose worker never answers) must not re-issue and refill forever: the
+    probes of a step that report dead workers (death events) are bounded by the same allowance as the TTL's
+    discards, and beyond it the buffer raises instead of looping or hanging. One death that orphans many prompts
+    is a single event, so a large recoverable death never trips the bound."""
+    first, second, third = _uid(), _uid(), _uid()
+    for uid in (first, second):
+        _submit_prompt(partition_id, uid, "running", 1, dispatched_at=time.time())
+    reissuer = RecordingReissuer(partition_id)
+    try:
+        rb = _make_rb(
+            inflight_ttl_s=1,
+            max_inflight_reissues=0,
+            max_inflight_reissues_per_step=1,
+            reissue_fn=reissuer,
+            liveness_fn=lambda inflight: set(inflight),
+            liveness_period_s=0.0,
+        )
+        rb._begin_ttl_budget(partition_id, 1)
+        rb._sync_metadata_from_transfer_queue()
+        metrics: dict = {}
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is True
+        assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 2, "one death orphaning two prompts: one event"
+        assert rb._dead_worker_events_in_step[partition_id] == 1 and rb._dead_worker_discards_in_step[partition_id] == 2
+        assert rb._ttl_discards_in_step[partition_id] == 0, "dead-worker failures are not TTL discards"
+        _submit_prompt(partition_id, third, "running", 1, dispatched_at=time.time())  # the refill, dead again
+        rb._sync_metadata_from_transfer_queue()
+        with pytest.raises(RuntimeError, match="agent-loop workers keep dying: 2 liveness probes of step 1"):
+            rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1)
+        assert reissuer.calls == [] and rb._dead_worker_discards_in_step[partition_id] == 3
     finally:
         _clear_partition(partition_id)

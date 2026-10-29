@@ -179,10 +179,13 @@ class PPOTrainer(ABC):
             sampler_kwargs=sampler_config.sampler_kwargs,
             refill_fn=self._add_prompts_to_generate,
         )
-        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts that
-        # re-issues stuck prompts mid-run. Opt-in.
+        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts and a
+        # liveness probe of the agent loop workers, both re-issuing stuck prompts mid-run. Opt-in.
         inflight_ttl_s = sampler_config.get("inflight_ttl_s", None)
-        self.inflight_recovery_enabled = inflight_ttl_s is not None
+        relaunch_dead_workers = bool(
+            OmegaConf.select(self.config, "actor_rollout_ref.rollout.agent.relaunch_dead_workers", default=False)
+        )
+        self.inflight_recovery_enabled = inflight_ttl_s is not None or relaunch_dead_workers
         # Preserve the existing constructor contract for external samplers; custom implementations own
         # their filtering semantics and can consume algorithm.filter_groups through their own config.
         if not has_custom_sampler:
@@ -200,6 +203,7 @@ class PPOTrainer(ABC):
                     max_inflight_reissues_per_step=None if reissues_per_step is None else int(reissues_per_step),
                     reissue_fn=self._reissue_inflight_prompts,
                     train_batch_size=self.config.data.train_batch_size,  # the step's prompt count for the budget
+                    liveness_fn=self._reap_dead_workers if relaunch_dead_workers else None,
                 )
             if sampler_cls is ReplayBuffer:
                 filter_groups = self.config.algorithm.get("filter_groups", None)
@@ -518,6 +522,7 @@ class PPOTrainer(ABC):
 
                 self.on_step_end()
                 metrics.update(self._consume_sync_metrics())
+                metrics.update(self._consume_recovery_metrics())
 
             # 4. validate
             if self.config.trainer.test_freq > 0 and (
@@ -709,6 +714,22 @@ class PPOTrainer(ABC):
         metrics = getattr(self, "_pending_sync_metrics", None) or {}
         self._pending_sync_metrics = {}
         return metrics
+
+    def _consume_recovery_metrics(self, prefix: str = "rollout") -> dict:
+        """Dead-worker relaunch counters the agent loop manager accumulated since the last drain (its
+        ``rollout/...`` keys), re-keyed under ``prefix``: ``rollout/`` for a training step, ``validation/`` when
+        ``_validate`` drains them."""
+        counters = getattr(self.agent_loop_manager, "recovery_metrics", None)
+        if not counters:
+            return {}
+        metrics = {f"{prefix}/{name.removeprefix('rollout/')}": value for name, value in counters.items()}
+        counters.clear()
+        return metrics
+
+    def _reap_dead_workers(self, inflight_uids: set[str]) -> set[str]:
+        """Replay-buffer liveness hook: in-flight uids whose agent loop worker died (relaunched by the manager)."""
+        reap = getattr(self.agent_loop_manager, "reap_dead_workers", None)
+        return reap(inflight_uids, global_steps=self.global_steps) if reap is not None else set()
 
     def on_sample_begin(self):
         """Called at the beginning of sampling batch from replay buffer."""
@@ -1110,6 +1131,9 @@ class PPOTrainer(ABC):
         session_to_sample_idx: dict[str, int] = {}
         # To avoid failure sessions
         expected_acc_counts: dict[tuple[str, str], int] = {}
+        # Sampling-time recovery counters (dead-worker groups failed in place), summed over the batches.
+        recovery_metrics: dict[str, float] = {}
+        prompts_expected = prompts_without_rows = 0
 
         for batch_dict in self.val_dataloader:
             # 1. put batch to agent loop manager
@@ -1126,6 +1150,7 @@ class PPOTrainer(ABC):
             ):
                 rollout_n = int(rollout_n)
                 expected_acc_counts[(str(data_source), str(uid))] = rollout_n
+            prompts_expected += batch_size
 
             batch = tu.get_tensordict(batch_dict)
             tu.assign_non_tensor_data(batch, "global_steps", self.global_steps)
@@ -1137,9 +1162,22 @@ class PPOTrainer(ABC):
             self.agent_loop_manager.generate_sequences(batch)
 
             # 2. sample batch from replay buffer: one prompt (GRPO group) per submitted row.
-            batch, _ = self.replay_buffer.sample(
+            batch, sample_metrics = self.replay_buffer.sample(
                 global_steps=self.global_steps, partition_id="val", batch_size=len(batch)
             )
+            for key, value in sample_metrics.items():
+                recovery_metrics[key] = recovery_metrics.get(key, 0) + value
+            if not batch.keys:
+                # Every group of this batch ended without a trajectory (a dead worker's groups failed in place,
+                # or a live worker marked them failure): there is no row to score, fetch, decode, dump or clear
+                # (TransferQueue rejects an empty key list). The sessions stay in expected_acc_counts and count
+                # as acc = 0 wherever their data source reports acc.
+                prompts_without_rows += batch_size
+                logger.warning(
+                    f"[PPOTrainer] validation batch of {batch_size} prompts has no rows to score: every group "
+                    "ended without a trajectory; its sessions count as failures"
+                )
+                continue
 
             # 3. [OPTIONAL] compute reward score with colocated reward model
             if self.reward_loop_manager.reward_loop_worker_handles is None:
@@ -1225,9 +1263,9 @@ class PPOTrainer(ABC):
         # logger to wandb
         self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
 
-        # dump to local dir
+        # dump to local dir (nothing to write when every group lost its worker)
         val_data_dir = self.config.trainer.get("validation_data_dir", None)
-        if val_data_dir:
+        if val_data_dir and dump_all_keys:
             # Sort according to uid (so that generations in the same rollout are together)
             sort_keys = []
             for key in dump_all_keys:
@@ -1258,18 +1296,34 @@ class PPOTrainer(ABC):
                 dump_path=val_data_dir,
             )
 
-        return self._val_metrics_update(
+        metrics = self._val_metrics_update(
             data_sources,
             sample_uids,
             reward_extra_infos_dict,
             sample_turns,
             expected_acc_counts=expected_acc_counts,
         )
+        # The validation's own recovery counters, and the manager's relaunch counters raised during it, drained
+        # here so a relaunch during the final validation is logged with it instead of lost.
+        metrics.update(recovery_metrics)
+        metrics.update(self._consume_recovery_metrics(prefix="validation"))
+        dead_worker_failed = recovery_metrics.get("validation/inflight_dead_worker_failed", 0)
+        if prompts_without_rows > dead_worker_failed or not metrics:
+            # Row-less prompts beyond the dead-worker failures (a live worker that failed its groups), or a
+            # validation without any other metric: report the counts (fit() rejects an empty dict).
+            metrics["validation/prompts_expected"] = prompts_expected
+            metrics["validation/prompts_without_rows"] = prompts_without_rows
+        return metrics
 
     def _maybe_log_val_generations(self, inputs, outputs, scores):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""
         generations_to_log = self.config.trainer.log_val_generations
         if generations_to_log == 0:
+            return
+        if not inputs:
+            # Every validation group ended without a row (its worker died, or it failed): nothing to show, and
+            # an empty table row would not match the columns the logger built on a healthy validation.
+            logger.warning("[PPOTrainer] no validation sample materialized at this step; generations not logged")
             return
 
         # Create tuples of (input, output, score) and sort by input text
