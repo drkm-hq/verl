@@ -94,8 +94,15 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
 
     metrics = {}
 
+    # Strictly on-policy update (actor.skip_old_log_prob_when_on_policy): the old-log-prob pass was skipped
+    # because this forward runs at the sampling weights, so the current log-probs, detached, are the old
+    # ones (ratio 1, clipping inert; pg_clipfrac and ppo_kl are 0 by construction).
+    on_policy = tu.get_non_tensor_data(data=data, key="on_policy_skip_old_log_prob", default=False)
+
     # select fields and convert to padded tensor
-    fields = ["response_mask", "old_log_probs", "advantages"]
+    fields = ["response_mask", "advantages"]
+    if not on_policy:
+        fields.append("old_log_probs")
     if "rollout_is_weights" in data:
         fields.append("rollout_is_weights")
     if "ref_log_prob" in data:
@@ -104,7 +111,7 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
 
     response_mask = data["response_mask"].to(bool)
     # compute policy loss
-    old_log_prob = data["old_log_probs"]
+    old_log_prob = log_prob.detach() if on_policy else data["old_log_probs"]
     advantages = data["advantages"]
     rollout_is_weights = data.get("rollout_is_weights", None)
 

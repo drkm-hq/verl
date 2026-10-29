@@ -366,7 +366,24 @@ class TrainingWorker(Worker, DistProfilerExtension):
                             )
                     append_to_dict(metrics, output)
 
-                output = tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": metrics}).cpu()
+                output = tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": metrics})
+                if tu.get(data, key="return_model_output", default=False):
+                    # Also return the per-token model outputs of the update pass (log_probs, entropy, ...),
+                    # one row per input sample in input order: the sequential dataloader yields the
+                    # mini-batches in order and the engine restores each one to its own input order, so
+                    # their concatenation is row-aligned with `data` as long as nothing shuffles.
+                    assert epochs == 1 and not dataloader_kwargs.get("shuffle", False), (
+                        "return_model_output needs the mini-batches in input order (epochs=1, shuffle=False), "
+                        f"got {epochs=} {dataloader_kwargs=}"
+                    )
+                    model_output = tu.concat_tensordict([out.exclude("metrics") for out in output_lst])
+                    assert model_output.batch_size[0] == batch_size_per_dp, (
+                        f"{model_output.batch_size[0]} model output rows for {batch_size_per_dp} samples"
+                    )
+                    output = tu.get_tensordict(
+                        tensor_dict=dict(model_output.items()), non_tensor_dict={"metrics": metrics}
+                    )
+                output = output.cpu()
             else:
                 output = None
         return output
@@ -411,8 +428,9 @@ class TrainingWorker(Worker, DistProfilerExtension):
             lr = None
 
         if self.engine.is_mp_src_rank_with_outputs():
-            # we don't need model_output in training. Maybe we change out mind later
-            output.pop("model_output")
+            if not tu.get(data, key="return_model_output", default=False):
+                # we don't need model_output in training. Maybe we change out mind later
+                output.pop("model_output")
             if lr is not None:
                 output["metrics"]["lr"] = lr
             final_output = self._postprocess_output(
