@@ -20,6 +20,7 @@ never returns. With ``inflight_ttl_s`` the buffer re-issues such prompts mid-run
 through ``PPOTrainer._reissue_inflight_prompts(partition_id, uids)`` and keeps polling.
 """
 
+import logging
 import threading
 import time
 import uuid
@@ -536,3 +537,111 @@ def _batch_of(uids: list[str]):
     )
     tu.assign_non_tensor_data(batch, "global_steps", 1)
     return batch, uids
+
+
+def _inflight_prompt_uids(partition_id: str) -> list[str]:
+    """Prompts registered but not terminal (a re-issued attempt is ``pending`` until a worker flips it)."""
+    return [
+        key
+        for key, tag in _partition_items(partition_id).items()
+        if tag.get("is_prompt") and tag.get("status") in ("pending", "running")
+    ]
+
+
+@pytest.mark.parametrize("trainer_mode", ["sync", "separate_async"])
+def test_every_replacement_slow_is_bounded_by_the_step_budget_then_the_ttl_waits(
+    tq_init, partition_id, trainer_mode, caplog
+):
+    """Every generation exceeds the TTL: the original, every re-issue (real ``_reissue_inflight_prompts``,
+    ``attempt + 1``) and every refill that replaces an exhausted prompt (whose attempt starts again at 1, so
+    the per-prompt cap alone would regenerate forever). The per-step budget bounds the re-issues of one
+    sampling call; once spent the TTL is suspended with one warning and the metric, the sampler waits for the
+    in-flight generation as ``main`` does, and the step completes as soon as that generation finishes."""
+    caplog.set_level(logging.WARNING, logger=ReplayBuffer.__module__)
+    stub = _make_trainer_stub(trainer_mode=trainer_mode, global_steps=1)
+    refills: list[str] = []
+
+    def refill_fn(count: int) -> int:
+        for _ in range(count):
+            new_uid = _uid()
+            _submit_prompt(partition_id, new_uid, "running", 1, dispatched_at=time.time())  # attempt 1 again
+            refills.append(new_uid)
+        return count
+
+    stuck = _uid()
+    _submit_prompt(partition_id, stuck, "running", 1, dispatched_at=time.time() - 100)
+    try:
+        rb = _make_rb(
+            trainer_mode=trainer_mode,
+            inflight_ttl_s=0.3,
+            max_inflight_reissues=1,
+            max_inflight_reissues_per_step=3,
+            sync_refill_failed_groups=trainer_mode == "sync",
+            gen_batch_size=1 if trainer_mode == "sync" else None,
+            refill_fn=refill_fn,
+            reissue_fn=stub._reissue_inflight_prompts,
+        )
+        if trainer_mode == "sync":
+            thread = SampleThread(lambda: rb.sample(global_steps=1, partition_id=partition_id, batch_size=1))
+        else:
+            thread = SampleThread(
+                lambda: rb.wait_for_sampleable(global_steps=1, partition_id=partition_id, target_count=1)
+            )
+        thread.start()
+        deadline = time.time() + 15
+        while not any("suspending the TTL" in record.message for record in caplog.records):
+            assert thread.is_alive() and time.time() < deadline, "the TTL was never suspended"
+            time.sleep(POLL_INTERVAL)
+        # Budget spent (1 re-issue of the original + 1 of each of the 2 refills): the TTL is suspended, the
+        # generation in flight stays in flight past its expiry instead of being re-issued or failed again.
+        time.sleep(0.5)
+        inflight = _inflight_prompt_uids(partition_id)
+        assert len(inflight) == 1 and inflight[0] not in rb._retired_uids[partition_id]
+        assert len(stub.agent_loop_manager.batches) == 3, "re-issue dispatches == the step budget"
+        assert len(refills) == 2
+        _finish(partition_id, inflight[0], 1)  # the honest generation finishes late
+        result, metrics = thread.result_or_raise()
+        if trainer_mode == "sync":
+            assert [key.split("_")[0] for key in result.keys] == inflight
+        else:
+            assert result == set(inflight)
+        assert metrics[f"{PREFIX}/inflight_reissued"] == 3
+        assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 2
+        assert metrics[f"{PREFIX}/rollout_failure/evicted_samples"] == 2
+        assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1
+        suspensions = [record for record in caplog.records if "suspending the TTL" in record.message]
+        assert len(suspensions) == 1 and "max_inflight_reissues_per_step=3" in suspensions[0].message
+    finally:
+        _clear_partition(partition_id)
+
+
+def test_step_budget_caps_a_poll_to_the_oldest_expired_prompts(tq_init, partition_id):
+    """Three prompts expire in one poll with two re-issues left in the budget: the two oldest are re-issued,
+    the third waits and is never re-issued later in the same call."""
+    now = time.time()
+    uids = [_uid() for _ in range(3)]
+    for age, uid in zip((300, 200, 100), uids, strict=True):
+        _submit_prompt(partition_id, uid, "running", 1, dispatched_at=now - age)
+    reissuer = RecordingReissuer(partition_id)
+    try:
+        rb = _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=2, reissue_fn=reissuer)
+        rb._sync_metadata_from_transfer_queue()
+        metrics: dict = {}
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=rb._reissue_budget(3)) is True
+        assert reissuer.calls == [sorted(uids[:2])]
+        assert metrics[f"{PREFIX}/inflight_reissued"] == 2 and metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1
+        rb._sync_metadata_from_transfer_queue()
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=2) is False
+        assert reissuer.calls == [sorted(uids[:2])] and uids[2] in rb.running_keys[partition_id]
+    finally:
+        _clear_partition(partition_id)
+
+
+def test_step_budget_defaults_to_the_per_prompt_cap_times_the_batch():
+    reissue_fn = lambda partition, uids: []  # noqa: E731
+    assert _make_rb(inflight_ttl_s=1, max_inflight_reissues=3, reissue_fn=reissue_fn)._reissue_budget(16) == 48
+    assert _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=5, reissue_fn=reissue_fn)._reissue_budget(16) == 5
+    assert _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=0, reissue_fn=reissue_fn)._reissue_budget(16) == 0
+    for bad in (True, -1, 1.5):
+        with pytest.raises(AssertionError, match="max_inflight_reissues_per_step"):
+            _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=bad, reissue_fn=reissue_fn)

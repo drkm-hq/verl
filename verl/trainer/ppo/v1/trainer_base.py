@@ -193,9 +193,11 @@ class PPOTrainer(ABC):
                 sync_refill_failed_groups=sync_refill_failed_groups,
             )
             if self.inflight_recovery_enabled:
+                reissues_per_step = sampler_config.get("max_inflight_reissues_per_step", None)
                 replay_buffer_kwargs.update(
                     inflight_ttl_s=inflight_ttl_s,
                     max_inflight_reissues=int(sampler_config.get("max_inflight_reissues", 3)),
+                    max_inflight_reissues_per_step=None if reissues_per_step is None else int(reissues_per_step),
                     reissue_fn=self._reissue_inflight_prompts,
                 )
             if sampler_cls is ReplayBuffer:

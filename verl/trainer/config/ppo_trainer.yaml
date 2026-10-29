@@ -317,6 +317,13 @@ trainer:
       # instead, so the existing failure paths (padding or refill) finish the step.
       max_inflight_reissues: 3
 
+      # Re-issues the TTL may trigger within one training step (one sampling call). Once spent,
+      # the TTL is suspended for the rest of that step and the sampler waits for the in-flight
+      # generations, as without a TTL. The per-prompt cap alone does not bound a step: the refill
+      # that replaces an exhausted prompt starts at attempt 1. null = max_inflight_reissues x the
+      # batch size of the call.
+      max_inflight_reissues_per_step: null
+
       # Custom sampler config
       custom_sampler:
 

@@ -991,6 +991,7 @@ trainer:
       sync_refill_failed_groups: false
       inflight_ttl_s: null
       max_inflight_reissues: 3
+      max_inflight_reissues_per_step: null
       custom_sampler:
         path: null
         name: null

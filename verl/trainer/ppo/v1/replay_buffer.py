@@ -138,6 +138,9 @@ class ReplayBuffer:
             ``None`` disables the TTL.
         max_inflight_reissues (int): Re-issues one prompt may receive before it is marked ``failure`` instead
             (the ``attempt`` tag counts dispatches; the original is attempt 1). Defaults to 3.
+        max_inflight_reissues_per_step (int, optional): Re-issues the TTL may trigger within one sampling call
+            (one training step) before it is suspended for the rest of that call. ``None`` (default) resolves
+            to ``max_inflight_reissues`` times the batch size of the call.
         reissue_fn (callable, optional): Trainer-injected ``(partition_id, uids) -> list[str]`` that discards
             the partial rows of those in-flight prompts, re-dispatches them under fresh uids and returns the
             uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` is set.
@@ -150,8 +153,13 @@ class ReplayBuffer:
     never merge into the new group; the buffer sweeps any key the retired attempt still writes. The trainer
     never sees partial rows: the old trajectories are cleared before the new attempt is dispatched. After
     ``max_inflight_reissues`` re-issues a prompt is marked ``failure`` under a fresh uid and the existing
-    failure paths (padding or refill) finish the step. Validation prompts are never regenerated: the TTL does
-    not apply to ``val``.
+    failure paths (padding or refill) finish the step. That per-prompt cap alone does not bound a step (the
+    refill that replaces an exhausted prompt starts at attempt 1), so re-issues are also bounded per sampling
+    call: once ``max_inflight_reissues_per_step`` is spent the TTL is suspended for the rest of the call (one
+    warning, ``{prefix}/inflight_ttl_suspended`` = 1) and the loop waits for the in-flight generations as it
+    does without a TTL. A TTL below the honest generation time therefore costs a bounded number of
+    regenerations and then degrades to waiting; it never livelocks. Validation prompts are never regenerated:
+    the TTL does not apply to ``val``.
     """
 
     def __init__(
@@ -170,6 +178,7 @@ class ReplayBuffer:
         sync_refill_failed_groups: bool = False,
         inflight_ttl_s: float | None = None,
         max_inflight_reissues: int = 3,
+        max_inflight_reissues_per_step: int | None = None,
         reissue_fn=None,
     ):
         self.trainer_mode = trainer_mode
@@ -186,6 +195,7 @@ class ReplayBuffer:
         self.sync_refill_failed_groups = sync_refill_failed_groups
         self.inflight_ttl_s = inflight_ttl_s
         self.max_inflight_reissues = max_inflight_reissues
+        self.max_inflight_reissues_per_step = max_inflight_reissues_per_step
         self.reissue_fn = reissue_fn
 
         if self.inflight_ttl_s is not None:
@@ -199,6 +209,15 @@ class ReplayBuffer:
             and not isinstance(self.max_inflight_reissues, bool)
             and self.max_inflight_reissues >= 0
         ), f"Invalid max_inflight_reissues: {self.max_inflight_reissues}, must be a non-negative integer"
+        if self.max_inflight_reissues_per_step is not None:
+            assert (
+                isinstance(self.max_inflight_reissues_per_step, int)
+                and not isinstance(self.max_inflight_reissues_per_step, bool)
+                and self.max_inflight_reissues_per_step >= 0
+            ), (
+                f"Invalid max_inflight_reissues_per_step: {self.max_inflight_reissues_per_step}, must be a "
+                "non-negative integer or null"
+            )
         if self.inflight_ttl_s is not None and self.reissue_fn is None:
             raise ValueError("inflight_ttl_s requires reissue_fn to re-issue expired in-flight prompts")
         if self.max_off_policy_threshold is not None:
@@ -365,19 +384,60 @@ class ReplayBuffer:
         self._clear_groups(partition_id, uids)
         self._retired_uids[partition_id] |= uids
 
-    def _recover_stuck_inflight(self, partition_id: str, eviction_metrics: dict, draining: bool = False) -> bool:
+    def _reissue_budget(self, batch_size: int) -> int:
+        """Re-issues the TTL may trigger within one sampling call of ``batch_size`` prompts."""
+        if self.max_inflight_reissues_per_step is not None:
+            return self.max_inflight_reissues_per_step
+        return self.max_inflight_reissues * batch_size
+
+    def _ttl_reissues_so_far(self, prefix: str, eviction_metrics: dict) -> int:
+        """Re-issues the TTL triggered during the sampling call that owns ``eviction_metrics``."""
+        return int(eviction_metrics.get(f"{prefix}/inflight_reissued", 0))
+
+    def _expired_within_budget(
+        self, partition_id: str, expired: set[str], eviction_metrics: dict, reissue_budget: int
+    ) -> set[str]:
+        """The expired prompts the step budget still lets the TTL re-issue (oldest first).
+
+        Once the budget is spent the TTL is suspended for the rest of the sampling call: the other expired
+        prompts are waited for, as without a TTL (one warning, ``{prefix}/inflight_ttl_suspended`` = 1).
+        """
+        prefix = self._metrics_prefix(partition_id)
+        allowance = reissue_budget - self._ttl_reissues_so_far(prefix, eviction_metrics)
+        if len(expired) <= allowance:
+            return expired
+        key = f"{prefix}/inflight_ttl_suspended"
+        if key not in eviction_metrics:
+            eviction_metrics[key] = 1
+            logger.warning(
+                f"[V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step="
+                f"{reissue_budget}); suspending the TTL for the rest of this step and waiting for the "
+                f"{len(expired) - max(allowance, 0)} expired generations still in flight"
+            )
+        if allowance <= 0:
+            return set()
+        dispatched_at = self.prompt_dispatched_at[partition_id]
+        return set(sorted(expired, key=lambda uid: dispatched_at.get(uid, 0.0))[:allowance])
+
+    def _recover_stuck_inflight(
+        self, partition_id: str, eviction_metrics: dict, draining: bool = False, reissue_budget: int | None = None
+    ) -> bool:
         """Re-issue or fail in-flight prompts that expired; True when the caller must re-poll.
 
         Runs on a fresh ``_sync_metadata_from_transfer_queue`` snapshot and re-checks the TransferQueue right
         before acting, so a group that reached a terminal status in the meantime is sampled, never retired.
-        Metrics accrue into ``eviction_metrics`` under ``{prefix}/inflight_*``.
+        Metrics accrue into ``eviction_metrics`` under ``{prefix}/inflight_*``. ``reissue_budget`` caps the
+        re-issues the TTL may trigger over the sampling call that owns ``eviction_metrics`` (``None``: no cap).
         """
         if self.reissue_fn is None:
             return False
         self._sweep_retired_attempts(partition_id)
 
         now = time.time()
-        stuck = expired = self._expired_inflight_keys(partition_id, now)
+        expired = self._expired_inflight_keys(partition_id, now)
+        if expired and reissue_budget is not None:
+            expired = self._expired_within_budget(partition_id, expired, eviction_metrics, reissue_budget)
+        stuck = expired
         if not stuck:
             return False
         prefix = self._metrics_prefix(partition_id)
@@ -624,11 +684,14 @@ class ReplayBuffer:
         max_inflight_prompts = 0
         if dapo_enabled:
             max_inflight_prompts = self.max_inflight_gen_batches * self.train_batch_size
+        reissue_budget = self._reissue_budget(batch_size)
 
         while True:
             # Eviction, gating, and selection below must all use this snapshot.
             self._sync_metadata_from_transfer_queue()
-            if self._recover_stuck_inflight(partition_id, eviction_metrics, draining=draining):
+            if self._recover_stuck_inflight(
+                partition_id, eviction_metrics, draining=draining, reissue_budget=reissue_budget
+            ):
                 continue
 
             eviction_reasons = self._terminal_eviction_reasons(global_steps, partition_id)
@@ -749,11 +812,12 @@ class ReplayBufferAsync(ReplayBuffer):
         """
         last_debug_time = time.time()
         eviction_metrics: dict = {}
+        reissue_budget = self._reissue_budget(target_count)
 
         while True:
             # Eviction and selection share one snapshot so newly terminal stale groups wait for the next eviction pass.
             self._sync_metadata_from_transfer_queue()
-            if self._recover_stuck_inflight(partition_id, eviction_metrics):
+            if self._recover_stuck_inflight(partition_id, eviction_metrics, reissue_budget=reissue_budget):
                 continue
 
             eviction_reasons = self._terminal_eviction_reasons(global_steps, partition_id)
