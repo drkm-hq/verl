@@ -153,14 +153,24 @@ def loss_row_index(data: TensorDict) -> torch.Tensor:
     Args:
         data: TensorDict with nested ``input_ids`` and ``responses`` (``DatasetPadMode.NO_PADDING``).
 
-    Assumes every prompt is non-empty, like :func:`no_padding_2_padding` (which asserts it on the
-    consumer side); runs without a device-to-host sync.
+    Raises:
+        ValueError: if a sequence has no prompt token; its loss rows would start inside the previous
+            sequence (or wrap to the last row), so this is checked by name, at the cost of one
+            device-to-host transfer per micro-batch.
 
     Returns:
         LongTensor of shape ``(sum_i r_i,)`` on the device of ``input_ids``, strictly increasing.
     """
     offsets = data["input_ids"].offsets()
     response_lens = data["responses"].offsets().diff().to(offsets.device)
+    prompt_lens = offsets.diff() - response_lens
+    if prompt_lens.numel() > 0 and int(prompt_lens.min()) < 1:
+        bad = int((prompt_lens < 1).nonzero()[0, 0])
+        raise ValueError(
+            f"response_only_lm_head needs at least one prompt token per sequence: sequence {bad} has prompt "
+            f"length {int(prompt_lens[bad])} and response length {int(response_lens[bad])} (sequence lengths "
+            f"{offsets.diff().tolist()}, response lengths {response_lens.tolist()})"
+        )
     starts = offsets[1:] - response_lens - 1
     total = data["responses"].values().shape[0]  # sum of the response lengths, from the shape
     seq_id = torch.repeat_interleave(

@@ -620,8 +620,9 @@ class FSDPEngine(BaseEngine):
         """Decide once, at build time, whether this engine projects the LM head for loss rows only.
 
         ``response_only_lm_head`` is kept only when the engine, the model and the parallel layout
-        can use it. ``use_remove_padding=False`` contradicts it and raises; every other fixed
-        condition logs one warning on rank 0 and projects every packed row. Conditions that vary
+        can use it. On the LM-head engine ``use_remove_padding=False`` contradicts it and raises
+        (the value-head engine ignores the flag with a warning before that check); every other
+        fixed condition logs one warning on rank 0 and projects every packed row. Conditions that vary
         per micro-batch (logits processors, SFT-shaped batches) are checked in
         ``prepare_model_inputs`` instead.
         """
