@@ -257,6 +257,10 @@ agent:
   # Number of agent loop workers
   num_workers: 8
 
+  # V1 TransferQueue trainers only: re-create an agent loop worker whose Ray actor died
+  # (node loss, OOM kill, crash) and re-dispatch the prompts it owned instead of raising.
+  relaunch_dead_workers: false
+
   # default agent loop to use if `agent_name` not set in RL dataset
   default_agent_loop: single_turn_agent
 

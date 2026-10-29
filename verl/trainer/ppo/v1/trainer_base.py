@@ -179,10 +179,13 @@ class PPOTrainer(ABC):
             sampler_kwargs=sampler_config.sampler_kwargs,
             refill_fn=self._add_prompts_to_generate,
         )
-        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts that
-        # re-issues stuck prompts mid-run. Opt-in.
+        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts and a
+        # liveness probe of the agent loop workers, both re-issuing stuck prompts mid-run. Opt-in.
         inflight_ttl_s = sampler_config.get("inflight_ttl_s", None)
-        self.inflight_recovery_enabled = inflight_ttl_s is not None
+        relaunch_dead_workers = bool(
+            OmegaConf.select(self.config, "actor_rollout_ref.rollout.agent.relaunch_dead_workers", default=False)
+        )
+        self.inflight_recovery_enabled = inflight_ttl_s is not None or relaunch_dead_workers
         # Preserve the existing constructor contract for external samplers; custom implementations own
         # their filtering semantics and can consume algorithm.filter_groups through their own config.
         if not has_custom_sampler:
@@ -200,6 +203,7 @@ class PPOTrainer(ABC):
                     max_inflight_reissues_per_step=None if reissues_per_step is None else int(reissues_per_step),
                     reissue_fn=self._reissue_inflight_prompts,
                     train_batch_size=self.config.data.train_batch_size,  # the step's prompt count for the budget
+                    liveness_fn=self._reap_dead_workers if relaunch_dead_workers else None,
                 )
             if sampler_cls is ReplayBuffer:
                 filter_groups = self.config.algorithm.get("filter_groups", None)
@@ -518,6 +522,7 @@ class PPOTrainer(ABC):
 
                 self.on_step_end()
                 metrics.update(self._consume_sync_metrics())
+                metrics.update(self._consume_recovery_metrics())
 
             # 4. validate
             if self.config.trainer.test_freq > 0 and (
@@ -709,6 +714,20 @@ class PPOTrainer(ABC):
         metrics = getattr(self, "_pending_sync_metrics", None) or {}
         self._pending_sync_metrics = {}
         return metrics
+
+    def _consume_recovery_metrics(self) -> dict:
+        """Dead-worker relaunch counters the agent loop manager accumulated during this step."""
+        counters = getattr(self.agent_loop_manager, "recovery_metrics", None)
+        if not counters:
+            return {}
+        metrics = dict(counters)
+        counters.clear()
+        return metrics
+
+    def _reap_dead_workers(self, inflight_uids: set[str]) -> set[str]:
+        """Replay-buffer liveness hook: in-flight uids whose agent loop worker died (relaunched by the manager)."""
+        reap = getattr(self.agent_loop_manager, "reap_dead_workers", None)
+        return reap(inflight_uids) if reap is not None else set()
 
     def on_sample_begin(self):
         """Called at the beginning of sampling batch from replay buffer."""

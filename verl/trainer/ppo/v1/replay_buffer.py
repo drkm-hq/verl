@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 
 VERL_REPLAY_BUFFER_DEBUG_INTERVAL_SECONDS = int(os.getenv("VERL_REPLAY_BUFFER_DEBUG_INTERVAL_SECONDS", "60"))
+# How often the sampling loops probe agent loop workers for liveness when ``liveness_fn`` is wired.
+WORKER_LIVENESS_PERIOD_SECONDS = float(os.getenv("VERL_WORKER_LIVENESS_PERIOD_SECONDS", "10"))
 
 DAPO_FILTERED_REWARD_COUNTS_KEY = "_dapo_filtered_reward_counts"
 FILTER_GROUPS_REWARD_METRIC = "reward"
@@ -147,12 +149,17 @@ class ReplayBuffer:
             ``max_inflight_reissues=0`` never re-issues: an expired prompt is failed on its first expiry.
         reissue_fn (callable, optional): Trainer-injected ``(partition_id, uids) -> list[str]`` that discards
             the partial rows of those in-flight prompts, re-dispatches them under fresh uids and returns the
-            uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` is set.
+            uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` or
+            ``liveness_fn`` is set.
+        liveness_fn (callable, optional): Trainer-injected ``(inflight_uids) -> set[str]`` that probes the
+            agent loop workers and returns the in-flight uids whose worker died.
+        liveness_period_s (float, optional): Seconds between probes; defaults to
+            ``WORKER_LIVENESS_PERIOD_SECONDS`` (env ``VERL_WORKER_LIVENESS_PERIOD_SECONDS``).
 
     ### [In-flight recovery]
     Only the agent loop worker that runs a prompt writes its terminal status. If that worker dies or its
     generation silently hangs, the prompt stays ``running`` forever and sampling never completes. With
-    ``inflight_ttl_s`` the loops re-issue such prompts through ``reissue_fn`` and keep polling.
+    ``inflight_ttl_s``/``liveness_fn`` the loops re-issue such prompts through ``reissue_fn`` and keep polling.
     A re-issued prompt gets a fresh uid, so late writes from the retired attempt (a slow-not-dead worker) can
     never merge into the new group; the buffer sweeps any key the retired attempt still writes. The trainer
     never sees partial rows: the old trajectories are cleared before the new attempt is dispatched. After
@@ -167,7 +174,7 @@ class ReplayBuffer:
     regenerates). The number of TTL-induced discards per step is therefore bounded by the budget; a generation
     that never returns still blocks the step once it is spent, as without a TTL (an explicit wait-vs-abort
     policy at that point is a follow-up). Validation prompts are never regenerated: the TTL does not apply to
-    ``val``.
+    ``val``, and a dead worker's validation groups are marked ``failure`` in place.
     """
 
     def __init__(
@@ -188,6 +195,8 @@ class ReplayBuffer:
         max_inflight_reissues: int = 3,
         max_inflight_reissues_per_step: int | None = None,
         reissue_fn=None,
+        liveness_fn=None,
+        liveness_period_s: float | None = None,
     ):
         self.trainer_mode = trainer_mode
         self.trainer_config = trainer_config
@@ -205,6 +214,8 @@ class ReplayBuffer:
         self.max_inflight_reissues = max_inflight_reissues
         self.max_inflight_reissues_per_step = max_inflight_reissues_per_step
         self.reissue_fn = reissue_fn
+        self.liveness_fn = liveness_fn
+        self.liveness_period_s = liveness_period_s
 
         if self.inflight_ttl_s is not None:
             assert (
@@ -227,8 +238,8 @@ class ReplayBuffer:
                 "positive integer or null (null = (max_inflight_reissues + 1) x train_batch_size; to disable the "
                 "TTL set inflight_ttl_s to null)"
             )
-        if self.inflight_ttl_s is not None and self.reissue_fn is None:
-            raise ValueError("inflight_ttl_s requires reissue_fn to re-issue expired in-flight prompts")
+        if (self.inflight_ttl_s is not None or self.liveness_fn is not None) and self.reissue_fn is None:
+            raise ValueError("inflight_ttl_s / liveness_fn require reissue_fn to re-issue stuck in-flight prompts")
         if self.max_off_policy_threshold is not None:
             assert isinstance(self.max_off_policy_threshold, int) and self.max_off_policy_threshold > 0, (
                 f"Invalid max off policy threshold: {self.max_off_policy_threshold}, "
@@ -267,6 +278,7 @@ class ReplayBuffer:
         self._ttl_budget_step: dict[str, int] = {}
         self._ttl_discards_in_step: dict[str, int] = defaultdict(int)
         self._ttl_suspension_warned: set[str] = set()
+        self._liveness_last_probe = 0.0
 
     def _validate_mode_config(self) -> None:
         if self.filter_groups_metric is not None:
@@ -380,10 +392,29 @@ class ReplayBuffer:
                 status_keys[partition_id].difference_update(late_keys)
         return len(late_keys)
 
-    def _fail_exhausted(self, partition_id: str, uids: set[str]) -> None:
-        """Turn groups whose re-issues are exhausted into ``failure`` under fresh uids, so the existing failure
-        paths (padding, refill) finish the step; the old attempt is retired and its rows cleared, as for a
-        re-issue."""
+    def _probe_dead_owned(self, partition_id: str, now: float) -> set[str]:
+        """In-flight prompts of ``partition_id`` whose worker the liveness probe reports dead (once per period)."""
+        if self.liveness_fn is None:
+            return set()
+        period = self.liveness_period_s if self.liveness_period_s is not None else WORKER_LIVENESS_PERIOD_SECONDS
+        if now - self._liveness_last_probe < period:
+            return set()
+        self._liveness_last_probe = now
+        # Hand over every partition's in-flight set: train prompts stay in flight during validation.
+        partitions = set(self.pending_keys) | set(self.running_keys)
+        inflight_all = set().union(*(self._inflight_uids(pid) for pid in partitions))
+        return set(self.liveness_fn(inflight_all)) & self._inflight_uids(partition_id)
+
+    def _fail_groups(self, partition_id: str, uids: set[str], fresh_uid: bool) -> None:
+        """Turn stuck groups into ``failure`` so the existing failure paths (padding, refill) finish the step.
+
+        With ``fresh_uid`` (re-issues exhausted) the old attempt is retired and its rows cleared, as for a
+        re-issue. Validation groups keep their uid (``_validate`` accounts per uid); their writer is dead.
+        """
+        if not fresh_uid:
+            for uid in sorted(uids):
+                tq.kv_put(key=uid, partition_id=partition_id, tag={"status": "failure"})
+            return
         tags = [
             {
                 "is_prompt": True,
@@ -465,7 +496,7 @@ class ReplayBuffer:
         reissue_budget: int | None = None,
         keep_last_finishable: bool = False,
     ) -> bool:
-        """Re-issue or fail in-flight prompts that expired; True when the caller must re-poll.
+        """Re-issue or fail in-flight prompts that expired or whose worker died; True when the caller must re-poll.
 
         Runs on a fresh ``_sync_metadata_from_transfer_queue`` snapshot and re-checks the TransferQueue right
         before acting, so a group that reached a terminal status in the meantime is sampled, never retired.
@@ -475,12 +506,14 @@ class ReplayBuffer:
         padding-mode sampler, where a failure is not replaced) an exhaustion failure that would leave no finished
         group and nothing else in flight is held back for this poll instead (see ``_hold_back_last_groups``).
         """
-        if self.reissue_fn is None:
+        if self.reissue_fn is None and self.liveness_fn is None:
             return False
         self._sweep_retired_attempts(partition_id)
 
         now = time.time()
-        stuck = expired = self._expired_inflight_keys(partition_id, now)
+        expired = self._expired_inflight_keys(partition_id, now)
+        dead_owned = self._probe_dead_owned(partition_id, now)
+        stuck = expired | dead_owned
         if not stuck:
             return False
         prefix = self._metrics_prefix(partition_id)
@@ -494,6 +527,11 @@ class ReplayBuffer:
         self._sync_metadata_from_transfer_queue()
         stuck &= self._inflight_uids(partition_id)
         if not stuck:
+            return True
+        if partition_id == "val":
+            logger.warning(f"[V1ReplayBuffer] marking {len(stuck)} validation prompts of dead workers as failure")
+            self._fail_groups(partition_id, stuck, fresh_uid=False)
+            count("inflight_dead_worker_failed", len(stuck))
             return True
         if draining:
             # Sync DAPO drain: every in-flight group is discarded as surplus anyway, so do not regenerate.
@@ -529,7 +567,9 @@ class ReplayBuffer:
                     "including engine queueing, or healthy generations are restarted from scratch"
                 )
             logger.warning(
-                f"[V1ReplayBuffer] re-issuing {len(to_reissue)} expired in-flight prompts (oldest age: {age_max:.1f}s)"
+                f"[V1ReplayBuffer] re-issuing {len(to_reissue)} stuck in-flight prompts "
+                f"(ttl expired: {len(to_reissue & expired)}, dead worker: {len(to_reissue & dead_owned)}, "
+                f"oldest age: {age_max:.1f}s)"
             )
             result = self.reissue_fn(partition_id, sorted(to_reissue))
             claimed = None if isinstance(result, int) else set(result)
@@ -545,10 +585,11 @@ class ReplayBuffer:
                 f"[V1ReplayBuffer] {len(exhausted)} prompts exceeded max_inflight_reissues="
                 f"{self.max_inflight_reissues}; marking them failure: {sorted(exhausted)[:4]}"
             )
-            self._fail_exhausted(partition_id, exhausted)
+            self._fail_groups(partition_id, exhausted, fresh_uid=True)
         self._ttl_discards_in_step[partition_id] += len(reissued) + len(exhausted)
 
         count("inflight_reissued", len(reissued))
+        count("inflight_dead_worker_reissued", len(reissued & dead_owned))
         count("inflight_reissue_exhausted", len(exhausted))
         if expired & (reissued | exhausted):
             key = f"{prefix}/inflight_expired_age_max"

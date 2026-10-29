@@ -234,6 +234,7 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
     agg.add_step_metrics(
         {
             "training/inflight_reissued": 4,
+            "training/inflight_dead_worker_reissued": 2,
             "training/inflight_reissue_exhausted": 1,
             "training/inflight_ttl_suspended": 1,
             "training/inflight_expired_age_max": 30.0,
@@ -243,6 +244,7 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
     agg.add_step_metrics(
         {
             "training/inflight_reissued": 0,
+            "training/inflight_dead_worker_reissued": 0,
             "training/inflight_reissue_exhausted": 0,
             "training/inflight_ttl_suspended": 0,
             "training/inflight_expired_age_max": 12.0,
@@ -251,6 +253,7 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
     )
     out = agg.get_aggregated_metrics()
     assert out["training/inflight_reissued"] == 4
+    assert out["training/inflight_dead_worker_reissued"] == 2
     assert out["training/inflight_reissue_exhausted"] == 1
     assert out["training/inflight_ttl_suspended"] == 1
     agg = MetricsAggregator()

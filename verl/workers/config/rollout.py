@@ -72,6 +72,8 @@ class CustomAsyncServerConfig(BaseConfig):
 @dataclass
 class AgentLoopConfig(BaseConfig):
     num_workers: int = 8
+    # V1 TransferQueue trainers: re-create dead agent loop worker actors and re-dispatch their prompts.
+    relaunch_dead_workers: bool = False
     default_agent_loop: str = "single_turn_agent"
     agent_loop_config_path: Optional[str] = None
     custom_async_server: CustomAsyncServerConfig = field(default_factory=CustomAsyncServerConfig)
