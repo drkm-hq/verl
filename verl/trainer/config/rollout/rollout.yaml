@@ -215,7 +215,7 @@ multi_turn:
 
   # Write each assistant turn's tool step rewards (BaseTool.execute's reward, summed per turn) on the last
   # generated token of that turn and the episode score on the last generated token of the response, so
-  # token-level estimators (reinforce_plus_plus, gae) credit turns. Off: one score on the last token.
+  # token-level estimators (reinforce_plus_plus, gae, turn_rloo) credit turns. Off: one score on the last token.
   # Requires the reward to be computed in the agent loop (rule-based reward or a reward model with
   # reward.reward_model.enable_resource_pool=True): a colocated reward model would overwrite the row.
   # The last allowed assistant turn never runs its tool calls, so give an environment of K steps

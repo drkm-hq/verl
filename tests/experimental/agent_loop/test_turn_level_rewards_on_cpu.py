@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """ToolAgentLoop end to end on CPU: turn spans, per-turn tool rewards, ``ToolResponse.done`` and the dense
-``rm_scores`` written by ``rollout.multi_turn.turn_level_rewards``.
+``rm_scores`` written by ``rollout.multi_turn.turn_level_rewards``, fed to ``turn_rloo``.
 
 The LLM server, tokenizer and Continuous Token merges are scripted; the loop, the tool dispatch and the
 reward writer are the real code.
@@ -22,12 +22,14 @@ reward writer are the real code.
 from types import SimpleNamespace
 from typing import Any
 
+import numpy as np
 import pytest
 import torch
 
 from verl.experimental.agent_loop.tool_agent_loop import ToolAgentLoop
 from verl.experimental.agent_loop.tool_parser import FunctionCall
 from verl.tools.schemas import ToolResponse
+from verl.trainer.ppo.core_algos import compute_turn_rloo_advantage
 from verl.utils.tokenizer.continuous_token import MergeResult
 from verl.workers.rollout.replica import TokenOutput
 
@@ -244,6 +246,39 @@ async def test_flag_off_keeps_the_default_scalar_placement_byte_identical():
         "mm_processor_output",
     }
     assert fields["extra_fields"]["tool_rewards"] == [0.25, -0.5, 1.0]  # exported as before
+
+
+@pytest.mark.asyncio
+async def test_turn_rloo_on_a_group_of_episodes_matches_hand_computed_advantages():
+    turn_rewards = [[1.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 1.0]]
+    outcomes = [1.0, 0.0, 0.0, 1.0]
+    rows, spans = [], np.empty(4, dtype=object)
+    for i, (rewards, outcome) in enumerate(zip(turn_rewards, outcomes, strict=False)):
+        _, output = await run_episode(rewards, turn_level_rewards=True)
+        output.reward_score = outcome
+        fields = output.as_dict()
+        rows.append((fields["rm_scores"], fields["response_mask"].float()))
+        spans[i] = fields["extra_fields"]["generated_turn_spans"]
+    token_level_rewards = torch.stack([r for r, _ in rows])
+    response_mask = torch.stack([m for _, m in rows])
+
+    adv, _ = compute_turn_rloo_advantage(
+        token_level_rewards,
+        response_mask,
+        np.array(["prompt"] * 4),
+        turn_spans=spans,
+        config=SimpleNamespace(gamma=1.0),
+    )
+
+    returns = [
+        [sum(rewards[t:]) + outcome for t in range(3)] for rewards, outcome in zip(turn_rewards, outcomes, strict=False)
+    ]
+    for i in range(4):
+        for t, (start, end) in enumerate(spans[i]):
+            baseline = sum(returns[j][t] for j in range(4) if j != i) / 3
+            torch.testing.assert_close(adv[i, start:end], torch.full((end - start,), returns[i][t] - baseline))
+    assert torch.all(adv[:, [3, 4, 8, 9, 13, 14]] == 0), "observation tokens carry no advantage"
+    assert adv[0, 0] != adv[0, 10], "per-turn credit: turn 1 and turn 3 of the same episode differ"
 
 
 def test_v0_postprocess_writes_dense_rm_scores_only_for_rows_with_turn_rewards():

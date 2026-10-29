@@ -18,6 +18,7 @@ PPO Trainer with Ray-based single controller.
 This trainer supports model-agonistic model initialization with huggingface
 """
 
+import inspect
 import json
 import os
 import uuid
@@ -257,6 +258,13 @@ def compute_advantage(
             adv_kwargs["index"] = data.non_tensor_batch["uid"]
         if "reward_baselines" in data.batch:  # optional
             adv_kwargs["reward_baselines"] = data.batch["reward_baselines"]
+        # turn spans (tool agent loop, rollout.multi_turn.turn_level_rewards) go only to estimators that
+        # declare a `turn_spans` parameter, so by-name estimators without **kwargs keep working
+        if (
+            "generated_turn_spans" in data.non_tensor_batch
+            and "turn_spans" in inspect.signature(adv_estimator_fn).parameters
+        ):
+            adv_kwargs["turn_spans"] = data.non_tensor_batch["generated_turn_spans"]
         # GDPO: pass raw data for per-dimension reward extraction
         if adv_estimator in (AdvantageEstimator.GDPO, "gdpo"):
             adv_kwargs["non_tensor_batch"] = data.non_tensor_batch

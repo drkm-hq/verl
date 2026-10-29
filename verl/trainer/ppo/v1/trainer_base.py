@@ -1744,12 +1744,22 @@ class PPOTrainer(ABC):
     def _compute_advantage(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
         """Compute the advantage of the batch."""
         fields = ["uid", "response_mask", "rm_scores", "rollout_log_probs", "old_log_probs", "ref_log_prob", "values"]
+        fields += ["extra_fields"]  # generated_turn_spans for turn-level estimators
         data = tq.kv_batch_get(keys=batch.keys, partition_id=batch.partition_id, select_fields=fields)
 
         response_mask = data["response_mask"]
         data = DataProto(batch=data.to_padded_tensor())
         data.batch["token_level_scores"] = data.batch["rm_scores"]
         data.non_tensor_batch["uid"] = np.array(data.batch.pop("uid").tolist(), dtype=object)
+        # the tool agent loop's generated_turn_spans feed turn-level estimators such as turn_rloo.
+        # `extra_fields` is a non-tensor field (a LinkedList, NonTensorStack or numpy array depending on
+        # the TransferQueue backend); list(...) + unwrap normalizes every element to the row's dict.
+        extra_fields = [tu.unwrap_non_tensor_data(row) for row in list(data.batch.pop("extra_fields"))]
+        if any(isinstance(row, dict) and "generated_turn_spans" in row for row in extra_fields):
+            turn_spans = np.empty(len(extra_fields), dtype=object)
+            for i, row in enumerate(extra_fields):
+                turn_spans[i] = row.get("generated_turn_spans") if isinstance(row, dict) else None
+            data.non_tensor_batch["generated_turn_spans"] = turn_spans
 
         # 1. apply kl penalty to rewards
         if self.config.algorithm.use_kl_in_reward:

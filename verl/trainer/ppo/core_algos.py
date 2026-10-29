@@ -636,6 +636,111 @@ def compute_rloo_outcome_advantage(
     return scores, scores
 
 
+@register_adv_est("turn_rloo")
+def compute_turn_rloo_advantage(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    turn_spans: Optional[Any] = None,
+    config: Optional[AlgoConfig] = None,
+    norm_adv_by_std: bool = False,
+    epsilon: float = 1e-6,
+    **kwargs,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Turn-level RLOO: a leave-one-out return-to-go baseline per turn index (RFC #7244).
+
+    For sample ``i`` of a group sharing a prompt, the reward of turn ``t`` is the sum of
+    ``token_level_rewards`` over its segment ``[s_t, s_{t+1})`` (segment 0 starts at token 0 and the
+    last one runs to the end of the row, so a reward placed on an observation token still counts),
+    the return-to-go is ``G[i, t] = sum_{t' >= t} gamma^(t' - t) R[i, t']`` with ``gamma = config.gamma``
+    and the advantage of every generated token of turn ``t`` is ``G[i, t] - mean_{j != i, m_j > t} G[j, t]``:
+    the baseline averages the other group members that reached turn ``t`` and is 0 when none did
+    (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
+    Tokens outside a span (tool observations) get 0. A row without spans is one turn ``[0, L)``,
+    so without ``turn_spans`` the estimator equals ``rloo``.
+
+    Normalising each turn by the group mean of the *same turn's reward* (the MT-GRPO shape) is biased
+    whenever the policy decides whether a later turn happens at all; the leave-one-out return-to-go
+    baseline is not. tests/trainer/ppo/test_turn_rloo_on_cpu.py checks both against the exact gradient.
+
+    Args:
+        token_level_rewards: `(torch.Tensor)`
+            shape: (bs, response_length); dense, each turn's reward on a token of its segment
+            (``rollout.multi_turn.turn_level_rewards`` writes it on the turn's last generated token)
+        response_mask: `(torch.Tensor)`
+            shape: (bs, response_length), 1 for generated tokens
+        index: `(np.ndarray)`
+            shape: (bs,), group id of each sample (``uid``)
+        turn_spans: per sample, the ``[start, end)`` offsets of its generated turns
+            (``extra_fields["generated_turn_spans"]``) or None
+        config: (AlgoConfig) algorithm config; ``gamma`` discounts per turn (1.0 is the RFC's form)
+        norm_adv_by_std: divide each (group, turn) advantage by the std of the members' returns
+        epsilon: std floor for ``norm_adv_by_std``
+
+    Returns:
+        advantages: `(torch.Tensor)`
+            shape: (bs, response_length)
+        Returns: `(torch.Tensor)`
+            shape: (bs, response_length); ``G[i, t]`` on the generated tokens of turn ``t``
+    """
+    bs, length = token_level_rewards.shape
+    gamma = config.gamma if config is not None else 1.0
+    rows = turn_spans if turn_spans is not None else [None] * bs
+    spans_per_row = []
+    for spans in rows:
+        # a span that starts past the row end covers no token: not a turn the sample reached
+        spans = [(int(s), min(int(e), length)) for s, e in spans if int(s) < length] if spans is not None else []
+        spans_per_row.append(spans or [(0, length)])
+    max_turns = max(len(spans) for spans in spans_per_row)
+
+    with torch.no_grad():
+        # segment_id: the turn whose reward segment holds each token; span_id: the turn whose
+        # generated tokens it belongs to (-1 outside every span)
+        segment_id = torch.zeros(bs, length, dtype=torch.long, device=token_level_rewards.device)
+        span_id = torch.full_like(segment_id, -1)
+        reached = torch.zeros(bs, max_turns, dtype=torch.bool, device=token_level_rewards.device)
+        for i, spans in enumerate(spans_per_row):
+            reached[i, : len(spans)] = True
+            for t, (start, end) in enumerate(spans):
+                next_start = spans[t + 1][0] if t + 1 < len(spans) else length
+                segment_id[i, (start if t else 0) : next_start] = t
+                span_id[i, start:end] = t
+
+        turn_rewards = torch.zeros(bs, max_turns, dtype=token_level_rewards.dtype, device=token_level_rewards.device)
+        turn_rewards.scatter_add_(1, segment_id, token_level_rewards)
+        returns = torch.zeros_like(turn_rewards)
+        running = torch.zeros(bs, dtype=turn_rewards.dtype, device=turn_rewards.device)
+        for t in reversed(range(max_turns)):
+            running = turn_rewards[:, t] + gamma * running
+            returns[:, t] = running
+        returns = returns * reached
+
+        # leave-one-out mean (and optionally std) over the group members that reached each turn
+        _, group_ids = np.unique(index, return_inverse=True)
+        group_ids = torch.as_tensor(group_ids, dtype=torch.long, device=returns.device)
+        num_groups = int(group_ids.max().item()) + 1 if bs else 0
+        counts = torch.zeros(num_groups, max_turns, dtype=returns.dtype, device=returns.device)
+        counts.index_add_(0, group_ids, reached.to(returns.dtype))
+        sums = torch.zeros_like(counts).index_add_(0, group_ids, returns)
+        others = counts[group_ids] - reached.to(returns.dtype)
+        baseline = torch.where(others > 0, (sums[group_ids] - returns) / others.clamp(min=1), torch.zeros_like(returns))
+        advantages = (returns - baseline) * reached
+        if norm_adv_by_std:
+            sums_sq = torch.zeros_like(counts).index_add_(0, group_ids, returns * returns)
+            group_counts = counts[group_ids]
+            denominator = (group_counts - 1).clamp(min=1)
+            var = (sums_sq[group_ids] - sums[group_ids] ** 2 / group_counts.clamp(min=1)) / denominator
+            std = torch.where(group_counts > 1, var.clamp(min=0).sqrt(), torch.zeros_like(var))
+            advantages = torch.where(group_counts > 1, advantages / (std + epsilon), advantages)
+
+        in_span = (span_id >= 0).to(returns.dtype) * response_mask
+        token_index = span_id.clamp(min=0)
+        advantages = torch.gather(advantages, 1, token_index) * in_span
+        returns = torch.gather(returns, 1, token_index) * in_span
+
+    return advantages, returns
+
+
 @register_adv_est(AdvantageEstimator.OPO)  # or simply: @register_adv_est("opo")
 def compute_opo_outcome_advantage(
     token_level_rewards: torch.Tensor,
