@@ -163,3 +163,35 @@ def test_layerdrop_and_drop_path_keys_are_detected(tmp_path):
         tmp_path / "dinov2"
     )
     assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "dinov2")})) == [("drop_path_rate", 0.2)]
+
+
+def save_loha_adapter(path, rank_dropout):
+    """A peft LoHa adapter (lycoris family): verl's loader accepts any peft_type, and peft keeps its train-mode
+    rate ``rank_dropout`` as a dict on the layer, not as an nn.Dropout (round-2 re-review D1)."""
+    from peft import LoHaConfig
+
+    torch.manual_seed(0)
+    loha = LoHaConfig(
+        r=4, alpha=4, rank_dropout=rank_dropout, target_modules=["q_proj", "v_proj"], task_type=TaskType.CAUSAL_LM
+    )
+    model = get_peft_model(Qwen3ForCausalLM(qwen3_config()), loha)
+    for name, param in model.named_parameters():
+        if "hada_w" in name:
+            torch.nn.init.normal_(param, std=0.05)
+    model.save_pretrained(path)
+    return str(path)
+
+
+def test_non_lora_peft_adapter_is_rejected_by_type_and_rate(on_policy_config, tmp_path):
+    qwen3_config().save_pretrained(tmp_path / "base")
+    base = {f"{MODEL}.path": str(tmp_path / "base"), f"{MODEL}.lora_rank": 4}
+    loha = save_loha_adapter(tmp_path / "loha", 0.5)
+    config = _with(on_policy_config, **base, **{f"{MODEL}.lora_adapter_path": loha})
+    assert _hf_config_dropouts(config.actor_rollout_ref.model) == [("peft_type", "LOHA"), ("rank_dropout", 0.5)]
+    _rejected(config, "peft_type=LOHA", "rank_dropout=0.5", "only a peft_type=LORA adapter")
+    # without rank dropout the type alone rejects it: LoHa / LoKr keep other train-mode rates, are not LoRA
+    quiet = _with(
+        on_policy_config, **base, **{f"{MODEL}.lora_adapter_path": save_loha_adapter(tmp_path / "loha0", 0.0)}
+    )
+    assert _hf_config_dropouts(quiet.actor_rollout_ref.model) == [("peft_type", "LOHA")]
+    _rejected(quiet, "peft_type=LOHA")

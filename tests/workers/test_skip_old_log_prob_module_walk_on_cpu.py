@@ -176,3 +176,70 @@ def test_worker_refuses_a_train_mode_dependent_actor_and_names_up_to_five_module
     assert "5: Dropout" not in message and message.endswith("; +2 more")
     with pytest.raises(ValueError, match="exposes no `module`"):
         check(_worker(None))
+
+
+def test_loha_adapter_dict_valued_rank_dropout_is_found_through_the_real_loader(tmp_path):
+    """peft keeps a LoHa / LoKr layer's rank_dropout as {adapter_name: rate}, not as an nn.Dropout (round-2
+    re-review D1); the loader accepts any peft_type."""
+    from peft import LoHaConfig
+
+    torch.manual_seed(0)
+    loha = LoHaConfig(r=4, alpha=4, rank_dropout=0.5, target_modules=["q_proj", "v_proj"], task_type=TaskType.CAUSAL_LM)
+    model = get_peft_model(Qwen3ForCausalLM(qwen3_config()), loha)
+    for name, param in model.named_parameters():
+        if "hada_w" in name:
+            torch.nn.init.normal_(param, std=0.05)
+    model.save_pretrained(tmp_path / "loha")
+    loaded = _lora_engine(lora_adapter_path=str(tmp_path / "loha"))._build_lora_module(Qwen3ForCausalLM(qwen3_config()))
+    assert loaded.base_model.model.model.layers[0].self_attn.q_proj.rank_dropout == {"default": 0.5}
+    found = find_train_mode_dependent_modules(loaded)
+    assert [reason for _, reason in found] == ["rank_dropout[default]=0.5"] * 2
+    assert [path.rsplit(".", 1)[-1] for path, _ in found] == ["q_proj", "v_proj"]
+    assert _train_eval_gap(loaded) > 1e-5
+
+
+def test_batchnorm_and_instancenorm_with_running_stats_are_found():
+    """Batch statistics in train mode, running statistics in eval mode (round-2 re-review D3); without
+    running statistics both modes normalise with the batch and the walk stays quiet."""
+    model = nn.Sequential(
+        nn.BatchNorm1d(4),
+        nn.BatchNorm1d(4, track_running_stats=False),
+        nn.InstanceNorm1d(4),
+        nn.InstanceNorm1d(4, track_running_stats=True),
+        nn.LayerNorm(4),
+    )
+    assert find_train_mode_dependent_modules(model) == [
+        ("0", "BatchNorm1d(track_running_stats=True)"),
+        ("3", "InstanceNorm1d(track_running_stats=True)"),
+    ]
+    torch.manual_seed(0)
+    bn = nn.Sequential(nn.Linear(4, 4), nn.BatchNorm1d(4))
+    x = torch.randn(8, 4)
+    bn.train()
+    y_train = bn(x)
+    bn.eval()
+    assert not torch.allclose(bn(x), y_train)
+
+
+class _HardCodedDropout(nn.Module):
+    """A train-mode branch written into forward: no module, no rate attribute."""
+
+    def __init__(self):
+        super().__init__()
+        self.proj = nn.Linear(4, 4)
+
+    def forward(self, x):
+        return torch.nn.functional.dropout(self.proj(x), 0.5, self.training)
+
+
+def test_hard_coded_functional_dropout_is_outside_the_walk():
+    """The walk is structural (documented limit, round-2 re-review D2): behaviour hidden in forward code is not
+    detectable, so for custom models the skip remains the user's assertion."""
+    torch.manual_seed(0)
+    module = _HardCodedDropout()
+    x = torch.randn(2, 4)
+    module.eval()
+    y_eval = module(x)
+    module.train()
+    assert not torch.equal(module(x), y_eval)
+    assert find_train_mode_dependent_modules(module) == []

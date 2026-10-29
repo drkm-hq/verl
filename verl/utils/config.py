@@ -130,11 +130,15 @@ def _effective_hf_config(model_config: DictConfig):
     return hf_config
 
 
-def _lora_adapter_dropout(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
-    """``lora_dropout`` of a pre-trained adapter (``adapter_config.json`` under ``lora_adapter_path``) when
-    ``lora_rank > 0``: peft builds an ``nn.Dropout`` for it, active in train mode only. Without an adapter
-    path verl's ``_build_lora_module`` builds the ``LoraConfig`` without ``lora_dropout``, so peft's default
-    0.0 (an ``nn.Identity``) applies. None when the adapter config cannot be read here."""
+def _lora_adapter_dropout(model_config: DictConfig) -> Optional[list[tuple[str, Any]]]:
+    """The train-mode settings of a pre-trained peft adapter (``adapter_config.json`` under ``lora_adapter_path``)
+    when ``lora_rank > 0``. ``_build_lora_module`` loads ANY ``peft_type`` through ``PeftModel.from_pretrained``,
+    so the type itself is checked: only ``LORA`` is supported (LoHa / LoKr keep ``rank_dropout`` /
+    ``module_dropout`` as train-mode rates, and the rollout LoRA sync expects LoRA tensors); then every numeric
+    rate key > 0 of the adapter config (``lora_dropout``: peft builds an ``nn.Dropout`` for it, active in train
+    mode only). Without an adapter path verl's ``_build_lora_module`` builds the ``LoraConfig`` without
+    ``lora_dropout``, so peft's default 0.0 (an ``nn.Identity``) applies. None when the adapter config cannot be
+    read here."""
     if int(model_config.get("lora_rank", 0) or 0) <= 0:
         return []
     adapter_path = model_config.get("lora_adapter_path", None)
@@ -144,24 +148,32 @@ def _lora_adapter_dropout(model_config: DictConfig) -> Optional[list[tuple[str, 
         from verl.utils.fs import copy_to_local
 
         with open(os.path.join(copy_to_local(adapter_path), "adapter_config.json")) as f:
-            rate = json.load(f).get("lora_dropout", 0.0)
+            adapter = json.load(f)
     except Exception:
         return None
-    return [("lora_dropout", float(rate))] if _is_positive_rate(rate) else []
+    found: list[tuple[str, Any]] = []
+    peft_type = adapter.get("peft_type", None)
+    if peft_type != "LORA":
+        found.append(("peft_type", peft_type))
+    for key, value in adapter.items():
+        if any(fragment in key for fragment in _TRAIN_MODE_KEY_FRAGMENTS) and _is_positive_rate(value):
+            found.append((key, float(value)))
+    return found
 
 
-def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
+def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, Any]]]:
     """The train-mode-dependent settings > 0 of the EFFECTIVE actor model, as ``(key, value)``: dropout, MoE
     router jitter, layer drop and drop path in the HF config after ``override_config`` (the top level and
-    every nested sub-config: a VLM's towers run in train mode during the update as well) and the
-    ``lora_dropout`` of a loaded LoRA adapter. None when the config or the adapter cannot be read here; the
-    worker then enforces the same rule on the built module (``ActorRolloutRefWorker.init_model``)."""
+    every nested sub-config: a VLM's towers run in train mode during the update as well) and a loaded peft
+    adapter's type and rates (``peft_type`` must be LORA; ``lora_dropout``). None when the config or the adapter
+    cannot be read here; the worker then enforces the same rule on the built module
+    (``ActorRolloutRefWorker.init_model``)."""
     hf_config = _effective_hf_config(model_config)
     if hf_config is None:
         return None
     from transformers import PretrainedConfig
 
-    found: list[tuple[str, float]] = []
+    found: list[tuple[str, Any]] = []
     seen: set[int] = set()
 
     def scan(cfg) -> None:
@@ -216,15 +228,22 @@ def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
             "WARNING: actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True could not load the model's HF "
             "config (or the LoRA adapter config) to check for dropout and other train-mode-only settings here; the "
             "check is enforced on the built actor module in the worker (ActorRolloutRefWorker.init_model), which "
-            "refuses the flag before any update."
+            "refuses the flag before any update for every structurally visible train-mode mechanism (dropout modules "
+            "and rates, DropPath, router jitter, layerdrop, BatchNorm)."
         )
     elif dropouts:
-        violations.append(
+        message = (
             "the effective actor model (HF config after override_config, LoRA adapter) has train-mode-only settings ("
             + ", ".join(f"{key}={value}" for key, value in dropouts)
             + "): the update pass runs in train mode, so its log-probs would be dropout- or noise-sampled instead "
             "of the eval-mode old log-probs"
         )
+        if any(key == "peft_type" for key, _ in dropouts):
+            message += (
+                "; only a peft_type=LORA adapter is supported at lora_adapter_path (its lora_dropout is checked; "
+                "LoHa / LoKr rank_dropout and module_dropout are train-mode rates)"
+            )
+        violations.append(message)
     if trainer_mode == "separate_async":
         violations.append(
             "trainer.v1.trainer_mode=separate_async (it restores pi_old from a CPU snapshot, so the update "
