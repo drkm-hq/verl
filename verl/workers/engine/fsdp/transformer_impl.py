@@ -24,7 +24,7 @@ from typing import Callable, ContextManager, Optional
 
 import torch
 import torch.distributed
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, PeftModel, TaskType, get_peft_model
 from tensordict import TensorDict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, ShardedStateDictConfig, StateDictType
@@ -71,7 +71,7 @@ from verl.utils.ulysses import (
     ulysses_pad_and_slice_inputs,
 )
 from verl.workers.config import FSDPEngineConfig, FSDPOptimizerConfig, HFModelConfig
-from verl.workers.utils.padding import build_attention_mask_from_nested
+from verl.workers.utils.padding import build_attention_mask_from_nested, loss_row_index
 
 from ..base import BaseEngine, BaseEngineCtx, EngineRegistry
 from ..utils import (
@@ -101,6 +101,33 @@ def _scale_logits_by_temperature(logits, temperature, *, is_unit_temperature: bo
     if is_unit_temperature:
         return logits
     return logits / temperature.clamp(min=1e-8).to(logits.dtype)
+
+
+def _probe_logits_to_keep_kwarg(module) -> str | None:
+    """``"logits_to_keep"`` when the HF model's ``forward`` names that parameter, else ``None``.
+
+    HF text CausalLMs take a tensor of row indices as ``logits_to_keep`` and project the LM head
+    for those rows only. Only a parameter spelled out in the signature counts: a bare ``**kwargs``
+    would swallow the index and the model would still project every row. A PEFT wrapper is
+    probed through ``get_base_model()``: its ``forward(*args, **kwargs)`` passes the index on to
+    the base model, so the base model's signature is the one that decides.
+    """
+    if isinstance(module, PeftModel):
+        module = module.get_base_model()
+    try:
+        parameters = signature(module.forward).parameters
+    except (TypeError, ValueError):
+        return None
+    return "logits_to_keep" if "logits_to_keep" in parameters else None
+
+
+def _scatter_rows(values: torch.Tensor, index: torch.Tensor, total_rows: int) -> torch.Tensor:
+    """Place per-row ``values`` computed for ``index`` back into a zero ``(total_rows,)`` tensor.
+
+    ``index_copy`` with unique indices is deterministic and differentiable (its backward is a
+    gather), so the loss sees exactly the rows it reads and zeros elsewhere.
+    """
+    return values.new_zeros(total_rows).index_copy(0, index, values)
 
 
 class FSDPEngine(BaseEngine):
@@ -589,6 +616,45 @@ class FSDPEngine(BaseEngine):
 
         logger.info(f"[QAT W4A4] Restored {loaded_count} input_global_scale/input_amax from {model_path}")
 
+    # Only engines that read a vocabulary projection may drop rows from it; the value head reads a
+    # one-column head (nothing to gain) and its output path expects every row.
+    _supports_response_only_lm_head = False
+
+    def _resolve_response_only_lm_head(self, module) -> bool:
+        """Decide once, at build time, whether this engine projects the LM head for loss rows only.
+
+        ``response_only_lm_head`` is kept only when the engine, the model and the parallel layout
+        can use it. On the LM-head engine ``use_remove_padding=False`` contradicts it and raises
+        (the value-head engine ignores the flag with a warning before that check); every other
+        fixed condition logs one warning on rank 0 and projects every packed row. Conditions that vary
+        per micro-batch (logits processors, SFT-shaped batches) are checked in
+        ``prepare_model_inputs`` instead.
+        """
+        if not getattr(self.engine_config, "response_only_lm_head", False):
+            return False
+        if not self._supports_response_only_lm_head:
+            reason = "this engine does not read a vocabulary projection"
+        elif not self.use_remove_padding:
+            raise ValueError(
+                "response_only_lm_head=True requires use_remove_padding=True: the padded forward has no packed "
+                "rows to select. Set model.use_remove_padding=True or fsdp_config.response_only_lm_head=False."
+            )
+        elif self.model_config.use_fused_kernels:
+            reason = "use_fused_kernels=True: the fused forwards project every row"
+        elif self.use_ulysses_sp:
+            reason = "ulysses_sequence_parallel_size > 1 is not supported yet"
+        elif self.engine_config.strategy == "fsdp_turbo":
+            reason = "fsdp_turbo may shard the LM head across tensor-parallel ranks"
+        elif hasattr(getattr(module, "config", None), "vision_config"):
+            reason = "vision-language models project every row in their packed forward"
+        elif self.logits_to_keep_kwarg is None:
+            reason = f"{type(module).__name__}.forward does not accept logits_to_keep"
+        else:
+            return True
+        if getattr(self, "rank", 0) == 0:
+            logger.warning("response_only_lm_head=True is ignored: %s. Projecting every packed row.", reason)
+        return False
+
     def _build_model_optimizer(self):
         from verl.utils.model import print_model_size
 
@@ -598,6 +664,8 @@ class FSDPEngine(BaseEngine):
             self.pass_packed_cu_seqlens = "cu_seqlens" in signature(module.forward).parameters
         except (TypeError, ValueError):
             self.pass_packed_cu_seqlens = False
+        self.logits_to_keep_kwarg = _probe_logits_to_keep_kwarg(module)
+        self.response_only_lm_head = self._resolve_response_only_lm_head(module)
         # Apply LoRA adapters if low-rank adaptation is enabled
         if self._is_lora:
             module = self._build_lora_module(module)
@@ -1152,6 +1220,8 @@ class EngineTrainModeCtx(BaseEngineCtx):
 
 @EngineRegistry.register(model_type="language_model", backend=["fsdp", "fsdp2"], device=["cuda", "npu"])
 class FSDPEngineWithLMHead(FSDPEngine):
+    _supports_response_only_lm_head = True
+
     def prepare_model_inputs(self, micro_batch: TensorDict):
         distillation_use_topk = tu.get_non_tensor_data(data=micro_batch, key="distillation_use_topk", default=False)
         score_centering = tu.get_non_tensor_data(data=micro_batch, key="score_centering", default=False)
@@ -1283,6 +1353,15 @@ class FSDPEngineWithLMHead(FSDPEngine):
                 model_inputs["cu_seqlens"] = model_cu_seqlens
                 model_inputs["cu_seqlens_cpu"] = model_cu_seqlens.cpu()
 
+            # response_only_lm_head: hand the model the packed rows whose logits the loss reads, so
+            # the LM head projects the K response rows instead of all T packed rows. The index is
+            # built on the unpadded layout: the static pad is a suffix, so it stays valid, and SP is
+            # excluded at build time, so no rank offset is needed.
+            keep_index = self._response_only_lm_head_index(micro_batch, use_fused_kernels)
+            if keep_index is not None:
+                model_inputs["logits_to_keep"] = keep_index
+                output_args["loss_row_index"] = keep_index
+
         else:
             if pad_mode == DatasetPadMode.NO_PADDING:
                 input_ids = micro_batch["input_ids"]
@@ -1340,6 +1419,23 @@ class FSDPEngineWithLMHead(FSDPEngine):
         model_inputs.update(extra_args)
 
         return model_inputs, output_args
+
+    def _response_only_lm_head_index(self, micro_batch: TensorDict, use_fused_kernels: bool) -> torch.Tensor | None:
+        """Loss-row index for this micro-batch when ``response_only_lm_head`` applies, else ``None``.
+
+        ``None`` means the full projection: fused kernels (their forwards ignore the index), top-K
+        distillation and score centering (their logits processor reads every row), batches without
+        ``responses`` (SFT reads ``loss_mask`` rows instead) and an empty index.
+        """
+        if not getattr(self, "response_only_lm_head", False) or use_fused_kernels:
+            return None
+        if "responses" not in micro_batch.keys():
+            return None
+        for key in ("distillation_use_topk", "distillation_only", "score_centering"):
+            if tu.get_non_tensor_data(data=micro_batch, key=key, default=False):
+                return None
+        index = loss_row_index(micro_batch)
+        return index if index.numel() > 0 else None
 
     def prepare_model_outputs(self, output, output_args, micro_batch: TensorDict, logits_processor_func):
         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)
@@ -1401,6 +1497,19 @@ class FSDPEngineWithLMHead(FSDPEngine):
                 # With TP, logits are DTensors sharded on vocab dim; gather for log_softmax.
                 if isinstance(logits_rmpad, DTensor):
                     logits_rmpad = logits_rmpad.full_tensor()
+                # response_only_lm_head: the model projected only the loss rows chosen in
+                # prepare_model_inputs; score them with their own labels and temperature here and
+                # scatter the results back into the packed layout below.
+                keep_index = output_args.get("loss_row_index")
+                if keep_index is not None:
+                    if logits_rmpad.shape[0] != keep_index.numel():
+                        raise RuntimeError(
+                            f"response_only_lm_head: asked the model for {keep_index.numel()} logits rows "
+                            f"but it returned {logits_rmpad.shape[0]}: its forward ignored the row index. "
+                            "Set response_only_lm_head=False for this model."
+                        )
+                    input_ids_rmpad_rolled = input_ids_rmpad_rolled[keep_index]
+                    temperature_rmpad = temperature_rmpad[keep_index]
                 logits_rmpad = _scale_logits_by_temperature(
                     logits_rmpad,
                     temperature_rmpad.unsqueeze(-1),
@@ -1447,6 +1556,15 @@ class FSDPEngineWithLMHead(FSDPEngine):
                         labels=input_ids_rmpad_rolled,
                         inplace_backward=inplace_backward,
                     )
+
+                if keep_index is not None:
+                    # back to the full packed layout: zeros on the rows nobody reads
+                    total_rows = output_args["input_ids_rmpad_rolled"].shape[0]
+                    log_probs = _scatter_rows(log_probs, keep_index, total_rows)
+                    if calculate_entropy:
+                        entropy_rmpad = _scatter_rows(entropy_rmpad, keep_index, total_rows)
+                    if calculate_sum_pi_squared:
+                        sum_pi_squared_rmpad = _scatter_rows(sum_pi_squared_rmpad, keep_index, total_rows)
 
             # gather across the ulysses sp group and drop the packed-sequence padding
             pad_size = output_args["pad_size"]
@@ -1617,6 +1735,8 @@ class FSDPEngineWithValueHead(FSDPEngineWithLMHead):
     """
     The only difference between critic and actor is how the raw model output is processed
     """
+
+    _supports_response_only_lm_head = False
 
     def prepare_model_outputs(self, output, output_args, micro_batch: TensorDict, logits_processor_func):
         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)

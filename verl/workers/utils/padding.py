@@ -141,6 +141,46 @@ def no_padding_2_padding(tensor: torch.Tensor, data: TensorDict) -> torch.Tensor
     return output
 
 
+def loss_row_index(data: TensorDict) -> torch.Tensor:
+    """Packed-row indices whose model outputs the PPO losses and metrics read.
+
+    Row ``t`` of a packed micro-batch scores token ``t + 1``, so for sequence ``i`` with end
+    offset ``e_i`` and response length ``r_i`` the consumers (:func:`no_padding_2_padding`,
+    :func:`response_from_nested`) read the rows ``[e_i - r_i - 1, e_i - 1)``. This returns those
+    rows for the whole micro-batch, in packed order, so the engine can project the LM head for
+    them alone (``response_only_lm_head``).
+
+    Args:
+        data: TensorDict with nested ``input_ids`` and ``responses`` (``DatasetPadMode.NO_PADDING``).
+
+    Raises:
+        ValueError: if a sequence has no prompt token; its loss rows would start inside the previous
+            sequence (or wrap to the last row), so this is checked by name, at the cost of one
+            device-to-host transfer per micro-batch.
+
+    Returns:
+        LongTensor of shape ``(sum_i r_i,)`` on the device of ``input_ids``, strictly increasing.
+    """
+    offsets = data["input_ids"].offsets()
+    response_lens = data["responses"].offsets().diff().to(offsets.device)
+    prompt_lens = offsets.diff() - response_lens
+    if prompt_lens.numel() > 0 and int(prompt_lens.min()) < 1:
+        bad = int((prompt_lens < 1).nonzero()[0, 0])
+        raise ValueError(
+            f"response_only_lm_head needs at least one prompt token per sequence: sequence {bad} has prompt "
+            f"length {int(prompt_lens[bad])} and response length {int(response_lens[bad])} (sequence lengths "
+            f"{offsets.diff().tolist()}, response lengths {response_lens.tolist()})"
+        )
+    starts = offsets[1:] - response_lens - 1
+    total = data["responses"].values().shape[0]  # sum of the response lengths, from the shape
+    seq_id = torch.repeat_interleave(
+        torch.arange(response_lens.numel(), device=offsets.device), response_lens, output_size=total
+    )
+    first_row_of_seq = torch.cumsum(response_lens, dim=0) - response_lens
+    within_seq = torch.arange(total, device=offsets.device) - first_row_of_seq[seq_id]
+    return starts[seq_id] + within_seq
+
+
 def build_attention_mask_from_nested(input_ids: torch.Tensor, max_seq_len: int | None = None) -> torch.Tensor:
     """Build a padded full-sequence attention mask from nested input ids."""
     assert input_ids.is_nested, "input_ids must be a nested tensor"

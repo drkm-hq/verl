@@ -267,6 +267,16 @@ class FSDPEngineConfig(EngineConfig):
             (``max_token_len_per_gpu * ulysses_sequence_parallel_size``) collapses every
             within-budget micro-batch onto a single shape. Only read when ``pad_to_length=True``.
             default 1024
+        response_only_lm_head (bool): Project the LM head (and run the log-prob / entropy math) only
+            for the packed rows whose outputs the loss reads: the row before each response token.
+            Prompt and padding rows skip the vocabulary projection, so head FLOPs and the
+            ``(tokens, vocab)`` logits tensor shrink by the prompt fraction of the packed
+            micro-batch. Response log-probs, entropy and gradients are identical to the full
+            projection. Requires ``use_remove_padding=True`` (rejected otherwise) and a model whose
+            ``forward`` accepts ``logits_to_keep`` (HF text CausalLMs). Keeps the full projection with
+            one start-up warning (rank 0) for ``use_fused_kernels=True``, Ulysses sequence parallel,
+            ``fsdp_turbo``, vision-language models and the critic, and silently per micro-batch for
+            top-K distillation, score centering and SFT-shaped batches. default False
         qat (QATEngineConfig): QAT configuration, default disabled
     """
 
@@ -291,6 +301,7 @@ class FSDPEngineConfig(EngineConfig):
     strategy: str = "fsdp"
     pad_to_length: bool = False
     pad_to_length_bucket: int = 1024
+    response_only_lm_head: bool = False
     qat: QATEngineConfig = field(default_factory=QATEngineConfig)
     turbo_config: dict[str, Any] = field(default_factory=dict)
 
