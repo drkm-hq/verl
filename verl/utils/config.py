@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import os
 from dataclasses import is_dataclass
 from typing import Any, Optional
 
@@ -85,39 +87,79 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         )
 
 
-# HF config fields that switch on dropout somewhere in a decoder (the update pass runs in train mode)
-_HF_DROPOUT_KEYS = (
-    "attention_dropout",
-    "hidden_dropout",
-    "dropout",
-    "resid_pdrop",
-    "embd_pdrop",
-    "attn_pdrop",
-    "hidden_dropout_prob",
-    "attention_probs_dropout_prob",
-    "activation_dropout",
-    "ffn_dropout",
-)
+# Settings of an HF config that make the forward depend on ``module.training`` (the update pass runs in train
+# mode, the old-log-prob pass in eval mode): every numeric key > 0 whose name contains one of these fragments.
+# In transformers 5.16's configuration classes that covers the dropout keys (``attention_dropout``,
+# ``hidden_dropout``, ``dropout``, ``resid_pdrop``, ``embd_pdrop``, ``attn_pdrop``, ``hidden_dropout_prob``,
+# ``attention_probs_dropout_prob``, ``activation_dropout``, ``ffn_dropout``, ...), MoE router jitter
+# (``router_jitter_noise``: Mixtral, PhiMoE, MiniMax, Llama4, DeepSeek-V4, Switch; ``moe_jitter_eps``: DBRX),
+# layer drop (``layerdrop``, ``encoder_layerdrop``, ``decoder_layerdrop``) and stochastic depth
+# (``drop_path_rate``). ``jitter_noise`` and ``stochastic_depth_prob`` exist there only as module attributes;
+# the module walk in the worker (``verl.utils.model.find_train_mode_dependent_modules``) covers them.
+_TRAIN_MODE_KEY_FRAGMENTS = ("dropout", "pdrop", "drop_path", "drop_prob", "drop_rate", "layerdrop", "jitter")
 
 
-def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
-    """The dropout rates > 0 set anywhere in the actor's HF config: the top level and every nested
-    sub-config (``text_config``, ``vision_config``, ``audio_config``, ...; a VLM's towers run in train mode
-    during the update as well). None when the config cannot be loaded here (missing path, offline hub,
-    custom loader)."""
+def _is_positive_rate(value: Any) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
+
+
+def _effective_hf_config(model_config: DictConfig):
+    """The actor's HF config as ``HFModelConfig.__post_init__`` builds it: the saved config with
+    ``override_config`` applied (the Megatron-style ``model_config`` sub-key and ``update_model_config``
+    included). None when it cannot be loaded here (missing path, offline hub, custom loader)."""
     path = model_config.get("hf_config_path", None) or model_config.get("path", None)
     if not path:
         return None
     try:
-        from transformers import AutoConfig, PretrainedConfig
+        from transformers import AutoConfig
 
         from verl.utils.fs import copy_to_local
+        from verl.utils.model import update_model_config
 
         hf_config = AutoConfig.from_pretrained(
             copy_to_local(path), trust_remote_code=model_config.get("trust_remote_code", False)
         )
+        override_config = model_config.get("override_config", None) or {}
+        if isinstance(override_config, DictConfig):
+            override_config = OmegaConf.to_container(override_config, resolve=True)
+        if "model_config" in override_config:
+            override_config = override_config["model_config"]
+        update_model_config(hf_config, override_config_kwargs=dict(override_config))
     except Exception:
         return None
+    return hf_config
+
+
+def _lora_adapter_dropout(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
+    """``lora_dropout`` of a pre-trained adapter (``adapter_config.json`` under ``lora_adapter_path``) when
+    ``lora_rank > 0``: peft builds an ``nn.Dropout`` for it, active in train mode only. Without an adapter
+    path verl's ``_build_lora_module`` builds the ``LoraConfig`` without ``lora_dropout``, so peft's default
+    0.0 (an ``nn.Identity``) applies. None when the adapter config cannot be read here."""
+    if int(model_config.get("lora_rank", 0) or 0) <= 0:
+        return []
+    adapter_path = model_config.get("lora_adapter_path", None)
+    if not adapter_path:
+        return []
+    try:
+        from verl.utils.fs import copy_to_local
+
+        with open(os.path.join(copy_to_local(adapter_path), "adapter_config.json")) as f:
+            rate = json.load(f).get("lora_dropout", 0.0)
+    except Exception:
+        return None
+    return [("lora_dropout", float(rate))] if _is_positive_rate(rate) else []
+
+
+def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
+    """The train-mode-dependent settings > 0 of the EFFECTIVE actor model, as ``(key, value)``: dropout, MoE
+    router jitter, layer drop and drop path in the HF config after ``override_config`` (the top level and
+    every nested sub-config: a VLM's towers run in train mode during the update as well) and the
+    ``lora_dropout`` of a loaded LoRA adapter. None when the config or the adapter cannot be read here; the
+    worker then enforces the same rule on the built module (``ActorRolloutRefWorker.init_model``)."""
+    hf_config = _effective_hf_config(model_config)
+    if hf_config is None:
+        return None
+    from transformers import PretrainedConfig
 
     found: list[tuple[str, float]] = []
     seen: set[int] = set()
@@ -126,17 +168,20 @@ def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, fl
         if id(cfg) in seen:
             return
         seen.add(id(cfg))
-        for key in _HF_DROPOUT_KEYS:
-            value = getattr(cfg, key, None)
-            if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
+        for key, value in vars(cfg).items():
+            if key.startswith("_"):
+                continue
+            if isinstance(value, PretrainedConfig):
+                scan(value)
+            elif any(fragment in key for fragment in _TRAIN_MODE_KEY_FRAGMENTS) and _is_positive_rate(value):
                 if (key, float(value)) not in found:
                     found.append((key, float(value)))
-        for sub in vars(cfg).values():
-            if isinstance(sub, PretrainedConfig):
-                scan(sub)
 
     scan(hf_config)
-    return found
+    lora = _lora_adapter_dropout(model_config)
+    if lora is None:
+        return None
+    return found + lora
 
 
 def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
@@ -169,15 +214,16 @@ def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
     if dropouts is None:
         print(
             "WARNING: actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True could not load the model's HF "
-            "config to check for dropout; the skip stores the update pass's train-mode log-probs as old_log_probs, "
-            "which is exact only for a dropout-free model."
+            "config (or the LoRA adapter config) to check for dropout and other train-mode-only settings here; the "
+            "check is enforced on the built actor module in the worker (ActorRolloutRefWorker.init_model), which "
+            "refuses the flag before any update."
         )
     elif dropouts:
         violations.append(
-            "the model's HF config enables dropout ("
+            "the effective actor model (HF config after override_config, LoRA adapter) has train-mode-only settings ("
             + ", ".join(f"{key}={value}" for key, value in dropouts)
-            + "): the update pass runs in train mode, so its log-probs would be dropout-sampled instead of the "
-            "eval-mode old log-probs"
+            + "): the update pass runs in train mode, so its log-probs would be dropout- or noise-sampled instead "
+            "of the eval-mode old log-probs"
         )
     if trainer_mode == "separate_async":
         violations.append(
