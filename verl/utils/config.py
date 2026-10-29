@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import math
 from dataclasses import is_dataclass
 from typing import Any, Optional
 
@@ -88,6 +89,13 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         )
 
 
+def _is_finite_positive_number(value: Any) -> bool:
+    """An ``int`` or ``float`` (not a ``bool``) that is finite and ``> 0``: what a loss divisor has to be."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    return value > 0 and (isinstance(value, int) or math.isfinite(value))
+
+
 def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
     """Resolve ``loss_scale_factor=null`` to ``rollout.response_length`` for "seq-mean-token-sum-norm".
 
@@ -97,8 +105,9 @@ def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
     the mini-batch was split. Resolving the factor here keeps the documented constant
     (``actor_rollout_ref.rollout.response_length``, the padded width the legacy trainer always had) for every
     micro-batch, for the actor and the critic alike. A factor set explicitly by the user is left untouched (it must
-    be positive). The resolution happens here, in the hook every in-tree launcher runs before building the worker
-    dataclasses; a launcher that bypasses ``validate_config`` has to set ``loss_scale_factor`` itself.
+    be a finite positive number), and ``response_length`` must be a positive integer to be resolved to. The
+    resolution happens here, in the hook every in-tree launcher runs before building the worker dataclasses; a
+    launcher that bypasses ``validate_config`` has to set ``loss_scale_factor`` itself.
     """
     response_length = config.actor_rollout_ref.rollout.get("response_length", None)
     sections = [("actor_rollout_ref.actor", config.actor_rollout_ref.actor)]
@@ -109,11 +118,11 @@ def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
             continue
         factor = section.get("loss_scale_factor")
         if factor is not None:
-            if isinstance(factor, bool) or not isinstance(factor, int | float) or factor <= 0:
+            if not _is_finite_positive_number(factor):
                 raise ValueError(
-                    f"{name}.loss_scale_factor must be a positive number for loss_agg_mode=seq-mean-token-sum-norm "
-                    f"(it divides the loss), got {factor!r}. Leave it null to use "
-                    "actor_rollout_ref.rollout.response_length."
+                    f"{name}.loss_scale_factor must be a finite positive number for "
+                    f"loss_agg_mode=seq-mean-token-sum-norm (it divides the loss), got {factor!r}. Leave it null to "
+                    "use actor_rollout_ref.rollout.response_length."
                 )
             continue
         if response_length is None:
@@ -123,12 +132,18 @@ def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
                 name,
             )
             continue
-        section.loss_scale_factor = int(response_length)
+        if isinstance(response_length, bool) or not isinstance(response_length, int) or response_length <= 0:
+            raise ValueError(
+                f"actor_rollout_ref.rollout.response_length must be a positive integer to resolve "
+                f"{name}.loss_scale_factor=null (loss_agg_mode=seq-mean-token-sum-norm), got {response_length!r}. "
+                f"Fix it or set {name}.loss_scale_factor explicitly."
+            )
+        section.loss_scale_factor = response_length
         logger.info(
             "%s.loss_agg_mode=seq-mean-token-sum-norm with loss_scale_factor=null: resolved loss_scale_factor to "
             "actor_rollout_ref.rollout.response_length=%d so every micro-batch is normalized by the same constant.",
             name,
-            int(response_length),
+            response_length,
         )
 
 

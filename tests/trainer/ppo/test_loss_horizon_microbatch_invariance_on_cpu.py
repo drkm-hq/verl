@@ -28,6 +28,7 @@ tokenizer are needed: the model path is a stub directory holding a tiny ``config
 
 import functools
 import json
+import logging
 import os
 
 import pytest
@@ -75,8 +76,11 @@ def model_dir(tmp_path_factory):
 
 
 @functools.cache
-def _validated_config(model_dir, mode, factor=None, loss_mode="vanilla", critic_mode=None):
-    """Compose ``ppo_trainer`` and run ``validate_config`` on it, as ``main_ppo`` does before launching."""
+def _validated_config(model_dir, mode, factor=None, loss_mode="vanilla", critic_mode=None, response_length=None):
+    """Compose ``ppo_trainer`` and run ``validate_config`` on it, as ``main_ppo`` does before launching. The values
+    are formatted into Hydra overrides as a user would type them (``nan``, ``inf``, ``True``, ``sixteen``, ...).
+    ``response_length`` overrides ``actor_rollout_ref.rollout.response_length`` directly when given (``"null"``
+    unsets it); by default the ``oc.select`` of ``data.max_response_length`` (16) stays in place."""
     overrides = [
         f"data.max_response_length={_RESPONSE_LENGTH}",
         f"actor_rollout_ref.model.path={model_dir}",
@@ -92,6 +96,8 @@ def _validated_config(model_dir, mode, factor=None, loss_mode="vanilla", critic_
     ]
     if critic_mode is not None:
         overrides.append(f"critic.loss_agg_mode={critic_mode}")
+    if response_length is not None:
+        overrides.append(f"actor_rollout_ref.rollout.response_length={response_length}")
     with initialize_config_dir(version_base=None, config_dir=_CONFIG_DIR):
         config = compose(config_name="ppo_trainer", overrides=overrides)
     validate_config(config, use_reference_policy=False, use_critic=True)
@@ -210,10 +216,12 @@ def test_validate_config_resolves_null_factor_to_response_length(model_dir):
     assert critic_config.loss_scale_factor == _RESPONSE_LENGTH
 
 
-def test_validate_config_keeps_an_explicit_factor(model_dir):
-    config = _validated_config(model_dir, "seq-mean-token-sum-norm", factor=4096)
-    assert config.actor_rollout_ref.actor.loss_scale_factor == 4096
-    assert config.critic.loss_scale_factor == 4096
+@pytest.mark.parametrize("factor", [4096, 0.5])
+def test_validate_config_keeps_an_explicit_factor(factor, model_dir):
+    """Any finite positive number is kept as given (a float divides the loss just as well); the critic inherits it."""
+    config = _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)
+    assert config.actor_rollout_ref.actor.loss_scale_factor == factor
+    assert config.critic.loss_scale_factor == factor
 
 
 @pytest.mark.parametrize("mode", [mode for mode in _MODES if mode != "seq-mean-token-sum-norm"])
@@ -223,12 +231,43 @@ def test_validate_config_leaves_other_modes_untouched(mode, model_dir):
     assert config.critic.loss_scale_factor is None
 
 
-@pytest.mark.parametrize("factor", [0, -1, "sixteen"])
-def test_validate_config_rejects_an_invalid_factor(factor, model_dir):
-    """An explicit factor divides the loss, so 0, a negative value or a non-number is a configuration error with a
-    named message, not a silent 1/0 or a TypeError later."""
-    with pytest.raises(ValueError, match="loss_scale_factor must be a positive number"):
+@pytest.mark.parametrize("factor", [float("nan"), float("inf"), float("-inf"), 0, -1, "sixteen", True])
+def test_validate_config_rejects_an_invalid_explicit_factor(factor, model_dir):
+    """An explicit factor divides the loss, so NaN, an infinity, 0, a negative value, a non-number or a bool is a
+    configuration error with a message naming the key and the value, not a NaN / inf / zero-division loss or a
+    TypeError later. (``nan <= 0`` and ``inf <= 0`` are both False, so a sign check alone lets them through.)"""
+    pattern = r"actor_rollout_ref\.actor\.loss_scale_factor must be a finite positive number"
+    with pytest.raises(ValueError, match=pattern) as e:
         _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)
+    assert f"got {factor!r}" in str(e.value)
+
+
+@pytest.mark.parametrize("response_length", [0, -16, 2.5, True])
+def test_validate_config_rejects_an_invalid_inferred_horizon(response_length, model_dir):
+    """A null factor is resolved from ``rollout.response_length``, which must then be a positive integer: 0 or a
+    negative value is no horizon, 2.5 would be truncated and ``True`` would silently resolve to 1."""
+    pattern = r"actor_rollout_ref\.rollout\.response_length must be a positive integer"
+    with pytest.raises(ValueError, match=pattern) as e:
+        _validated_config(model_dir, "seq-mean-token-sum-norm", response_length=response_length)
+    assert f"got {response_length!r}" in str(e.value)
+
+
+def test_validate_config_resolves_an_overridden_response_length(model_dir):
+    """The constant is ``actor_rollout_ref.rollout.response_length`` itself, also when it is overridden directly
+    rather than through ``data.max_response_length``."""
+    config = _validated_config(model_dir, "seq-mean-token-sum-norm", response_length=2 * _RESPONSE_LENGTH)
+    assert config.actor_rollout_ref.actor.loss_scale_factor == 2 * _RESPONSE_LENGTH
+    assert config.critic.loss_scale_factor == 2 * _RESPONSE_LENGTH
+
+
+def test_validate_config_warns_when_response_length_is_unset(model_dir, caplog):
+    """Without ``rollout.response_length`` there is nothing to resolve to: the factor stays null and a warning says
+    that each micro-batch will be normalized by its own padded width (the pre-existing behaviour, not an error)."""
+    with caplog.at_level(logging.WARNING):
+        config = _validated_config(model_dir, "seq-mean-token-sum-norm", response_length="null")
+    assert config.actor_rollout_ref.actor.loss_scale_factor is None
+    assert config.critic.loss_scale_factor is None
+    assert "actor_rollout_ref.rollout.response_length is unset" in caplog.text
 
 
 def test_validate_config_resolves_the_critic_on_its_own(model_dir):

@@ -1,6 +1,6 @@
 # Group Relative Policy Optimization (GRPO)
 
-Last updated: 10/28/2026.
+Last updated: 10/29/2026.
 
 In reinforcement learning, classic algorithms like PPO rely on a "critic" model to estimate the value of actions, guiding the learning process. However, training this critic model can be resource-intensive. 
 
@@ -57,7 +57,7 @@ Instead of adding KL penalty in the reward, GRPO regularizes by directly adding 
 Configure the following to enable DrGRPO, with all other parameters the same as GRPO's:
 
 - `actor_rollout_ref.actor.loss_agg_mode`: "seq-mean-token-sum-norm", which turns off seq-dim averaging
-- `actor_rollout_ref.actor.loss_scale_factor`: (Optional) The constant normalizer (must be > 0). If not set, `validate_config` resolves it to `actor_rollout_ref.rollout.response_length` (i.e. `data.max_response_length`) when the trainer launches (`main_ppo` and the other in-tree launchers; logged at INFO), so every micro-batch is normalized by the same constant; set it to normalize by another constant. A launcher that bypasses `validate_config` must set it explicitly.
+- `actor_rollout_ref.actor.loss_scale_factor`: (Optional) The constant normalizer (a finite number > 0). If not set, `validate_config` resolves it to `actor_rollout_ref.rollout.response_length` (i.e. `data.max_response_length`, which must then be a positive integer) when the trainer launches (`main_ppo` and the other in-tree launchers; logged at INFO), so every micro-batch is normalized by the same constant; set it to normalize by another constant. A launcher that bypasses `validate_config` must set it explicitly.
 - `actor_rollout_ref.actor.use_kl_loss`: Please set it to False for DrGRPO
 - `algorithm.norm_adv_by_std_in_grpo`: False, which turns off standard deviation norm
 
