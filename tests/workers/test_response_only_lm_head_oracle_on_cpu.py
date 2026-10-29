@@ -163,3 +163,31 @@ def test_an_ulp_sized_bf16_forward_difference_passes_and_a_row_shift_fails():
     assert not gpu._compare("one ulp", {"forward/log_probs": shifted, "mask/response": mask}, reference, verbose=False)
     shifted = (rows - 0.03) * mask  # every response row shifted: the batch mean catches it
     assert gpu._compare("shifted", {"forward/log_probs": shifted, "mask/response": mask}, reference, verbose=False)
+
+
+def test_the_determinism_baseline_handles_boolean_and_empty_tensors():
+    reference = {
+        "mask/response": torch.tensor([[True, False]]),
+        "grad/model.layers.0.scale": torch.empty(0),
+        "sgd/grad_norm": torch.tensor(1.0),
+        "forward/log_probs": torch.tensor([[-1.0, 0.0]]),
+    }
+    gpu._assert_bitwise("baseline", {key: value.clone() for key, value in reference.items()}, reference)
+    flipped = {key: value.clone() for key, value in reference.items()}
+    flipped["mask/response"][0, 1] = True
+    with pytest.raises(AssertionError, match="mask/response differs"):
+        gpu._assert_bitwise("baseline", flipped, reference)
+    shifted = {key: value.clone() for key, value in reference.items()}
+    shifted["forward/log_probs"][0, 0] = -1.5
+    with pytest.raises(AssertionError, match="max_abs=5.000e-01"):
+        gpu._assert_bitwise("baseline", shifted, reference)
+
+
+@pytest.mark.parametrize("rank, world_size", [(0, 1), (0, 2), (1, 2)])
+def test_the_response_mask_matches_the_rank_local_batch(rank, world_size):
+    batch = gpu._make_batch(512, rank, world_size)
+    mask = gpu._response_mask(batch, "cpu")
+    lengths = batch["responses"].offsets().diff().tolist()
+    assert mask.shape == (len(lengths), max(gpu.RESPONSE_LENS)) and mask.dtype == torch.bool
+    assert mask.sum(dim=1).tolist() == lengths
+    assert batch["max_response_len"] == max(lengths)

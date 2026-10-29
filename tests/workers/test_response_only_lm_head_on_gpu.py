@@ -515,6 +515,18 @@ def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=Tr
     return failures
 
 
+def _assert_bitwise(what: str, baseline: dict, reference: dict) -> None:
+    """The determinism baseline: every tensor (floating, boolean or empty) must be bitwise equal."""
+    assert baseline.keys() == reference.keys(), f"{what}: different keys"
+    for key in sorted(reference):
+        if torch.equal(baseline[key], reference[key]):
+            continue
+        detail = ""
+        if baseline[key].is_floating_point() and baseline[key].numel():
+            detail = f" max_abs={(baseline[key] - reference[key]).abs().max().item():.3e}"
+        raise AssertionError(f"{what}: {key} differs{detail}")
+
+
 def _check(label, enabled, reference, precision="bf16", truth=None, verbose=True) -> None:
     failures = _compare(label, enabled, reference, precision, truth, verbose)
     assert not failures, f"{label}: {len(failures)} check(s) failed:\n  " + "\n  ".join(failures[:30])
@@ -533,9 +545,7 @@ def _worker(rank: int, world_size: int, rendezvous_file: str, variant_name: str,
     run = partial(_run_arm, variant=variant, strategy=strategy, batch=batch, world_size=world_size, verbose=verbose)
     reference = run(precision="bf16", freeze=True, label=f"{label}/bf16", flag=False)
     baseline = run(precision="bf16", freeze=False, label=f"{label}/bf16", flag=False)
-    for key in sorted(reference):  # determinism: a second flag-off engine reproduces the first bitwise
-        max_abs = (baseline[key] - reference[key]).abs().max().item()
-        assert torch.equal(baseline[key], reference[key]), f"{label}/bf16 flag-off twice: {key} max_abs={max_abs:.3e}"
+    _assert_bitwise(f"{label}/bf16 flag-off twice", baseline, reference)
     del baseline
     if verbose:
         print(f"[response_only_lm_head][{label}/bf16] flag-off twice: bitwise identical ({len(reference)} tensors)")
