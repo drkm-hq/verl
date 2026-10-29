@@ -292,7 +292,9 @@ members that reached turn :math:`t`, i.e.
 :math:`A_{i,t} = G_{i,t} - \frac{1}{|J_t| - 1} \sum_{j \in J_t, j \neq i} G_{j,t}` with
 :math:`G_{i,t} = \sum_{t' \ge t} \gamma^{t'-t} r_{i,t'}` (``algorithm.gamma`` discounts per turn;
 1.0 is the RFC's form). When no other member reached the turn the baseline is 0. Rows without spans
-are one turn, so on single-turn data the estimator equals ``rloo``. The simpler per-turn-index
+are one turn, so on single-turn data the estimator equals ``rloo``; the same holds on multi-turn
+data whenever ``rollout.multi_turn.turn_level_rewards`` is off, because the loop then exports no
+spans and the trainer forwards none, so set both keys as in the example below. The simpler per-turn-index
 normalisation (subtracting the group mean of *the same turn's reward*) is biased as soon as the
 policy decides whether a later turn happens at all; ``tests/trainer/ppo/test_turn_rloo_on_cpu.py``
 checks both against the exact policy gradient of a two-turn MDP.

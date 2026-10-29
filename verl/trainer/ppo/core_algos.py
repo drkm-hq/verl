@@ -657,7 +657,9 @@ def compute_turn_rloo_advantage(
     the baseline averages the other group members that reached turn ``t`` and is 0 when none did
     (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
     Tokens outside a span (tool observations) get 0. A row without spans is one turn ``[0, L)``,
-    so without ``turn_spans`` the estimator equals ``rloo``.
+    so without ``turn_spans`` the estimator equals ``rloo``. The tool agent loop exports spans only
+    under ``rollout.multi_turn.turn_level_rewards``; with that flag off ``turn_rloo`` is plain RLOO
+    on multi-turn data too.
 
     Normalising each turn by the group mean of the *same turn's reward* (the MT-GRPO shape) is biased
     whenever the policy decides whether a later turn happens at all; the leave-one-out return-to-go
