@@ -266,7 +266,8 @@ class AgentLoopManagerTQ(AgentLoopManager):
         # index -> re-creations since the worker last served a dispatch / consecutive unavailable probes.
         self._relaunch_streak: Counter = Counter()
         self._unavailable_streak: Counter = Counter()
-        # Recovery counters drained by the trainer once per step (see PPOTrainer._consume_recovery_metrics).
+        # Recovery counters, drained and namespaced by the trainer: ``rollout/`` once per training step,
+        # ``validation/`` by ``_validate`` (see PPOTrainer._consume_recovery_metrics).
         self.recovery_metrics: Counter = Counter()
 
     @classmethod
@@ -366,7 +367,7 @@ class AgentLoopManagerTQ(AgentLoopManager):
         else:
             self._orphan_worker(index, error)
         self._orphaned_uids.update(uids)
-        self.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] += len(uids)
+        self.recovery_metrics["prompts_orphaned_at_dispatch"] += len(uids)
 
     def _confirm_dead_after_unavailable(self, index: int) -> bool:
         """Second opinion after an unavailable dispatch reply: one ping bounded by DISPATCH_RETRY_INTERVAL_SECONDS.
@@ -392,7 +393,7 @@ class AgentLoopManagerTQ(AgentLoopManager):
         for uid in owned:
             del self._prompt_owner[uid]
         self._orphaned_uids |= owned
-        self.recovery_metrics["rollout/prompts_orphaned_by_dead_workers"] += len(owned)
+        self.recovery_metrics["prompts_orphaned_by_dead_workers"] += len(owned)
         logger.warning(f"Agent loop worker {index} died with {len(owned)} prompts in flight: {sorted(owned)[:4]}")
         if self.relaunch_dead_workers:
             self._relaunch_worker(index, error)
@@ -416,7 +417,7 @@ class AgentLoopManagerTQ(AgentLoopManager):
             ray.kill(old_worker, no_restart=True)
         except Exception:  # noqa: BLE001 - the handle may already be gone
             pass
-        self.recovery_metrics["rollout/dead_workers_relaunched"] += 1
+        self.recovery_metrics["dead_workers_relaunched"] += 1
 
     def _probe_marks_dead(self, index: int, error: ray.exceptions.RayActorError) -> bool:
         """``ActorDiedError`` is final; ``ActorUnavailableError`` must repeat on consecutive probes to count."""

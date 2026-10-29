@@ -715,12 +715,13 @@ class PPOTrainer(ABC):
         self._pending_sync_metrics = {}
         return metrics
 
-    def _consume_recovery_metrics(self) -> dict:
-        """Dead-worker relaunch counters the agent loop manager accumulated during this step."""
+    def _consume_recovery_metrics(self, prefix: str = "rollout") -> dict:
+        """Dead-worker relaunch counters the agent loop manager accumulated since the last drain, namespaced
+        under ``prefix``: ``rollout/`` for a training step, ``validation/`` when ``_validate`` drains them."""
         counters = getattr(self.agent_loop_manager, "recovery_metrics", None)
         if not counters:
             return {}
-        metrics = dict(counters)
+        metrics = {f"{prefix}/{name}": value for name, value in counters.items()}
         counters.clear()
         return metrics
 
@@ -1129,6 +1130,8 @@ class PPOTrainer(ABC):
         session_to_sample_idx: dict[str, int] = {}
         # To avoid failure sessions
         expected_acc_counts: dict[tuple[str, str], int] = {}
+        # Sampling-time recovery counters (dead-worker groups failed in place), summed over the batches.
+        recovery_metrics: dict[str, float] = {}
 
         for batch_dict in self.val_dataloader:
             # 1. put batch to agent loop manager
@@ -1156,9 +1159,20 @@ class PPOTrainer(ABC):
             self.agent_loop_manager.generate_sequences(batch)
 
             # 2. sample batch from replay buffer: one prompt (GRPO group) per submitted row.
-            batch, _ = self.replay_buffer.sample(
+            batch, sample_metrics = self.replay_buffer.sample(
                 global_steps=self.global_steps, partition_id="val", batch_size=len(batch)
             )
+            for key, value in sample_metrics.items():
+                recovery_metrics[key] = recovery_metrics.get(key, 0) + value
+            if not batch.keys:
+                # Every group of this batch lost its worker and was failed in place: there is no row to score,
+                # fetch, decode, dump or clear (TransferQueue rejects an empty key list). The sessions stay in
+                # expected_acc_counts and count as acc = 0 wherever their data source reports acc.
+                logger.warning(
+                    f"[PPOTrainer] validation batch of {batch_size} prompts has no rows to score: every group "
+                    "lost its agent loop worker; its sessions count as failures"
+                )
+                continue
 
             # 3. [OPTIONAL] compute reward score with colocated reward model
             if self.reward_loop_manager.reward_loop_worker_handles is None:
@@ -1244,9 +1258,9 @@ class PPOTrainer(ABC):
         # logger to wandb
         self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
 
-        # dump to local dir
+        # dump to local dir (nothing to write when every group lost its worker)
         val_data_dir = self.config.trainer.get("validation_data_dir", None)
-        if val_data_dir:
+        if val_data_dir and dump_all_keys:
             # Sort according to uid (so that generations in the same rollout are together)
             sort_keys = []
             for key in dump_all_keys:
@@ -1277,13 +1291,18 @@ class PPOTrainer(ABC):
                 dump_path=val_data_dir,
             )
 
-        return self._val_metrics_update(
+        metrics = self._val_metrics_update(
             data_sources,
             sample_uids,
             reward_extra_infos_dict,
             sample_turns,
             expected_acc_counts=expected_acc_counts,
         )
+        # The validation's own recovery counters, and the manager's relaunch counters raised during it, drained
+        # here so a relaunch during the final validation is logged with it instead of lost.
+        metrics.update(recovery_metrics)
+        metrics.update(self._consume_recovery_metrics(prefix="validation"))
+        return metrics
 
     def _maybe_log_val_generations(self, inputs, outputs, scores):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""

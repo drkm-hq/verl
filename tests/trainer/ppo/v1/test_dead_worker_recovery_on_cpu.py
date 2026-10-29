@@ -302,7 +302,7 @@ def test_killed_worker_is_relaunched_and_its_prompts_reissued_with_ttl_and_probe
         assert metrics["training/inflight_reissued"] >= 2
         assert manager.agent_loop_workers[1] is not dead
         assert ray.get(manager.agent_loop_workers[1].ping.remote()) is True
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 1
         received = [ray.get(worker.received.remote()) for worker in manager.agent_loop_workers]
         assert all(sum(r.count(uid) for r in received) <= 1 for uid in uids), "an old uid was never re-sent"
     finally:
@@ -318,7 +318,7 @@ def test_killed_worker_with_relaunch_off_raises_instead_of_hanging(ray_tq, caplo
 
         with pytest.raises(ray.exceptions.RayActorError):
             SampleThread(_make_rb(trainer, ttl=1.0), batch_size=4).result_or_raise()
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 0
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 0
         assert any(
             "worker 1 failed a dispatch" in record.message and "relaunch_dead_workers" in record.message
             for record in caplog.records
@@ -345,8 +345,8 @@ def test_liveness_probe_reissues_dead_worker_prompts_without_ttl(ray_tq, monkeyp
         assert metrics["training/inflight_dead_worker_reissued"] == 2
         assert "training/inflight_expired_age_max" not in metrics
         assert manager.agent_loop_workers[1] is not dead
-        assert manager.recovery_metrics["rollout/prompts_orphaned_by_dead_workers"] == 2
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
+        assert manager.recovery_metrics["prompts_orphaned_by_dead_workers"] == 2
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 1
     finally:
         _teardown(manager)
 
@@ -364,8 +364,8 @@ def test_dispatch_to_dead_worker_parks_its_chunk_and_the_buffer_reissues_it(ray_
         trainer._submit_batch_to_rollout(batch)  # on main: RayActorError here
 
         assert manager.agent_loop_workers[1] is not dead
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
-        assert manager.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] == 2
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 1
+        assert manager.recovery_metrics["prompts_orphaned_at_dispatch"] == 2
         assert manager._orphaned_uids == set(uids[2:]), "the dead chunk is parked, not re-sent"
         assert {manager._prompt_owner[uid] for uid in uids[:2]} == {0} and not set(uids[2:]) & set(
             manager._prompt_owner
@@ -497,7 +497,7 @@ def test_validation_dead_worker_is_relaunched_and_its_val_groups_fail(ray_tq):
         assert metrics["validation/inflight_dead_worker_failed"] == 1
         assert not any(tag.get("is_prompt") for tag in tq.kv_list("val").get("val", {}).values()), "nothing regenerated"
         assert manager.agent_loop_workers[1] is not dead
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 1
     finally:
         _teardown(manager)
 
@@ -516,7 +516,7 @@ def test_unavailable_probes_must_repeat_and_relaunches_are_capped(ray_tq):
         manager.reap_dead_workers(inflight_uids=set())  # a successful ping resets the streak
         assert manager._unavailable_streak[1] == 0
         assert manager.reap_dead_workers(inflight_uids=set()) == set()
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 0
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 0
 
         manager._relaunch_streak[1] = MAX_WORKER_RELAUNCHES
         with pytest.raises(RuntimeError, match="giving up"):
@@ -561,8 +561,8 @@ def test_unavailable_dispatch_reply_parks_the_chunk_without_resending(ray_tq, mo
         _wait_until(lambda: all(_prompt_statuses().get(u) == "finished" for u in uids), what="2 finished")
         received = [ray.get(worker.received.remote()) for worker in manager.agent_loop_workers]
         assert {u: sum(r.count(u) for r in received) for u in uids} == {u: 1 for u in uids}
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 0
-        assert manager.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] == 1
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 0
+        assert manager.recovery_metrics["prompts_orphaned_at_dispatch"] == 1
         assert len(manager._orphaned_uids) == 1 and manager._orphaned_uids < set(uids)
         assert manager.reap_dead_workers(inflight_uids=set()) == set(), "terminal prompts leave the parked set"
     finally:
@@ -581,8 +581,8 @@ def test_a_chunk_is_never_dispatched_twice_under_any_recovery_path(ray_tq, monke
         batch, uids = _batch(6)  # chunks of 2: worker 0 (lost reply), worker 1, worker 2 (dead)
         trainer._submit_batch_to_rollout(batch)
         restore()
-        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
-        assert manager.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] == 4
+        assert manager.recovery_metrics["dead_workers_relaunched"] == 1
+        assert manager.recovery_metrics["prompts_orphaned_at_dispatch"] == 4
 
         out, _ = SampleThread(_make_rb(trainer, liveness=True), batch_size=6).result_or_raise()
         assert len({key.split("_")[0] for key in out.keys}) == 6
