@@ -305,6 +305,18 @@ trainer:
       # Whether sync trainers replace failed groups that have no trajectories
       sync_refill_failed_groups: False
 
+      # Seconds a training prompt may stay pending/running, from dispatch to its terminal
+      # status INCLUDING engine queueing, before the replay buffer discards its partial rows
+      # and re-issues it under a fresh uid (any trainer mode). Catches prompts whose agent
+      # loop worker died or whose generation silently hangs. Must exceed the longest healthy
+      # generation phase (timing_s/gen max), otherwise healthy groups are regenerated.
+      # null disables the TTL: a prompt without a terminal status blocks sampling forever.
+      inflight_ttl_s: null
+
+      # Re-issues one prompt may receive (TTL or dead worker) before it is marked failure
+      # instead, so the existing failure paths (padding or refill) finish the step.
+      max_inflight_reissues: 3
+
       # Custom sampler config
       custom_sampler:
 

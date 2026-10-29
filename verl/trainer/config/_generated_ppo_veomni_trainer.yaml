@@ -989,6 +989,8 @@ trainer:
       max_off_policy_threshold: 8
       max_off_policy_strategy: drop
       sync_refill_failed_groups: false
+      inflight_ttl_s: null
+      max_inflight_reissues: 3
       custom_sampler:
         path: null
         name: null

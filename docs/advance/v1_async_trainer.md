@@ -1,6 +1,6 @@
 # V1 Async Trainer
 
-Last updated: 09/21/2026.
+Last updated: 10/29/2026.
 
 The V1 trainer provides two asynchronous PPO training modes under the standard `verl.trainer.main_ppo` entry point:
 
@@ -273,6 +273,24 @@ When the installed TransferQueue supports checkpointing, V1 async checkpoints pe
 Validation shares the same AgentLoop and rollout server pool with unfinished training trajectories. Those partial trajectories continue running alongside validation requests, so `timing_s/testing` includes the contention and rollout capacity they consume rather than measuring validation generation in isolation.
 
 In `separate_async` with `enable_switch=True`, validation makes hybrid replicas available for rollout if they are currently in trainer mode. Without it there are no hybrid replicas and validation is served by the standalone pool.
+
+## Self-healing: in-flight prompt TTL
+
+Only the agent loop worker that runs a prompt group writes its terminal status (`finished` / `failure`). If that worker's Ray actor dies (node loss, OOM kill, crash) or its generation silently never returns (an engine RPC that hangs, a tool that never answers), the group stays `running` forever: sync `sample` and async `wait_for_sampleable` poll until a terminal status appears, so the step never completes. Two opt-in sampler keys turn that into a bounded recovery; they default off and leave the default paths unchanged.
+
+```bash
+trainer.v1.sampler.inflight_ttl_s=1800 \
+trainer.v1.sampler.max_inflight_reissues=3
+```
+
+- `trainer.v1.sampler.inflight_ttl_s` (every trainer mode, training partition): each prompt is stamped with `dispatched_at` when it is registered in the TransferQueue. A `pending` / `running` training prompt older than the TTL is re-issued: its partial trajectories are discarded, the prompt is retired and re-dispatched under a fresh uid (with `attempt + 1`) from the prompt rows persisted at submit time (sync trainers persist them only when the TTL is set), and the sampler keeps polling. The trainer never trains on partial rows, and a retired attempt that wakes up later cannot write into the new group: whatever it still writes is swept. **The TTL measures dispatch-to-terminal time, engine queueing included**: in sync mode every prompt of a batch is dispatched at once and the last groups finish at the end of the generation phase, so set the TTL above the largest `timing_s/gen` of a healthy run (not above a single generation). A warning names the prompt whenever it is re-issued a second time, and `training/inflight_reissued` must stay at 0 on healthy steps.
+- `trainer.v1.sampler.max_inflight_reissues` (default 3): after that many re-issues a prompt is not regenerated again but marked `failure` under a fresh uid, so the existing failure paths finish the step (padding in sync mode, or replacement through `sync_refill_failed_groups` / the async failure refill). This bounds a TTL that is too short to a few regenerations per prompt instead of a livelock. A retired attempt is not aborted: its engine requests run to completion and their rows are swept (a worker-side cancel is a follow-up).
+
+Dispatch is rotated: `AgentLoopManagerTQ.generate_sequences` starts each batch at a rotating worker index, so re-issue and refill batches smaller than the worker count do not always land on worker 0 (a wedged worker would otherwise get its own prompt back every TTL). A re-issue dispatched to a worker whose actor died still raises `RayActorError`, as on `main`: loud instead of a hang. Dead-worker detection and relaunch are a separate change.
+
+Metrics (totals per step, summed across `parameter_sync_step` iterations): `training/inflight_reissued`, `training/inflight_reissue_exhausted`, `training/inflight_discarded_while_draining`, plus `training/inflight_expired_age_max` (a max). Validation prompts are never regenerated: the TTL does not apply to the `val` partition.
+
+Scope and boundary: this covers prompts that lost their writer, in every trainer mode. Rollout replica health, `update_weights` fencing and load-balancer membership belong to the fault-tolerance line of PR #8168 and RFC #8380 and are not touched here.
 
 ## Benchmark
 

@@ -236,6 +236,8 @@ class AgentLoopManagerTQ(AgentLoopManager):
     def __init__(self, *args, **kwargs):
         self.agent_loop_workers_class = AgentLoopWorkerTQ
         super().__init__(*args, **kwargs)
+        # Rotating start index: small refill / re-issue batches must not always land on worker 0.
+        self._dispatch_cursor = 0
 
     @classmethod
     @auto_await
@@ -250,13 +252,19 @@ class AgentLoopManagerTQ(AgentLoopManager):
         Dispatch input batch to agent loop workers without blocking. Workers should put agent loop outputs
         into TransferQueue once an agent loop finished.
 
+        Chunks are assigned from a rotating start index so that a batch smaller than the worker count (refill,
+        re-issue) spreads over the workers instead of always hitting the lowest indices.
+
         Args:
             prompts (TensorDict): Input batch from train or validation dataset.
         """
-        chunkes = prompts.chunk(len(self.agent_loop_workers))
+        num_workers = len(self.agent_loop_workers)
+        chunks = prompts.chunk(num_workers)
+        start = self._dispatch_cursor
+        self._dispatch_cursor = (start + len(chunks)) % num_workers
         ray.get(
             [
-                worker.generate_sequences.remote(chunk)
-                for worker, chunk in zip(self.agent_loop_workers, chunkes, strict=False)
+                self.agent_loop_workers[(start + i) % num_workers].generate_sequences.remote(chunk)
+                for i, chunk in enumerate(chunks)
             ]
         )

@@ -226,3 +226,28 @@ def test_rollout_failure_evicted_samples_are_summed_across_iterations():
     agg.add_step_metrics({"training/rollout_failure/evicted_samples": 1})
     agg.add_step_metrics({"training/rollout_failure/evicted_samples": 2})
     assert agg.get_aggregated_metrics()["training/rollout_failure/evicted_samples"] == pytest.approx(3.0)
+
+
+def test_inflight_recovery_counters_are_summed_across_iterations():
+    """``parameter_sync_step > 1``: the in-flight recovery counters are totals, not sample-weighted means."""
+    agg = MetricsAggregator()
+    agg.add_step_metrics(
+        {
+            "training/inflight_reissued": 4,
+            "training/inflight_reissue_exhausted": 1,
+            "training/inflight_expired_age_max": 30.0,
+        },
+        sample_count=16,
+    )
+    agg.add_step_metrics(
+        {
+            "training/inflight_reissued": 0,
+            "training/inflight_reissue_exhausted": 0,
+            "training/inflight_expired_age_max": 12.0,
+        },
+        sample_count=16,
+    )
+    out = agg.get_aggregated_metrics()
+    assert out["training/inflight_reissued"] == 4
+    assert out["training/inflight_reissue_exhausted"] == 1
+    assert out["training/inflight_expired_age_max"] == 30.0
