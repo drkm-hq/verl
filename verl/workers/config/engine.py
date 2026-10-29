@@ -272,10 +272,11 @@ class FSDPEngineConfig(EngineConfig):
             Prompt and padding rows skip the vocabulary projection, so head FLOPs and the
             ``(tokens, vocab)`` logits tensor shrink by the prompt fraction of the packed
             micro-batch. Response log-probs, entropy and gradients are identical to the full
-            projection. Requires ``use_remove_padding=True`` and a model whose ``forward`` accepts
-            ``logits_to_keep`` (HF text CausalLMs); silently keeps the full projection for fused
-            kernels, top-K distillation, score centering, Ulysses sequence parallel, ``fsdp_turbo``,
-            vision-language models, the critic and SFT-shaped batches. default False
+            projection. Requires ``use_remove_padding=True`` (rejected otherwise) and a model whose
+            ``forward`` accepts ``logits_to_keep`` (HF text CausalLMs). Keeps the full projection with
+            one start-up warning (rank 0) for ``use_fused_kernels=True``, Ulysses sequence parallel,
+            ``fsdp_turbo``, vision-language models and the critic, and silently per micro-batch for
+            top-K distillation, score centering and SFT-shaped batches. default False
         qat (QATEngineConfig): QAT configuration, default disabled
     """
 

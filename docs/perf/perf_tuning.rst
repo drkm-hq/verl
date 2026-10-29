@@ -384,15 +384,16 @@ Set ``actor_rollout_ref.actor.fsdp_config.response_only_lm_head=True`` to hand t
 those rows (HF's tensor-valued ``logits_to_keep``). The reference model follows the actor
 unless ``actor_rollout_ref.ref.fsdp_config.response_only_lm_head`` is set explicitly. Head FLOPs,
 the logits tensor and the log-prob / entropy work all shrink by the prompt fraction of the packed
-micro-batch: ~6 % for GSM8K-style 80-token prompts with 1k responses, ~33 % at 1k/2k, ~86 % for a
+micro-batch: 7.4 % for GSM8K-style 80-token prompts with 1k responses, 33 % at 1k/2k, 86 % for a
 6k-token prompt with a 1k response, and more for agentic prompts. Response log-probs, entropy and
 gradients are identical to the full projection (the rows nobody reads come back as zeros), so
 training curves do not change; on GPUs the GEMM runs with a different row count, which may
 change bf16 rounding at the noise level.
 
-The flag keeps the full projection, with a warning at start-up where the layout is fixed, when
-it cannot apply: ``use_fused_kernels=True`` (the fused forwards project every row),
+``use_remove_padding=False`` with the flag on is rejected at start-up. Where the layout rules the
+flag out, the engine logs one warning on rank 0 at start-up and keeps the full projection:
+``use_fused_kernels=True`` (the fused forwards project every row),
 ``ulysses_sequence_parallel_size > 1``, the ``fsdp_turbo`` strategy, vision-language models, the
-critic, top-K distillation, score centering, SFT batches, and models whose ``forward`` accepts
-neither ``logits_to_keep`` nor ``slice_logits_to_keep``. It applies to the engine-based FSDP
-workers.
+critic, and models whose ``forward`` does not accept ``logits_to_keep``. Per micro-batch it
+silently keeps the full projection for top-K distillation, score centering and batches without
+``responses`` (SFT). It applies to the engine-based FSDP workers.

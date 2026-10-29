@@ -74,10 +74,10 @@ pad_to_length_bucket: 1024
 
 # Project the LM head only for the packed rows the loss reads (the row before each response token),
 # so head FLOPs and the (tokens, vocab) logits tensor shrink by the prompt fraction of the micro-batch.
-# Output-identical to the full projection. Requires use_remove_padding=True and a model whose forward
-# accepts `logits_to_keep` (HF text CausalLMs); silently keeps the full projection for fused kernels,
-# top-K distillation, score centering, ulysses_sequence_parallel_size > 1, fsdp_turbo, vision-language
-# models, the critic and SFT batches.
+# Output-identical to the full projection. Requires use_remove_padding=True (rejected otherwise) and a model
+# whose forward accepts `logits_to_keep` (HF text CausalLMs). Keeps the full projection with one start-up
+# warning (rank 0) for use_fused_kernels=True, ulysses_sequence_parallel_size > 1, fsdp_turbo, vision-language
+# models and the critic, and silently per micro-batch for top-K distillation, score centering and SFT batches.
 response_only_lm_head: false
 
 # Whether to use forward only in fsdp.
