@@ -1744,22 +1744,28 @@ class PPOTrainer(ABC):
     def _compute_advantage(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
         """Compute the advantage of the batch."""
         fields = ["uid", "response_mask", "rm_scores", "rollout_log_probs", "old_log_probs", "ref_log_prob", "values"]
-        fields += ["extra_fields"]  # generated_turn_spans for turn-level estimators
+        # the tool agent loop's generated_turn_spans live in extra_fields; fetch and lift them only for
+        # estimators that declare a turn_spans parameter (turn_rloo), every other estimator pays nothing
+        lift_turn_spans = core_algos.adv_estimator_takes_turn_spans(self.config.algorithm.adv_estimator)
+        if lift_turn_spans:
+            fields.append("extra_fields")
         data = tq.kv_batch_get(keys=batch.keys, partition_id=batch.partition_id, select_fields=fields)
 
         response_mask = data["response_mask"]
         data = DataProto(batch=data.to_padded_tensor())
         data.batch["token_level_scores"] = data.batch["rm_scores"]
         data.non_tensor_batch["uid"] = np.array(data.batch.pop("uid").tolist(), dtype=object)
-        # the tool agent loop's generated_turn_spans feed turn-level estimators such as turn_rloo.
-        # `extra_fields` is a non-tensor field (a LinkedList, NonTensorStack or numpy array depending on
-        # the TransferQueue backend); list(...) + unwrap normalizes every element to the row's dict.
-        extra_fields = [tu.unwrap_non_tensor_data(row) for row in list(data.batch.pop("extra_fields"))]
-        if any(isinstance(row, dict) and "generated_turn_spans" in row for row in extra_fields):
+        if lift_turn_spans:
+            # `extra_fields` is a non-tensor field (a LinkedList, NonTensorStack or numpy array depending on
+            # the TransferQueue backend); list(...) + unwrap normalizes every element to the row's dict.
+            extra_fields = [tu.unwrap_non_tensor_data(row) for row in list(data.batch.pop("extra_fields"))]
             turn_spans = np.empty(len(extra_fields), dtype=object)
             for i, row in enumerate(extra_fields):
                 turn_spans[i] = row.get("generated_turn_spans") if isinstance(row, dict) else None
-            data.non_tensor_batch["generated_turn_spans"] = turn_spans
+            rows_with_spans = sum(spans is not None for spans in turn_spans)
+            if rows_with_spans:
+                data.non_tensor_batch["generated_turn_spans"] = turn_spans
+            metrics["adv_estimator/rows_with_turn_spans"] = int(rows_with_spans)
 
         # 1. apply kl penalty to rewards
         if self.config.algorithm.use_kl_in_reward:

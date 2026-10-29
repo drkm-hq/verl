@@ -1,4 +1,4 @@
-# Copyright 2026 Bytedance Ltd. and/or its affiliates
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """The V1 trainer lifts ``extra_fields["generated_turn_spans"]`` out of the TransferQueue row so that
-``turn_rloo`` sees the turn spans; rows without spans keep working."""
+``turn_rloo`` sees the turn spans; rows without spans keep working; estimators that do not declare
+``turn_spans`` never fetch the column."""
 
 import numpy as np
 import pytest
@@ -51,20 +51,21 @@ def _nested(rows, dtype):
 
 
 def _run_compute_advantage(monkeypatch, rows, adv_estimator="turn_rloo"):
-    """``rows``: (uid, response_mask, rm_scores, extra_fields) per sample, response lengths may differ."""
-    stored = {}
+    """``rows``: (uid, response_mask, rm_scores, extra_fields) per sample, response lengths may differ.
+
+    Returns the fields written back, the metrics and the fields the trainer selected from the queue.
+    """
+    stored, metrics, selected = {}, {}, []
 
     def kv_batch_get(keys, partition_id, select_fields):
-        assert "extra_fields" in select_fields
-        return TensorDict(
-            {
-                "uid": NonTensorStack.from_list([NonTensorData(uid) for uid, *_ in rows]),
-                "response_mask": _nested([m for _, m, _, _ in rows], torch.float32),
-                "rm_scores": _nested([s for _, _, s, _ in rows], torch.float32),
-                "extra_fields": NonTensorStack.from_list([NonTensorData(ef) for *_, ef in rows]),
-            },
-            batch_size=[len(rows)],
-        )
+        selected.extend(select_fields)
+        columns = {
+            "uid": NonTensorStack.from_list([NonTensorData(uid) for uid, *_ in rows]),
+            "response_mask": _nested([m for _, m, _, _ in rows], torch.float32),
+            "rm_scores": _nested([s for _, _, s, _ in rows], torch.float32),
+            "extra_fields": NonTensorStack.from_list([NonTensorData(ef) for *_, ef in rows]),
+        }
+        return TensorDict({k: v for k, v in columns.items() if k in select_fields}, batch_size=[len(rows)])
 
     def kv_batch_put(keys, partition_id, fields):
         stored.update(fields)
@@ -80,8 +81,8 @@ def _run_compute_advantage(monkeypatch, rows, adv_estimator="turn_rloo"):
             "actor_rollout_ref": {"rollout": {"n": 2}},
         }
     )
-    trainer._compute_advantage(_BatchMeta([f"u{i}_0_0" for i in range(len(rows))]), metrics={})
-    return stored
+    trainer._compute_advantage(_BatchMeta([f"u{i}_0_0" for i in range(len(rows))]), metrics=metrics)
+    return stored, metrics, selected
 
 
 def test_v1_compute_advantage_passes_generated_turn_spans_to_turn_rloo(monkeypatch):
@@ -90,7 +91,7 @@ def test_v1_compute_advantage_passes_generated_turn_spans_to_turn_rloo(monkeypat
         ("g", [1, 1, 0, 1, 1], [0.0, 1.0, 0.0, 0.0, 2.0], {"generated_turn_spans": [(0, 2), (3, 5)]}),
         ("g", [1, 1, 0, 1], [0.0, 0.0, 0.0, 1.0], {"generated_turn_spans": [(0, 2), (3, 4)]}),
     ]
-    stored = _run_compute_advantage(monkeypatch, rows)
+    stored, metrics, selected = _run_compute_advantage(monkeypatch, rows)
 
     rewards = torch.tensor([[0.0, 1.0, 0.0, 0.0, 2.0], [0.0, 0.0, 0.0, 1.0, 0.0]])
     mask = torch.tensor([[1, 1, 0, 1, 1], [1, 1, 0, 1, 0]], dtype=torch.float32)
@@ -102,6 +103,8 @@ def test_v1_compute_advantage_passes_generated_turn_spans_to_turn_rloo(monkeypat
     torch.testing.assert_close(stored["advantages"][1], expected[1, :4])
     assert stored["advantages"][0][0].item() == pytest.approx(3.0 - 1.0)  # turn-1 return-to-go minus the other's
     assert stored["advantages"][0][3].item() == pytest.approx(2.0 - 1.0)  # turn 2 likewise
+    assert "extra_fields" in selected
+    assert metrics["adv_estimator/rows_with_turn_spans"] == 2
 
 
 def test_v1_compute_advantage_without_spans_keeps_rloo_behaviour(monkeypatch):
@@ -109,9 +112,10 @@ def test_v1_compute_advantage_without_spans_keeps_rloo_behaviour(monkeypatch):
         ("g", [1, 1, 1], [0.0, 0.0, 3.0], {"tool_rewards": []}),
         ("g", [1, 1], [0.0, 1.0], {"tool_rewards": []}),
     ]
-    stored = _run_compute_advantage(monkeypatch, rows)
+    stored, metrics, _ = _run_compute_advantage(monkeypatch, rows)
     torch.testing.assert_close(stored["advantages"][0], torch.tensor([2.0, 2.0, 2.0]))
     torch.testing.assert_close(stored["advantages"][1], torch.tensor([-2.0, -2.0]))
+    assert metrics["adv_estimator/rows_with_turn_spans"] == 0
 
 
 def test_v1_compute_advantage_tolerates_a_row_whose_extra_fields_is_not_a_dict(monkeypatch):
@@ -119,7 +123,21 @@ def test_v1_compute_advantage_tolerates_a_row_whose_extra_fields_is_not_a_dict(m
         ("g", [1, 1, 0, 1, 1], [0.0, 1.0, 0.0, 0.0, 2.0], {"generated_turn_spans": [(0, 2), (3, 5)]}),
         ("g", [1, 1], [0.0, 1.0], None),
     ]
-    stored = _run_compute_advantage(monkeypatch, rows)
+    stored, metrics, _ = _run_compute_advantage(monkeypatch, rows)
     # row 1 has no spans: one turn [0, 2) with return 1; row 0's turn-1 return is 3
     torch.testing.assert_close(stored["advantages"][1], torch.tensor([1.0 - 3.0, 1.0 - 3.0]))
     torch.testing.assert_close(stored["advantages"][0][:2], torch.tensor([3.0 - 1.0, 3.0 - 1.0]))
+    assert metrics["adv_estimator/rows_with_turn_spans"] == 1
+
+
+@pytest.mark.parametrize("adv_estimator", ["rloo", "reinforce_plus_plus", "grpo"])
+def test_v1_compute_advantage_does_not_fetch_extra_fields_for_estimators_without_turn_spans(monkeypatch, adv_estimator):
+    """The disabled path: no ``extra_fields`` round trip through the queue, no span lift, no metric."""
+    rows = [
+        ("g", [1, 1, 1], [0.0, 0.0, 3.0], {"generated_turn_spans": [(0, 3)]}),
+        ("g", [1, 1], [0.0, 1.0], {"generated_turn_spans": [(0, 2)]}),
+    ]
+    stored, metrics, selected = _run_compute_advantage(monkeypatch, rows, adv_estimator=adv_estimator)
+    assert "extra_fields" not in selected
+    assert "adv_estimator/rows_with_turn_spans" not in metrics
+    assert stored["advantages"].is_nested and stored["advantages"][0].shape == (3,)

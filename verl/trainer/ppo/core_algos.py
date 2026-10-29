@@ -20,6 +20,7 @@ implement PPO-like algorithms.
 
 __all__ = ["register_adv_est", "get_adv_estimator_fn", "AdvantageEstimator"]
 
+import inspect
 from collections import defaultdict
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -148,6 +149,18 @@ def get_adv_estimator_fn(name_or_enum):
     if name not in ADV_ESTIMATOR_REGISTRY:
         raise ValueError(f"Unknown advantage estimator simply: {name}")
     return ADV_ESTIMATOR_REGISTRY[name]
+
+
+def adv_estimator_takes_turn_spans(adv_estimator) -> bool:
+    """Whether an advantage estimator declares a ``turn_spans`` parameter.
+
+    ``adv_estimator`` is a registry name / enum or the function itself. The tool agent loop's
+    ``generated_turn_spans`` (``rollout.multi_turn.turn_level_rewards``) reach only estimators that declare
+    the parameter (``**kwargs`` alone does not opt in), so by-name estimators keep working unchanged and the
+    trainers skip the span bookkeeping for every other estimator.
+    """
+    fn = adv_estimator if callable(adv_estimator) else get_adv_estimator_fn(adv_estimator)
+    return "turn_spans" in inspect.signature(fn).parameters
 
 
 class AdaptiveKLController:
@@ -636,6 +649,32 @@ def compute_rloo_outcome_advantage(
     return scores, scores
 
 
+def _validated_turn_spans(row: int, spans, length: int) -> list[tuple[int, int]]:
+    """The ``[start, end)`` pairs of one row, checked to be ordered, non-empty, non-overlapping and within the row.
+
+    The tool agent loop clips its spans to the response it exports, so a violation means an external producer
+    handed over malformed spans, which would silently distort the turn grouping; raise instead, naming the row.
+    ``None`` or an empty list is one turn covering the whole row.
+    """
+    if spans is None:
+        return [(0, length)]
+    result: list[tuple[int, int]] = []
+    previous_end = 0
+    for span in spans:
+        try:
+            start, end = (int(v) for v in span)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"turn_spans[{row}]: span {span!r} is not an (int, int) pair") from e
+        if start < previous_end or start >= end or end > length:
+            raise ValueError(
+                f"turn_spans[{row}]: span ({start}, {end}) must satisfy {previous_end} <= start < end <= {length} "
+                "(ordered, non-negative, non-empty, non-overlapping, within the row)"
+            )
+        result.append((start, end))
+        previous_end = end
+    return result or [(0, length)]
+
+
 @register_adv_est("turn_rloo")
 def compute_turn_rloo_advantage(
     token_level_rewards: torch.Tensor,
@@ -656,7 +695,8 @@ def compute_turn_rloo_advantage(
     and the advantage of every generated token of turn ``t`` is ``G[i, t] - mean_{j != i, m_j > t} G[j, t]``:
     the baseline averages the other group members that reached turn ``t`` and is 0 when none did
     (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
-    Tokens outside a span (tool observations) get 0. A row without spans is one turn ``[0, L)``,
+    Tokens outside a span (tool observations) get 0. Spans must be ordered, non-empty, non-overlapping
+    and within the row (``ValueError`` naming the row otherwise). A row without spans is one turn ``[0, L)``,
     so without ``turn_spans`` the estimator equals ``rloo``. The tool agent loop exports spans only
     under ``rollout.multi_turn.turn_level_rewards``; with that flag off ``turn_rloo`` is plain RLOO
     on multi-turn data too.
@@ -688,11 +728,9 @@ def compute_turn_rloo_advantage(
     bs, length = token_level_rewards.shape
     gamma = config.gamma if config is not None else 1.0
     rows = turn_spans if turn_spans is not None else [None] * bs
-    spans_per_row = []
-    for spans in rows:
-        # a span that starts past the row end covers no token: not a turn the sample reached
-        spans = [(int(s), min(int(e), length)) for s, e in spans if int(s) < length] if spans is not None else []
-        spans_per_row.append(spans or [(0, length)])
+    if len(rows) != bs:
+        raise ValueError(f"turn_spans has {len(rows)} rows for a batch of {bs}")
+    spans_per_row = [_validated_turn_spans(i, spans, length) for i, spans in enumerate(rows)]
     max_turns = max(len(spans) for spans in spans_per_row)
 
     with torch.no_grad():

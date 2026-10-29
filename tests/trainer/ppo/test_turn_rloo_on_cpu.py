@@ -236,17 +236,51 @@ def test_dense_turn_rewards_reach_gae_and_reinforce_plus_plus_only_on_generated_
     assert rpp_lost[0][generated].sum() == 0 and gae_lost[0][generated].sum() == 0
 
 
-def test_spans_starting_past_the_row_end_do_not_count_as_reached():
-    """A clipped-away span (start >= length) covers no token: it must not enter the baseline as a zero return."""
-    rewards = torch.tensor([[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 4.0], [0.0, 1.0, 0.0, 4.0]])
-    mask = torch.ones(3, 4)
-    index = np.array(["g"] * 3, dtype=object)
-    spans = np.empty(3, dtype=object)
-    spans[0], spans[1], spans[2] = [(0, 2), (9, 11)], [(0, 2), (2, 4)], [(0, 2), (2, 4)]
-    adv, _ = compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)
-    # turn 2 of rows 1 and 2: each has G=4 and the only other member that reached turn 2 is the other one
-    assert adv[1, 2].item() == pytest.approx(0.0) and adv[2, 2].item() == pytest.approx(0.0)
-    assert adv[0, 0].item() == pytest.approx(1.0 - 5.0)  # row 0 is a one-turn row: G=1 vs the others' G=5
+@pytest.mark.parametrize(
+    "bad",
+    [
+        pytest.param([(0, 3), (2, 4)], id="overlap"),
+        pytest.param([(2, 4), (0, 2)], id="reversed-order"),
+        pytest.param([(0, 2), (2, 2)], id="empty"),
+        pytest.param([(3, 2)], id="start-after-end"),
+        pytest.param([(-1, 2)], id="negative"),
+        pytest.param([(0, 2), (3, 9)], id="past-the-row-end"),
+        pytest.param([(0, 2), (9, 11)], id="starting-past-the-row-end"),
+        pytest.param([(0, 2), (3,)], id="not-a-pair"),
+    ],
+)
+def test_malformed_spans_raise_naming_the_row(bad):
+    """External producers can hand over spans the loop never would; they must not silently distort the grouping."""
+    rewards, mask = torch.zeros(2, 4), torch.ones(2, 4)
+    index = np.array(["g", "g"], dtype=object)
+    spans = np.empty(2, dtype=object)
+    spans[0], spans[1] = [(0, 2), (2, 4)], bad
+    with pytest.raises(ValueError, match=r"turn_spans\[1\]"):
+        compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)
+    spans[1] = [(0, 2), (2, 4)]
+    compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)  # the well-formed batch passes
+    with pytest.raises(ValueError, match="3 rows for a batch of 2"):
+        compute_turn_rloo_advantage(rewards, mask, index, turn_spans=np.empty(3, dtype=object))
+
+
+def test_adv_estimator_takes_turn_spans_reads_the_signature():
+    import functools
+
+    from verl.trainer.ppo.core_algos import adv_estimator_takes_turn_spans
+
+    assert adv_estimator_takes_turn_spans("turn_rloo") and adv_estimator_takes_turn_spans(compute_turn_rloo_advantage)
+    for name in ("rloo", "grpo", "gae", "reinforce_plus_plus", "grpo_vectorized"):
+        assert not adv_estimator_takes_turn_spans(name), name
+
+    def kwargs_only(token_level_rewards, response_mask, index, config=None, **kwargs):
+        return None
+
+    @functools.wraps(compute_turn_rloo_advantage)
+    def wrapped(*args, **kwargs):
+        return compute_turn_rloo_advantage(*args, **kwargs)
+
+    assert not adv_estimator_takes_turn_spans(kwargs_only), "**kwargs alone does not opt in"
+    assert adv_estimator_takes_turn_spans(wrapped), "inspect.signature follows __wrapped__"
 
 
 def _spans_batch(with_spans_column: bool, spans=None):
