@@ -52,10 +52,10 @@ class MetricsAggregator:
                 "training/inflight_dead_worker_reissued",
                 "training/inflight_reissue_exhausted",
                 "training/inflight_discarded_while_draining",
+                "validation/inflight_dead_worker_failed",
             ],
             "max": [
                 "training/inflight_ttl_suspended",
-                "validation/inflight_dead_worker_failed",
             ],
             "last": [
                 "training/global_step",

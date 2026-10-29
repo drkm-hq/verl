@@ -729,7 +729,7 @@ class PPOTrainer(ABC):
     def _reap_dead_workers(self, inflight_uids: set[str]) -> set[str]:
         """Replay-buffer liveness hook: in-flight uids whose agent loop worker died (relaunched by the manager)."""
         reap = getattr(self.agent_loop_manager, "reap_dead_workers", None)
-        return reap(inflight_uids) if reap is not None else set()
+        return reap(inflight_uids, global_steps=self.global_steps) if reap is not None else set()
 
     def on_sample_begin(self):
         """Called at the beginning of sampling batch from replay buffer."""
@@ -1307,9 +1307,10 @@ class PPOTrainer(ABC):
         # here so a relaunch during the final validation is logged with it instead of lost.
         metrics.update(recovery_metrics)
         metrics.update(self._consume_recovery_metrics(prefix="validation"))
-        if not metrics:
-            # No row and no recovery counter (e.g. a live worker that failed every group): report the counts
-            # instead of an empty dict, which fit() rejects for val_before_train.
+        dead_worker_failed = recovery_metrics.get("validation/inflight_dead_worker_failed", 0)
+        if prompts_without_rows > dead_worker_failed or not metrics:
+            # Row-less prompts beyond the dead-worker failures (a live worker that failed its groups), or a
+            # validation without any other metric: report the counts (fit() rejects an empty dict).
             metrics["validation/prompts_expected"] = prompts_expected
             metrics["validation/prompts_without_rows"] = prompts_without_rows
         return metrics

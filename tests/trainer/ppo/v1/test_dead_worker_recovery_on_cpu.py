@@ -30,6 +30,7 @@ import torch
 import transfer_queue as tq
 from omegaconf import OmegaConf
 
+from verl.trainer.ppo.v1 import agent_loop_tq as agent_loop_tq_module
 from verl.trainer.ppo.v1 import replay_buffer as replay_buffer_module
 from verl.trainer.ppo.v1 import trainer_base
 from verl.trainer.ppo.v1.agent_loop_tq import (
@@ -593,4 +594,26 @@ def test_a_chunk_is_never_dispatched_twice_under_any_recovery_path(ray_tq, monke
         assert all(sum(r.count(u) for r in received) == 1 for u in fresh)
     finally:
         restore()
+        _teardown(manager)
+
+
+def test_relaunches_within_one_step_are_capped_regardless_of_service(ray_tq, monkeypatch):
+    """A worker that dies after every served dispatch resets the no-service streak, so only the per-step count
+    stops the relaunch -> re-issue -> relaunch cycle: ``MAX_WORKER_RELAUNCHES`` re-creations within one
+    ``global_steps`` raise, and the next step starts the count again."""
+    monkeypatch.setattr(agent_loop_tq_module, "MAX_WORKER_RELAUNCHES", 2)
+    manager = _make_manager(relaunch=True)
+    try:
+        for expected in (1, 2):
+            ray.kill(manager.agent_loop_workers[1], no_restart=True)
+            manager.reap_dead_workers(set(), global_steps=7)
+            manager._relaunch_streak[1] = 0  # what a served dispatch does in between
+            assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == expected
+        ray.kill(manager.agent_loop_workers[1], no_restart=True)
+        with pytest.raises(RuntimeError, match=r"worker 1 was re-created 2 times within training step 7"):
+            manager.reap_dead_workers(set(), global_steps=7)
+        ray.kill(manager.agent_loop_workers[1], no_restart=True)
+        manager.reap_dead_workers(set(), global_steps=8)  # a new step: counted afresh
+        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 3, "the refused re-creation never ran"
+    finally:
         _teardown(manager)

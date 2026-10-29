@@ -266,6 +266,10 @@ class AgentLoopManagerTQ(AgentLoopManager):
         # index -> re-creations since the worker last served a dispatch / consecutive unavailable probes.
         self._relaunch_streak: Counter = Counter()
         self._unavailable_streak: Counter = Counter()
+        # index -> re-creations within the current training step (never reset by a served dispatch); counted
+        # once the trainer's liveness probe has told the manager the step (reap_dead_workers(global_steps=...)).
+        self._relaunches_in_step: Counter = Counter()
+        self._relaunch_step: int | None = None
         # Recovery counters (``rollout/...``), drained by the trainer once per training step and, re-keyed as
         # ``validation/...``, by ``_validate`` (see PPOTrainer._consume_recovery_metrics).
         self.recovery_metrics: Counter = Counter()
@@ -399,12 +403,20 @@ class AgentLoopManagerTQ(AgentLoopManager):
             self._relaunch_worker(index, error)
 
     def _relaunch_worker(self, index: int, error: BaseException) -> None:
-        """Replace worker ``index`` with a fresh actor; give up loudly after ``MAX_WORKER_RELAUNCHES`` in a row."""
+        """Replace worker ``index`` with a fresh actor; give up loudly after ``MAX_WORKER_RELAUNCHES`` re-creations
+        in a row without a served dispatch, or within one training step regardless of service (a worker that
+        dies after every served dispatch must not be re-created forever)."""
         self._relaunch_streak[index] += 1
+        self._relaunches_in_step[index] += 1
         if self._relaunch_streak[index] > MAX_WORKER_RELAUNCHES:
             raise RuntimeError(
                 f"Agent loop worker {index} was re-created {MAX_WORKER_RELAUNCHES} times without serving a "
                 f"dispatch; giving up (last error: {error!r})"
+            ) from error
+        if self._relaunch_step is not None and self._relaunches_in_step[index] > MAX_WORKER_RELAUNCHES:
+            raise RuntimeError(
+                f"Agent loop worker {index} was re-created {MAX_WORKER_RELAUNCHES} times within training step "
+                f"{self._relaunch_step}; giving up (last error: {error!r})"
             ) from error
         old_worker = self.agent_loop_workers[index]
         logger.warning(
@@ -432,7 +444,7 @@ class AgentLoopManagerTQ(AgentLoopManager):
         self._unavailable_streak[index] = 0
         return True
 
-    def reap_dead_workers(self, inflight_uids: set[str]) -> set[str]:
+    def reap_dead_workers(self, inflight_uids: set[str], global_steps: int | None = None) -> set[str]:
         """Probe every worker and return the in-flight uids whose owner died (accumulated until consumed).
 
         A probe that merely times out is a busy, live worker. Dead workers are re-created when
@@ -443,7 +455,11 @@ class AgentLoopManagerTQ(AgentLoopManager):
 
         Args:
             inflight_uids: prompt uids pending/running across every partition, used to prune bookkeeping.
+            global_steps: the training step of the caller; a new step resets the per-step relaunch counts.
         """
+        if global_steps is not None and global_steps != self._relaunch_step:
+            self._relaunch_step = global_steps
+            self._relaunches_in_step.clear()
         refs = [worker.ping.remote() for worker in self.agent_loop_workers]
         ready, _ = ray.wait(refs, num_returns=len(refs), timeout=WORKER_LIVENESS_PROBE_TIMEOUT_SECONDS)
         dead: list[tuple[int, BaseException]] = []

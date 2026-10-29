@@ -335,3 +335,33 @@ def test_live_worker_failing_every_session_without_rows_reports_counts_not_a_dea
     assert memory.batch_get_calls == [] and memory.tags["val"] == {}
     assert not any("lost its agent loop worker" in record.message for record in caplog.records)
     assert sum("has no rows to score" in record.message for record in caplog.records) == 2
+
+
+def test_live_worker_rowless_batch_is_counted_beside_a_dead_worker_batch(monkeypatch):
+    """A dead worker's batch and a live worker's row-less batch in one validation: the dead-worker counter and
+    the row-less counts are both reported (the live worker's prompts must not vanish)."""
+    memory = MemoryTQ()
+    memory.install(monkeypatch)
+
+    class Mixed(ScheduledWorkers):
+        def generate_sequences(self, batch) -> None:
+            if not self.schedule:
+                LiveWorkersFailingEverySession.generate_sequences(self, batch)
+                return
+            super().generate_sequences(batch)
+
+    workers = Mixed(memory, [0])
+    trainer = _make_trainer(workers, batches=(["a"], ["b", "c"]))
+    probes = {"n": 0}
+
+    def liveness(uids):
+        probes["n"] += 1
+        return set(uids) if probes["n"] == 1 else set()
+
+    trainer.replay_buffer.liveness_fn = liveness
+    metrics = trainer._validate()
+    assert metrics == {
+        "validation/inflight_dead_worker_failed": 1,
+        "validation/prompts_expected": 3,
+        "validation/prompts_without_rows": 3,
+    }

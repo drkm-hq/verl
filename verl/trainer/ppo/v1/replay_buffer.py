@@ -277,6 +277,9 @@ class ReplayBuffer:
         # partition_id => the global_steps whose TTL budget is open / discards spent in it / warned once.
         self._ttl_budget_step: dict[str, int] = {}
         self._ttl_discards_in_step: dict[str, int] = defaultdict(int)
+        # partition_id => prompts re-issued or failed in the step because the liveness probe reported their
+        # worker dead; bounded by the same allowance (a worker that keeps dying must fail loudly, not loop).
+        self._dead_worker_discards_in_step: dict[str, int] = defaultdict(int)
         self._ttl_suspension_warned: set[str] = set()
         self._liveness_last_probe = 0.0
 
@@ -442,6 +445,7 @@ class ReplayBuffer:
         if self._ttl_budget_step.get(partition_id) != global_steps:
             self._ttl_budget_step[partition_id] = global_steps
             self._ttl_discards_in_step[partition_id] = 0
+            self._dead_worker_discards_in_step[partition_id] = 0
             self._ttl_suspension_warned.discard(partition_id)
 
     def _within_reissue_budget(
@@ -551,11 +555,13 @@ class ReplayBuffer:
                 partition_id, (to_reissue | exhausted) - dead_owned, eviction_metrics, reissue_budget
             )
             to_reissue, exhausted = to_reissue & allowed, exhausted & allowed
-        if exhausted and keep_last_finishable:
+        if exhausted - dead_owned and keep_last_finishable:
+            # Only the TTL's own failures are held back: a dead worker's groups are failed regardless, and when
+            # no live producer remains the sampler's all-failed RuntimeError is the honest outcome.
             survivors = (self._inflight_uids(partition_id) - exhausted) | self.finished_keys[partition_id]
             if not survivors:
-                self._hold_back_last_groups(partition_id, exhausted, eviction_metrics, reissue_budget)
-                exhausted = set()
+                self._hold_back_last_groups(partition_id, exhausted - dead_owned, eviction_metrics, reissue_budget)
+                exhausted &= dead_owned
         if not to_reissue and not exhausted:
             return False  # the step budget holds every expired prompt back: wait, as without a TTL
         reissued: set[str] = set()
@@ -595,6 +601,18 @@ class ReplayBuffer:
         if expired & (reissued | exhausted):
             key = f"{prefix}/inflight_expired_age_max"
             eviction_metrics[key] = max(eviction_metrics.get(key, 0.0), age_max)
+        dead_discards = len(reissued & dead_owned) + len(exhausted & dead_owned)
+        if dead_discards and reissue_budget is not None:
+            self._dead_worker_discards_in_step[partition_id] += dead_discards
+            if self._dead_worker_discards_in_step[partition_id] > reissue_budget:
+                raise RuntimeError(
+                    f"[V1ReplayBuffer] agent-loop workers keep dying: "
+                    f"{self._dead_worker_discards_in_step[partition_id]} prompts of step "
+                    f"{self._ttl_budget_step.get(partition_id)} were re-issued or failed because the liveness probe "
+                    f"reported their worker dead, more than the allowance of {reissue_budget} (= "
+                    "(max_inflight_reissues + 1) x prompts per step); the re-created workers are not serving, "
+                    "giving up instead of regenerating forever (see rollout/dead_workers_relaunched)"
+                )
         return True
 
     def _dapo_filtered_keys(self, partition_id: str) -> tuple[set[str], Counter]:
