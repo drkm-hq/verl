@@ -315,13 +315,15 @@ trainer:
 
       # Re-issues one prompt may receive (TTL or dead worker) before it is marked failure
       # instead, so the existing failure paths (padding or refill) finish the step.
+      # 0 = never re-issue: an expired prompt is marked failure on its first expiry.
       max_inflight_reissues: 3
 
-      # Re-issues the TTL may trigger within one training step (one sampling call). Once spent,
-      # the TTL is suspended for the rest of that step and the sampler waits for the in-flight
-      # generations, as without a TTL. The per-prompt cap alone does not bound a step: the refill
-      # that replaces an exhausted prompt starts at attempt 1. null = max_inflight_reissues x the
-      # batch size of the call.
+      # Re-issues the TTL may trigger within one training step, counted across the sampling
+      # calls that share a global_steps (parameter_sync_step mini-batches, the separate_async
+      # switch wait). Once spent, expired prompts with re-issues left are waited for, as without
+      # a TTL, while prompts past max_inflight_reissues are still marked failure and replaced.
+      # The per-prompt cap alone does not bound a step: the refill that replaces an exhausted
+      # prompt starts at attempt 1. null = max_inflight_reissues x data.train_batch_size.
       max_inflight_reissues_per_step: null
 
       # Custom sampler config

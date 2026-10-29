@@ -138,9 +138,11 @@ class ReplayBuffer:
             ``None`` disables the TTL.
         max_inflight_reissues (int): Re-issues one prompt may receive before it is marked ``failure`` instead
             (the ``attempt`` tag counts dispatches; the original is attempt 1). Defaults to 3.
-        max_inflight_reissues_per_step (int, optional): Re-issues the TTL may trigger within one sampling call
-            (one training step) before it is suspended for the rest of that call. ``None`` (default) resolves
-            to ``max_inflight_reissues`` times the batch size of the call.
+        max_inflight_reissues_per_step (int, optional): Re-issues the TTL may trigger within one training step
+            (the sampling calls that share a ``global_steps``) before the remaining expired prompts are waited
+            for. ``None`` (default) resolves to ``max_inflight_reissues`` times the step's prompt count
+            (``train_batch_size``, else the call's batch size). Prompts past ``max_inflight_reissues`` are
+            failed regardless of it (``max_inflight_reissues=0``: fail on the first expiry, never re-issue).
         reissue_fn (callable, optional): Trainer-injected ``(partition_id, uids) -> list[str]`` that discards
             the partial rows of those in-flight prompts, re-dispatches them under fresh uids and returns the
             uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` is set.
@@ -154,12 +156,13 @@ class ReplayBuffer:
     never sees partial rows: the old trajectories are cleared before the new attempt is dispatched. After
     ``max_inflight_reissues`` re-issues a prompt is marked ``failure`` under a fresh uid and the existing
     failure paths (padding or refill) finish the step. That per-prompt cap alone does not bound a step (the
-    refill that replaces an exhausted prompt starts at attempt 1), so re-issues are also bounded per sampling
-    call: once ``max_inflight_reissues_per_step`` is spent the TTL is suspended for the rest of the call (one
-    warning, ``{prefix}/inflight_ttl_suspended`` = 1) and the loop waits for the in-flight generations as it
-    does without a TTL. A TTL below the honest generation time therefore costs a bounded number of
-    regenerations and then degrades to waiting; it never livelocks. Validation prompts are never regenerated:
-    the TTL does not apply to ``val``.
+    refill that replaces an exhausted prompt starts at attempt 1), so re-issues are also bounded per step:
+    once ``max_inflight_reissues_per_step`` is spent (counted across the sampling calls that share a
+    ``global_steps``) the TTL re-issues nothing more in that step and the loop waits for the held-back
+    generations as it does without a TTL (``{prefix}/inflight_ttl_suspended`` = 1, one warning per step);
+    exhausted prompts are still failed and the DAPO drain still discards. A TTL below the honest generation
+    time therefore costs a bounded number of regenerations and then degrades to waiting; it never livelocks.
+    Validation prompts are never regenerated: the TTL does not apply to ``val``.
     """
 
     def __init__(
@@ -254,6 +257,10 @@ class ReplayBuffer:
         self._retired_uids: dict[str, set[str]] = defaultdict(set)
         # partition_id => {prompt_key: dispatch attempt (1 = original)}, bounds re-issues per prompt.
         self.prompt_attempt: dict[str, dict[str, int]] = defaultdict(dict)
+        # partition_id => the global_steps whose re-issue budget is open / re-issues spent in it / warned once.
+        self._ttl_budget_step: dict[str, int] = {}
+        self._ttl_reissues_in_step: dict[str, int] = defaultdict(int)
+        self._ttl_suspension_warned: set[str] = set()
 
     def _validate_mode_config(self) -> None:
         if self.filter_groups_metric is not None:
@@ -385,39 +392,47 @@ class ReplayBuffer:
         self._retired_uids[partition_id] |= uids
 
     def _reissue_budget(self, batch_size: int) -> int:
-        """Re-issues the TTL may trigger within one sampling call of ``batch_size`` prompts."""
+        """Re-issues the TTL may trigger within one training step: ``max_inflight_reissues_per_step``, by default
+        ``max_inflight_reissues`` x the step's prompt count (``train_batch_size`` when the trainer wired it, else
+        the sampling call's ``batch_size``)."""
         if self.max_inflight_reissues_per_step is not None:
             return self.max_inflight_reissues_per_step
-        return self.max_inflight_reissues * batch_size
+        prompts_per_step = self.train_batch_size if self.train_batch_size is not None else batch_size
+        return self.max_inflight_reissues * prompts_per_step
 
-    def _ttl_reissues_so_far(self, prefix: str, eviction_metrics: dict) -> int:
-        """Re-issues the TTL triggered during the sampling call that owns ``eviction_metrics``."""
-        return int(eviction_metrics.get(f"{prefix}/inflight_reissued", 0))
+    def _begin_ttl_budget(self, partition_id: str, global_steps: int) -> None:
+        """Open the step's re-issue accounting: the sampling calls that share a ``global_steps`` share it."""
+        if self._ttl_budget_step.get(partition_id) != global_steps:
+            self._ttl_budget_step[partition_id] = global_steps
+            self._ttl_reissues_in_step[partition_id] = 0
+            self._ttl_suspension_warned.discard(partition_id)
 
-    def _expired_within_budget(
-        self, partition_id: str, expired: set[str], eviction_metrics: dict, reissue_budget: int
+    def _within_reissue_budget(
+        self, partition_id: str, to_reissue: set[str], eviction_metrics: dict, reissue_budget: int
     ) -> set[str]:
-        """The expired prompts the step budget still lets the TTL re-issue (oldest first).
+        """The re-issuable expired prompts the step budget still allows (oldest first).
 
-        Once the budget is spent the TTL is suspended for the rest of the sampling call: the other expired
-        prompts are waited for, as without a TTL (one warning, ``{prefix}/inflight_ttl_suspended`` = 1).
+        Beyond it the TTL re-issues nothing more in this step: the held-back prompts are waited for, as without
+        a TTL (``{prefix}/inflight_ttl_suspended`` = 1 in every sampling call that holds one back, one warning
+        per step). Prompts past ``max_inflight_reissues`` are not subject to it: they are failed regardless.
         """
-        prefix = self._metrics_prefix(partition_id)
-        allowance = reissue_budget - self._ttl_reissues_so_far(prefix, eviction_metrics)
-        if len(expired) <= allowance:
-            return expired
-        key = f"{prefix}/inflight_ttl_suspended"
-        if key not in eviction_metrics:
-            eviction_metrics[key] = 1
+        allowance = reissue_budget - self._ttl_reissues_in_step[partition_id]
+        if len(to_reissue) <= allowance:
+            return to_reissue
+        eviction_metrics[f"{self._metrics_prefix(partition_id)}/inflight_ttl_suspended"] = 1
+        if partition_id not in self._ttl_suspension_warned:
+            self._ttl_suspension_warned.add(partition_id)
             logger.warning(
-                f"[V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step="
-                f"{reissue_budget}); suspending the TTL for the rest of this step and waiting for the "
-                f"{len(expired) - max(allowance, 0)} expired generations still in flight"
+                f"[V1ReplayBuffer] the in-flight TTL re-issued {self._ttl_reissues_in_step[partition_id]} prompts "
+                f"in step {self._ttl_budget_step.get(partition_id)} (max_inflight_reissues_per_step="
+                f"{reissue_budget}); it re-issues nothing more this step and waits for the "
+                f"{len(to_reissue) - max(allowance, 0)} expired generations still in flight (prompts past "
+                "max_inflight_reissues are still marked failure)"
             )
         if allowance <= 0:
             return set()
         dispatched_at = self.prompt_dispatched_at[partition_id]
-        return set(sorted(expired, key=lambda uid: dispatched_at.get(uid, 0.0))[:allowance])
+        return set(sorted(to_reissue, key=lambda uid: dispatched_at.get(uid, 0.0))[:allowance])
 
     def _recover_stuck_inflight(
         self, partition_id: str, eviction_metrics: dict, draining: bool = False, reissue_budget: int | None = None
@@ -427,17 +442,15 @@ class ReplayBuffer:
         Runs on a fresh ``_sync_metadata_from_transfer_queue`` snapshot and re-checks the TransferQueue right
         before acting, so a group that reached a terminal status in the meantime is sampled, never retired.
         Metrics accrue into ``eviction_metrics`` under ``{prefix}/inflight_*``. ``reissue_budget`` caps the
-        re-issues the TTL may trigger over the sampling call that owns ``eviction_metrics`` (``None``: no cap).
+        re-issues the TTL may trigger in the step opened by ``_begin_ttl_budget`` (``None``: no cap); it never
+        delays the failure of an exhausted prompt or the drain's discard.
         """
         if self.reissue_fn is None:
             return False
         self._sweep_retired_attempts(partition_id)
 
         now = time.time()
-        expired = self._expired_inflight_keys(partition_id, now)
-        if expired and reissue_budget is not None:
-            expired = self._expired_within_budget(partition_id, expired, eviction_metrics, reissue_budget)
-        stuck = expired
+        stuck = expired = self._expired_inflight_keys(partition_id, now)
         if not stuck:
             return False
         prefix = self._metrics_prefix(partition_id)
@@ -462,6 +475,10 @@ class ReplayBuffer:
         attempts = self.prompt_attempt[partition_id]
         exhausted = {uid for uid in stuck if attempts.get(uid, 1) > self.max_inflight_reissues}
         to_reissue = stuck - exhausted
+        if to_reissue and reissue_budget is not None:
+            to_reissue = self._within_reissue_budget(partition_id, to_reissue, eviction_metrics, reissue_budget)
+        if not to_reissue and not exhausted:
+            return False  # the step budget holds every expired prompt back: wait, as without a TTL
         reissued: set[str] = set()
         if to_reissue:
             repeats = sorted(uid for uid in to_reissue if attempts.get(uid, 1) >= 2)
@@ -482,6 +499,7 @@ class ReplayBuffer:
             if claimed is not None:
                 reissued &= claimed
             self._retired_uids[partition_id] |= reissued
+            self._ttl_reissues_in_step[partition_id] += len(reissued)
             exhausted &= self._inflight_uids(partition_id)
         if exhausted:
             logger.warning(
@@ -685,6 +703,7 @@ class ReplayBuffer:
         if dapo_enabled:
             max_inflight_prompts = self.max_inflight_gen_batches * self.train_batch_size
         reissue_budget = self._reissue_budget(batch_size)
+        self._begin_ttl_budget(partition_id, global_steps)
 
         while True:
             # Eviction, gating, and selection below must all use this snapshot.
@@ -813,6 +832,7 @@ class ReplayBufferAsync(ReplayBuffer):
         last_debug_time = time.time()
         eviction_metrics: dict = {}
         reissue_budget = self._reissue_budget(target_count)
+        self._begin_ttl_budget(partition_id, global_steps)
 
         while True:
             # Eviction and selection share one snapshot so newly terminal stale groups wait for the next eviction pass.

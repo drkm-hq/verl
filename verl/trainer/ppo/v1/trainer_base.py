@@ -199,6 +199,7 @@ class PPOTrainer(ABC):
                     max_inflight_reissues=int(sampler_config.get("max_inflight_reissues", 3)),
                     max_inflight_reissues_per_step=None if reissues_per_step is None else int(reissues_per_step),
                     reissue_fn=self._reissue_inflight_prompts,
+                    train_batch_size=self.config.data.train_batch_size,  # the step's prompt count for the budget
                 )
             if sampler_cls is ReplayBuffer:
                 filter_groups = self.config.algorithm.get("filter_groups", None)
