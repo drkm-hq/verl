@@ -166,8 +166,9 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
             metrics[f"actor/{key}"] = Metric(value=value, aggregation=aggregation)
     policy_loss = pg_loss
 
-    # add entropy loss
-    if entropy is not None:
+    # add entropy loss (under the skip without an entropy bonus the entropy is computed, without grad, only
+    # for the actor/entropy metric the trainer logs: it is not a loss term and not reported as one)
+    if entropy is not None and not (on_policy and config.entropy_coeff == 0.0):
         entropy_loss = agg_loss(
             loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode, **config.global_batch_info
         )

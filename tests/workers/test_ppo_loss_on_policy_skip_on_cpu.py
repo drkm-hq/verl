@@ -28,6 +28,7 @@ have written. This test checks, on a tiny Qwen3 in fp32:
   is why the config gate only accepts the single-mini-batch case.
 """
 
+import pytest
 import torch
 from transformers import Qwen3Config, Qwen3ForCausalLM
 
@@ -79,7 +80,7 @@ def _nested(rows):
 
 
 class _Setup:
-    def __init__(self):
+    def __init__(self, entropy_coeff: float = 0.0):
         torch.manual_seed(0)
         self.model = _make_model()
         self.input_ids, self.attention_mask, self.position_ids, self.rows = _make_data()
@@ -91,7 +92,7 @@ class _Setup:
             clip_ratio_low=0.2,
             clip_ratio_high=0.2,
             clip_ratio_c=3.0,
-            entropy_coeff=0.0,
+            entropy_coeff=entropy_coeff,
             use_kl_loss=False,
         )
         self.total_response_tokens = sum(RESP_LENS)
@@ -205,3 +206,31 @@ def test_a_second_mini_batch_is_not_on_policy():
         rows = _response_rows(setup.full_log_probs(second), second)
     max_diff = max((a - old[i]).abs().max().item() for a, i in zip(rows, second, strict=True))
     assert max_diff > 1e-5, "the second mini-batch unexpectedly still matches the sampling weights"
+
+
+@pytest.mark.parametrize(
+    ("on_policy", "entropy_coeff", "expect_entropy_loss"),
+    [(True, 0.0, False), (True, 0.01, True), (False, 0.0, True)],
+)
+def test_entropy_is_a_loss_term_only_when_it_carries_a_coefficient_or_the_flag_is_off(
+    on_policy, entropy_coeff, expect_entropy_loss
+):
+    """Under the skip with entropy_coeff=0 the entropy is computed (without grad) only for the trainer's
+    actor/entropy metric: no actor/entropy_loss, nothing added to the loss. Flag off: unchanged."""
+    setup = _Setup(entropy_coeff=entropy_coeff)
+    old = setup.old_log_prob_pass([2, 2, 2, 2])
+    idx = list(range(3))
+    setup.model.train()
+    full = setup.full_log_probs(idx)
+    with torch.no_grad():
+        entropy = _nested(torch.rand(P + RESP_LENS[i]) for i in idx)
+    data = setup.micro_batch_data(idx, None if on_policy else old, on_policy)
+
+    loss, metrics = ppo_loss(setup.config, {"log_probs": full, "entropy": entropy}, data)
+    pg_loss, _ = ppo_loss(setup.config, {"log_probs": full}, data)
+
+    assert ("actor/entropy_loss" in metrics) is expect_entropy_loss
+    if entropy_coeff == 0.0:
+        assert torch.equal(loss, pg_loss)
+    else:
+        assert not torch.equal(loss, pg_loss)
