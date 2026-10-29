@@ -31,38 +31,47 @@ after one optimizer step. Variants: plain, gradient checkpointing, LoRA (PEFT, r
    attention on torch's math kernel, since flash-attn has no fp32; TF32 off), flag off;
 5. fp32, flag on.
 
-Tolerances, from the first H100 run (torch 2.13 cu130, transformers 5.16.1, flash-attn 2.8.3,
-Qwen2.5-0.5B; ``bench/results/gpu-identity-p1-3``) and from the fp32 reference:
+Measured on 1x H100 (torch 2.13 cu130, transformers 5.16.1, flash-attn 2.8.3, Qwen2.5-0.5B;
+``bench/results/gpu-identity-p1-3`` and ``-p1-4``), the same in all six cases:
 
-* bf16 forward: response log-probs and entropy were bitwise identical in all six cases and
-  ``sum_pi_squared`` differed by at most 1.1e-7 (the same bf16 logits under a different fp32
-  reduction grouping over the vocabulary). The K-row and T-row head GEMMs share the reduction over
-  the hidden dimension, so this is asserted as measured: exact for log-probs, entropy and the loss,
-  1e-6 on ``sum_pi_squared``. A future cuBLAS that re-tiles by M would turn this into one-ulp flips
-  (0.125 at logit 20); the row tolerance to use then is rtol 2e-2 / atol 5e-2.
-* bf16 gradients: the head's backward GEMMs reduce over the vocabulary with a different split for
-  K and T rows, so the head's input gradient differs by one bf16 ulp in some elements, and 24
-  layers of bf16 backward GEMMs re-round that into a growing relative difference: 1.7e-2 (FSDP1
-  flat param, every layer-0 tensor) to 2.2e-2 (``input_layernorm.weight``) relative Frobenius at
-  layer 0 in the first run. That is bf16 rounding chaos, not a different gradient: in the fp32
-  reference, where the K-row and T-row GEMMs are the same math, the gradients must agree to 1e-4
-  relative Frobenius per tensor (the forward to 1e-4 absolute, below one bf16 ulp by three orders).
-  The bf16 bound is 1e-1 per tensor (about 4x the largest measured delta) plus an element-wise
-  bound of 1e-1 of the tensor's scale; every tensor is reported in a per-layer table before
-  anything is asserted, so a failing run shows the whole profile. The optimizer step is plain SGD
-  (lr 1e-3, no momentum, no weight decay, clipping disabled), so the update is exactly
-  ``-lr * grad`` and takes the gradient bound; the parameters before the step must be bitwise
-  identical, and after it they may differ by two first-step updates plus 1e-2 relative (the form
-  that also holds for AdamW's sign-like first step). The update's sign agreement is reported, not
-  asserted: it is dominated by elements at the noise floor.
+* forward: response log-probs, entropy and the loss bitwise identical with the flag on and off, in
+  bf16 and in fp32; ``sum_pi_squared`` within 1.1e-7 (the same logits under a different fp32
+  reduction grouping over the vocabulary). Asserted as measured: exact, 1e-6 on ``sum_pi_squared``
+  (1e-4 for both in fp32, where a re-tiled GEMM would add accumulation-order noise of ~1e-5).
+* fp32 gradients: flag on and off agree on every tensor, 1.1e-5 .. 1.4e-5 relative Frobenius
+  pooled per layer (worst tensor 5.7e-5, a layer-norm weight). The K-row and T-row GEMMs are the
+  same math in fp32, so this is the correctness proof; asserted at 1e-4 per tensor.
+* bf16 gradients: flag on and off differ by 1.7e-2 relative Frobenius at layer 0, falling to
+  2.2e-3 at layer 23 (3.6e-2 on the worst layer-0 tensor, up to 1.4e-1 on q/k biases). The head's
+  backward GEMMs split the vocabulary reduction differently for K and T rows, and every bf16
+  backward layer re-rounds that one-ulp difference: rounding amplification, as the fp32 agreement
+  shows. No arm-vs-arm bf16 tolerance can separate that from a defect (a relative measure is
+  dominated by ulp noise on small-norm tensors), so the criterion is scale-free and against the
+  truth: with ``g32`` the fp32 flag-off gradient, ``D_off = |g_off_bf16 - g32|`` and
+  ``D_on = |g_on_bf16 - g32|`` per tensor, the flag must not make the bf16 approximation of the
+  fp32 gradient worse than the baseline's own error, ``D_on <= 2 * D_off + 1e-6 * |g32|``
+  (independent rounding noise gives sqrt(2); 2 is margin; the floor covers tensors whose errors
+  vanish). Both distances and their ratio are printed per layer. The baseline's own bf16 error is
+  2.9e-2 nat on the log-probs (``fp32 vs bf16 flag-off`` line, max 4.3e-1), three orders above the
+  fp32 agreement.
+* optimizer step: plain SGD (lr 1e-3, no momentum, no weight decay, clipping disabled), so within
+  every arm ``param_after == param_before - lr * grad`` up to fp32 rounding (a residual of at most
+  4 ulp of ``|param| + |lr * grad|``, asserted), and the weights before the step must be bitwise
+  identical across arms. The update is not compared across arms: ``param_after - param_before`` is
+  a catastrophic cancellation that carries ``eps_fp32 * |param| / |update|`` of noise (1.0e-4 ..
+  1.3e-4 relative on FSDP1 flat params in fp32), and in bf16 it is the gradient again; its
+  relative difference and sign agreement are printed. The parameters after the step may differ by
+  two first-step updates plus 1e-2 relative (the form that also holds for AdamW's sign-like step).
 * fp32 reference sanity: its flag-off log-probs must agree with the bf16 flag-off ones within bf16
-  noise (mean |delta| below 0.5 nat), which rules out a broken packed-attention mask.
+  noise (mean |delta| below 0.5 nat; measured 2.9e-2), which rules out a broken packed-attention
+  mask behind an fp32 identity.
 
-verl's GPU job runs pytest with ``-x``, so the measured deltas are printed and the bounds carry
-margin. Run: ``pytest -s -rs tests/workers/test_response_only_lm_head_on_gpu.py`` on one CUDA
-device with Qwen2.5-0.5B at ``~/models/Qwen/Qwen2.5-0.5B`` or ``/root/models/Qwen/Qwen2.5-0.5B``
-(or set ``VERL_RESPONSE_ONLY_LM_HEAD_MODEL``); without a device or a model the six cases skip and
-the skip reason names the paths tried.
+verl's stock GPU unit-test selection collects this file and runs it with ``-x``, so the measured
+deltas are printed and the bounds carry margin. Run it with
+``pytest -s -rs tests/workers/test_response_only_lm_head_on_gpu.py`` on one CUDA device with
+Qwen2.5-0.5B at ``~/models/Qwen/Qwen2.5-0.5B`` or ``/root/models/Qwen/Qwen2.5-0.5B`` (or set
+``VERL_RESPONSE_ONLY_LM_HEAD_MODEL``); without a device or a model the six cases skip and the skip
+reason names the paths tried.
 """
 
 import os
@@ -107,10 +116,13 @@ VARIANTS = {
 }
 STRATEGIES = ["fsdp", "fsdp2"]
 LR = 1e-3  # plain SGD: the update is exactly -LR * grad
-TOLERANCES = {  # rows / sum_pi_squared: (rtol, atol) per element; grad: rel-Frobenius and element-wise scale
-    "bf16": {"rows": (0.0, 0.0), "sum_pi_squared": (0.0, 1e-6), "grad": 1e-1},
+FP32_EPS = 2.0**-23
+TOLERANCES = {  # rows / sum_pi_squared: (rtol, atol) per element; grad: fp32 arm-vs-arm relative Frobenius per tensor
+    "bf16": {"rows": (0.0, 0.0), "sum_pi_squared": (0.0, 1e-6)},
     "fp32": {"rows": (0.0, 1e-4), "sum_pi_squared": (0.0, 1e-4), "grad": 1e-4},
 }
+TRUTH_RATIO, TRUTH_FLOOR = 2.0, 1e-6  # bf16: D_on <= TRUTH_RATIO * D_off + TRUTH_FLOOR * |g_fp32| per tensor
+SGD_RESIDUAL_ULPS = 4.0  # |param_after - (param_before - lr * grad)| within this many fp32 ulp of |param| + |lr * grad|
 CROSS_PRECISION_MEAN_NAT = 0.5  # bf16 vs fp32 flag-off log-probs: bf16 noise, not a different attention
 
 
@@ -268,6 +280,15 @@ def _run_arm(flag: bool, variant: dict, strategy: str, precision: str, batch: Te
         engine.optimizer_step()
     out.update(_snapshot(engine.module, "param"))
     out.update({f"update/{name}": out[f"param/{name}"] - out[f"before/{name}"] for name in trainable})
+    residual = torch.zeros((), device=next(iter(grads.values())).device)
+    for (
+        name
+    ) in trainable:  # SGD consistency within the arm: param_after == param_before - lr * grad up to fp32 rounding
+        before, grad = out[f"before/{name}"], out[f"grad/{name}"]
+        num = (out[f"update/{name}"] + LR * grad).norm()
+        den = FP32_EPS * (before.norm() + (LR * grad).norm())
+        residual = torch.maximum(residual, num / den.clamp_min(1e-30))
+    out["sgd/residual_ulps"] = residual
     del engine
     get_torch_device().empty_cache()
     return out
@@ -283,12 +304,18 @@ def _layer_of(key: str) -> str:
     return "root"  # FSDP1's root flat param: the embedding, the final norm and the (tied) head
 
 
-def _compare(label: str, enabled: dict, reference: dict, precision: str = "bf16") -> list[str]:
-    """Print every measured delta (the run log keeps them), then return the tolerance violations."""
+def _compare(label: str, enabled: dict, reference: dict, precision: str = "bf16", truth: dict | None = None):
+    """Print every measured delta (the run log keeps them), then return the tolerance violations.
+
+    ``truth`` (the fp32 flag-off arm) turns the bf16 gradient comparison into the distance-to-truth
+    criterion of the module docstring; without it the bf16 gradients are reported only.
+    """
     tol = TOLERANCES[precision]
     assert enabled.keys() == reference.keys()
     failures: list[str] = []
-    layers: dict[str, list] = {}  # grad table: layer -> [tensors, max rel_fro, sum |delta|^2, sum |ref|^2]
+    layers: dict[
+        str, list
+    ] = {}  # layer -> [tensors, max on-vs-off rel_fro, sum D_off^2, sum D_on^2, sum |g32|^2, max ratio]
     summary: dict[
         str, list
     ] = {}  # group -> [max_abs, worst rel_fro, its key, sum |delta|^2, sum |ref|^2, min sign agr.]
@@ -300,6 +327,12 @@ def _compare(label: str, enabled: dict, reference: dict, precision: str = "bf16"
         if group == "before":
             if not torch.equal(on, off):
                 failures.append(f"{key}: weights differ before the step (max |delta| {max_abs:.3e})")
+            continue
+        if group == "sgd":
+            print(f"[response_only_lm_head][{label}] SGD residual: off={off.item():.3f} on={on.item():.3f} ulp")
+            for arm, value in (("off", off.item()), ("on", on.item())):
+                if value > SGD_RESIDUAL_ULPS:
+                    failures.append(f"flag {arm}: param_after != param_before - lr * grad ({value:.2f} ulp)")
             continue
         if group in ("forward", "train", "loss"):
             rtol, atol = tol["sum_pi_squared"] if key.endswith("sum_pi_squared") else tol["rows"]
@@ -325,26 +358,38 @@ def _compare(label: str, enabled: dict, reference: dict, precision: str = "bf16"
         stats[3] += delta.pow(2).sum().item()
         stats[4] += off.pow(2).sum().item()
         if group == "grad":
-            row = layers.setdefault(_layer_of(key), [0, 0.0, 0.0, 0.0])
+            row = layers.setdefault(_layer_of(key), [0, 0.0, 0.0, 0.0, 0.0, 0.0])
             row[0], row[1] = row[0] + 1, max(row[1], rel_fro)
-            row[2], row[3] = row[2] + delta.pow(2).sum().item(), row[3] + off.pow(2).sum().item()
-        if group in ("grad", "update"):  # the update is -LR * grad: the gradient bound carries over
-            scale = max(off.abs().max().item(), 1e-30)
-            bad = int((delta > tol["grad"] * (scale + off.abs())).sum().item())
-            if rel_fro > tol["grad"]:
-                failures.append(f"{key}: relative Frobenius difference {rel_fro:.3e} > {tol['grad']:g}")
-            if bad:
-                failures.append(f"{key}: {bad} elements beyond {tol['grad']:g} of the tensor's scale")
-            if group == "update":
-                nonzero = off != 0
-                agree = (on.sign() == off.sign())[nonzero].float().mean().item() if nonzero.any() else 1.0
-                stats[5] = min(stats[5], agree)
+            if precision == "fp32" and rel_fro > tol["grad"]:
+                failures.append(f"{key}: fp32 arms differ by {rel_fro:.3e} relative Frobenius > {tol['grad']:g}")
+            if truth is not None:
+                g32 = truth[key]
+                d_off, d_on, scale = (off - g32).norm().item(), (on - g32).norm().item(), g32.norm().item()
+                ratio = d_on / (d_off + TRUTH_FLOOR * scale + 1e-30)
+                row[2], row[3], row[4], row[5] = (
+                    row[2] + d_off**2,
+                    row[3] + d_on**2,
+                    row[4] + scale**2,
+                    max(row[5], ratio),
+                )
+                if d_on > TRUTH_RATIO * d_off + TRUTH_FLOOR * scale:
+                    failures.append(
+                        f"{key}: distance to the fp32 gradient {d_on:.3e} with the flag on vs {d_off:.3e} off "
+                        f"(ratio {ratio:.2f} > {TRUTH_RATIO:g})"
+                    )
+        elif group == "update":  # -LR * grad: reported only (across arms it is the gradient again)
+            nonzero = off != 0
+            agree = (on.sign() == off.sign())[nonzero].float().mean().item() if nonzero.any() else 1.0
+            stats[5] = min(stats[5], agree)
         elif group == "param":  # two opposite first-step updates (|update| <= LR each) plus 1e-2 relative
             if not bool((delta <= 2 * LR * 1.01 + 1e-2 * off.abs()).all()):
                 failures.append(f"{key}: |delta| {max_abs:.3e} exceeds 2 * lr + 1e-2 * |ref|")
-    for layer, (count, worst, num, den) in sorted(layers.items()):
-        pooled = (num / max(den, 1e-30)) ** 0.5
-        print(f"[response_only_lm_head][{label}] grad {layer}: n={count} max rel_fro={worst:.3e} pooled={pooled:.3e}")
+    for layer, (count, worst, d_off2, d_on2, scale2, ratio) in sorted(layers.items()):
+        line = f"[response_only_lm_head][{label}] grad {layer}: n={count} max on-vs-off rel_fro={worst:.3e}"
+        if truth is not None:
+            d_off, d_on = (d_off2 / max(scale2, 1e-30)) ** 0.5, (d_on2 / max(scale2, 1e-30)) ** 0.5
+            line += f" D_off={d_off:.3e} D_on={d_on:.3e} max ratio={ratio:.2f}"
+        print(line)
     for group, (max_abs, worst, key, num, den, agree) in summary.items():
         pooled = (num / max(den, 1e-30)) ** 0.5
         print(
@@ -354,8 +399,8 @@ def _compare(label: str, enabled: dict, reference: dict, precision: str = "bf16"
     return failures
 
 
-def _check(label: str, enabled: dict, reference: dict, precision: str = "bf16") -> None:
-    failures = _compare(label, enabled, reference, precision)
+def _check(label: str, enabled: dict, reference: dict, precision: str = "bf16", truth: dict | None = None) -> None:
+    failures = _compare(label, enabled, reference, precision, truth)
     assert not failures, f"{label}: {len(failures)} check(s) failed:\n  " + "\n  ".join(failures[:30])
 
 
@@ -377,20 +422,18 @@ def _worker(rank: int, world_size: int, rendezvous_file: str, variant_name: str,
     del baseline
     print(f"[response_only_lm_head][{label}/bf16] flag-off twice: bitwise identical ({len(reference)} tensors)")
     enabled = run(True, precision="bf16", freeze=False, label=f"{label}/bf16")
-    failures = _compare(f"{label}/bf16", enabled, reference, "bf16")
-    bf16_log_probs = reference["forward/log_probs"]
-    del enabled, reference
-    get_torch_device().empty_cache()
-    reference = run(False, precision="fp32", freeze=False, label=f"{label}/fp32")
-    cross = (reference["forward/log_probs"] - bf16_log_probs)[bf16_log_probs != 0].abs()
-    mean_nat = cross.mean().item()
-    print(
-        f"[response_only_lm_head][{label}] fp32 vs bf16 flag-off log-probs: mean={mean_nat:.3e} max={cross.max():.3e}"
-    )
+    truth = run(False, precision="fp32", freeze=False, label=f"{label}/fp32")
+    cross = (truth["forward/log_probs"] - reference["forward/log_probs"])[reference["forward/log_probs"] != 0].abs()
+    mean_nat, max_nat = cross.mean().item(), cross.max().item()
+    print(f"[response_only_lm_head][{label}] fp32 vs bf16 flag-off log-probs: mean={mean_nat:.3e} max={max_nat:.3e}")
+    failures = []
     if mean_nat > CROSS_PRECISION_MEAN_NAT:
         failures.append(f"fp32 reference is not the bf16 forward within bf16 noise: mean |delta| {mean_nat:.3e} nat")
+    failures += _compare(f"{label}/bf16", enabled, reference, "bf16", truth=truth)
+    del enabled, reference
+    get_torch_device().empty_cache()
     enabled = run(True, precision="fp32", freeze=False, label=f"{label}/fp32")
-    failures += _compare(f"{label}/fp32", enabled, reference, "fp32")
+    failures += _compare(f"{label}/fp32", enabled, truth, "fp32")
     assert not failures, f"{label}: {len(failures)} check(s) failed:\n  " + "\n  ".join(failures[:30])
     dist.barrier()
     dist.destroy_process_group()
