@@ -1,6 +1,6 @@
 # V1 Async Trainer
 
-Last updated: 09/21/2026.
+Last updated: 10/29/2026.
 
 The V1 trainer provides two asynchronous PPO training modes under the standard `verl.trainer.main_ppo` entry point:
 
@@ -273,6 +273,25 @@ When the installed TransferQueue supports checkpointing, V1 async checkpoints pe
 Validation shares the same AgentLoop and rollout server pool with unfinished training trajectories. Those partial trajectories continue running alongside validation requests, so `timing_s/testing` includes the contention and rollout capacity they consume rather than measuring validation generation in isolation.
 
 In `separate_async` with `enable_switch=True`, validation makes hybrid replicas available for rollout if they are currently in trainer mode. Without it there are no hybrid replicas and validation is served by the standalone pool.
+
+## Self-healing: in-flight prompt TTL
+
+Only the agent loop worker that runs a prompt group writes its terminal status (`finished` / `failure`). If that worker's Ray actor dies (node loss, OOM kill, crash) or its generation silently never returns (an engine RPC that hangs, a tool that never answers), the group stays `running` forever: sync `sample` and async `wait_for_sampleable` poll until a terminal status appears, so the step never completes. Two opt-in sampler keys turn that into a bounded recovery; they default off and leave the default paths unchanged.
+
+```bash
+trainer.v1.sampler.inflight_ttl_s=1800 \
+trainer.v1.sampler.max_inflight_reissues=3
+```
+
+- `trainer.v1.sampler.inflight_ttl_s` (every trainer mode, training partition): each prompt is stamped with `dispatched_at` when it is registered in the TransferQueue. A `pending` / `running` training prompt older than the TTL is re-issued: its partial trajectories are discarded, the prompt is retired and re-dispatched under a fresh uid (with `attempt + 1`) from the prompt rows persisted at submit time (sync trainers persist them only when the TTL is set), and the sampler keeps polling. The trainer never trains on partial rows, and a retired attempt that wakes up later cannot write into the new group: whatever it still writes is swept. **The TTL measures dispatch-to-terminal time, engine queueing included**: in sync mode every prompt of a batch is dispatched at once and the last groups finish at the end of the generation phase, so set the TTL above the largest `timing_s/gen` of a healthy run (not above a single generation). A warning names the prompt whenever it is re-issued a second time, and `training/inflight_reissued` must stay at 0 on healthy steps.
+- `trainer.v1.sampler.max_inflight_reissues` (default 3): after that many re-issues a prompt is not regenerated again but marked `failure` under a fresh uid, so the existing failure paths finish the step (padding in sync mode, or replacement through `sync_refill_failed_groups` / the async failure refill); a capped prompt is not trained in this epoch (its group is padded or replaced by a different prompt). This cap alone does not bound a step: the refill that replaces an exhausted prompt starts at attempt 1, so a TTL below the honest generation time would keep regenerating; the next key bounds that. A retired attempt is not aborted: its engine requests run to completion and their rows are swept (a worker-side cancel is a follow-up).
+- `trainer.v1.sampler.max_inflight_reissues_per_step` (default `null` = `(max_inflight_reissues + 1)` x `data.train_batch_size`): TTL-induced discards the sampler may perform within one training step, counted across the sampling calls that share a `global_steps` (the `parameter_sync_step` mini-batches, the `separate_async` switch wait): re-issues and the failures that end exhausted prompts (each of which makes the refill path start another generation at attempt 1, so the per-prompt cap alone bounds nothing). Once spent, the TTL retires nothing more in that step and the sampler waits for the in-flight generations exactly as without a TTL (`training/inflight_ttl_suspended` = 1 in the sampling call that held one back, one warning per step), so pending healthy work completes and the step returns; the sync DAPO drain's discard of surplus in-flight groups is not charged (it never regenerates). `max_inflight_reissues=0` means never re-issue: an expired prompt is failed on its first expiry, bounded by the same budget. Without `sync_refill_failed_groups` (sync mode's default) a failed group is padded, never replaced, so the sampler never lets the TTL fail its last finishable groups: when an exhaustion failure would leave no finished group and nothing else in flight, the groups are held back for that poll (same metric, one warning per step) and their generations are waited for; the check is repeated every poll and charges nothing, so once another group is finished or in flight an exhausted prompt is failed under the normal budget (a dead writer beside a healthy slow group is padded as soon as the healthy group finishes), and healthy generations slower than the TTL are trained on, not lost. `max_inflight_reissues_per_step` must be a positive integer or `null`. What is proven (CPU: the real sampling loops with a virtual clock, and the real buffer): TTL-induced discards per step are bounded by the budget, and a step never loses its last finishable group to the TTL; after that the sampler waits for the in-flight generations. A generation that truly never returns still blocks the step once the budget is spent, as on `main`; an explicit wait-vs-abort policy at that point is a follow-up.
+
+Dispatch is rotated: `AgentLoopManagerTQ.generate_sequences` starts each batch at a rotating worker index, so re-issue and refill batches smaller than the worker count do not always land on worker 0 (a wedged worker would otherwise get its own prompt back every TTL). A re-issue dispatched to a worker whose actor died still raises `RayActorError`, as on `main`: loud instead of a hang. Dead-worker detection and relaunch are a separate change.
+
+Metrics (totals per step, summed across `parameter_sync_step` iterations): `training/inflight_reissued`, `training/inflight_reissue_exhausted`, `training/inflight_discarded_while_draining`, `training/inflight_ttl_suspended` (a per-step 0/1 flag, aggregated as a max: 1 when an expired prompt was held back), plus `training/inflight_expired_age_max` (a max). Validation prompts are never regenerated: the TTL does not apply to the `val` partition.
+
+Scope and boundary: this covers prompts that lost their writer, in every trainer mode. Rollout replica health, `update_weights` fencing and load-balancer membership belong to the fault-tolerance line of PR #8168 and RFC #8380 and are not touched here.
 
 ## Benchmark
 

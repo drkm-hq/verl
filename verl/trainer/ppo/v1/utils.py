@@ -48,6 +48,12 @@ class MetricsAggregator:
                 "training/rollout_failure/evicted_samples",
                 "validation/rollout_failure/evicted_samples",
                 "training/rollout_logprobs_mismatch_count",
+                "training/inflight_reissued",
+                "training/inflight_reissue_exhausted",
+                "training/inflight_discarded_while_draining",
+            ],
+            "max": [
+                "training/inflight_ttl_suspended",
             ],
             "last": [
                 "training/global_step",

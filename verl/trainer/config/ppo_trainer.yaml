@@ -305,6 +305,32 @@ trainer:
       # Whether sync trainers replace failed groups that have no trajectories
       sync_refill_failed_groups: False
 
+      # Seconds a training prompt may stay pending/running, from dispatch to its terminal
+      # status INCLUDING engine queueing, before the replay buffer discards its partial rows
+      # and re-issues it under a fresh uid (any trainer mode). Catches prompts whose agent
+      # loop worker died or whose generation silently hangs. Must exceed the longest healthy
+      # generation phase (timing_s/gen max), otherwise healthy groups are regenerated.
+      # null disables the TTL: a prompt without a terminal status blocks sampling forever.
+      inflight_ttl_s: null
+
+      # Re-issues one prompt may receive (TTL or dead worker) before it is marked failure
+      # instead, so the existing failure paths (padding or refill) finish the step.
+      # 0 = never re-issue: an expired prompt is marked failure on its first expiry.
+      max_inflight_reissues: 3
+
+      # TTL-induced discards allowed within one training step, counted across the sampling
+      # calls that share a global_steps (parameter_sync_step mini-batches, the separate_async
+      # switch wait): re-issues and the failures that end exhausted prompts (each of which makes
+      # the refill path start another generation). Once spent, the TTL retires nothing more in
+      # that step and the sampler waits for the in-flight generations, as without a TTL, so
+      # pending healthy work completes. The per-prompt cap alone does not bound a step: the
+      # refill that replaces an exhausted prompt starts at attempt 1. Without
+      # sync_refill_failed_groups a failure is padded, not replaced, so the sampler never lets the
+      # TTL fail its last finishable groups: it holds them back (re-checked every poll) and waits.
+      # null = (max_inflight_reissues + 1) x data.train_batch_size; otherwise a positive integer
+      # (to turn the TTL off set inflight_ttl_s to null).
+      max_inflight_reissues_per_step: null
+
       # Custom sampler config
       custom_sampler:
 

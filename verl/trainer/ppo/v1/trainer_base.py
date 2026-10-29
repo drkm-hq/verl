@@ -16,6 +16,7 @@ import json
 import logging
 import math
 import os
+import time
 import uuid
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -111,6 +112,23 @@ def _count_tq_prompt_groups(partition_id: str = "train") -> int:
     return sum(1 for tag in data.get(partition_id, {}).values() if tag.get("is_prompt", False))
 
 
+def _prompt_fields(batch: TensorDict) -> TensorDict:
+    """Per-row prompt columns worth persisting in TransferQueue (scalars such as ``global_steps`` are tags)."""
+    return batch.select(*[key for key in batch.keys() if not isinstance(batch.get(key), NonTensorData)])
+
+
+def _pending_prompt_tag(global_steps: int, attempt: int = 1) -> dict:
+    """Prompt tag for a dispatch; ``dispatched_at`` feeds the replay buffer's in-flight TTL and ``attempt``
+    (1 for the original dispatch) bounds how often one prompt may be re-issued."""
+    return {
+        "is_prompt": True,
+        "status": "pending",
+        "global_steps": global_steps,
+        "dispatched_at": time.time(),
+        "attempt": attempt,
+    }
+
+
 class PPOTrainer(ABC):
     """Base class for PPO trainer.
 
@@ -161,6 +179,10 @@ class PPOTrainer(ABC):
             sampler_kwargs=sampler_config.sampler_kwargs,
             refill_fn=self._add_prompts_to_generate,
         )
+        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts that
+        # re-issues stuck prompts mid-run. Opt-in.
+        inflight_ttl_s = sampler_config.get("inflight_ttl_s", None)
+        self.inflight_recovery_enabled = inflight_ttl_s is not None
         # Preserve the existing constructor contract for external samplers; custom implementations own
         # their filtering semantics and can consume algorithm.filter_groups through their own config.
         if not has_custom_sampler:
@@ -170,6 +192,15 @@ class PPOTrainer(ABC):
                 filter_groups_metric=filter_groups_metric,
                 sync_refill_failed_groups=sync_refill_failed_groups,
             )
+            if self.inflight_recovery_enabled:
+                reissues_per_step = sampler_config.get("max_inflight_reissues_per_step", None)
+                replay_buffer_kwargs.update(
+                    inflight_ttl_s=inflight_ttl_s,
+                    max_inflight_reissues=int(sampler_config.get("max_inflight_reissues", 3)),
+                    max_inflight_reissues_per_step=None if reissues_per_step is None else int(reissues_per_step),
+                    reissue_fn=self._reissue_inflight_prompts,
+                    train_batch_size=self.config.data.train_batch_size,  # the step's prompt count for the budget
+                )
             if sampler_cls is ReplayBuffer:
                 filter_groups = self.config.algorithm.get("filter_groups", None)
                 max_inflight_gen_batches = 1
@@ -908,21 +939,45 @@ class PPOTrainer(ABC):
                 self._restored_tq_prompt_count = _count_tq_prompt_groups()
                 logger.info(f"Restored {self._restored_tq_prompt_count} training prompt groups from TransferQueue")
 
-    def _reissue_inflight_prompts(self, partition_id: str = "train") -> int:
-        """Restart checkpointed pending/running prompt groups from their persisted prompt data."""
-        if self.trainer_mode == "sync":
+    def _reissue_inflight_prompts(self, partition_id: str = "train", uids: list[str] | None = None) -> int | list[str]:
+        """Restart pending/running prompt groups from their persisted prompt data.
+
+        Without ``uids`` this is checkpoint recovery (async modes only): every in-flight prompt is re-dispatched
+        under its own uid, since the process that was generating it is gone, and rows no prompt refers to any
+        more (retired attempts, the batch trained right before the save) are dropped; returns the count.
+        With ``uids`` it is the mid-run path used by the replay buffer for prompts that expired or whose worker
+        died: only those still in flight are restarted, each under a FRESH uid with ``attempt + 1``, so a
+        slow-not-dead attempt that writes late can never merge into the new group; returns the old uids that
+        were actually retired (a group that turned terminal in the meantime is left for sampling). In both
+        cases the old trajectories are cleared first, so the trainer never sees partial rows, and the
+        dataloader is not touched (the prompt rows come from TransferQueue).
+        """
+        if uids is None and self.trainer_mode == "sync":
             return 0
         data = tq.kv_list(partition_id)
         if not data:
-            return 0
+            return 0 if uids is None else []
         items = data.get(partition_id, {})
+        requested = None if uids is None else set(uids)
         inflight_uids = [
             key
             for key, tag in items.items()
-            if tag.get("is_prompt", False) and tag.get("status") in ("pending", "running")
+            if tag.get("is_prompt", False)
+            and tag.get("status") in ("pending", "running")
+            and (requested is None or key in requested)
         ]
+        if requested is None:
+            prompt_uids = {key for key, tag in items.items() if tag.get("is_prompt", False)}
+            orphan_keys = [
+                key
+                for key, tag in items.items()
+                if not tag.get("is_prompt", False) and key.split("_", 1)[0] not in prompt_uids
+            ]
+            if orphan_keys:
+                tq.kv_clear(keys=orphan_keys, partition_id=partition_id)
+                logger.info(f"Dropped {len(orphan_keys)} restored rows without a prompt group from {partition_id}")
         if not inflight_uids:
-            return 0
+            return 0 if uids is None else []
 
         batch = tq.kv_batch_get(keys=inflight_uids, partition_id=partition_id)
         inflight_uid_set = set(inflight_uids)
@@ -934,17 +989,27 @@ class PPOTrainer(ABC):
         if old_trajectory_keys:
             tq.kv_clear(keys=old_trajectory_keys, partition_id=partition_id)
 
-        # Treat this as a new dispatch attempt for the resumed training step.
+        # Treat this as a new dispatch attempt for the current training step.
         tu.assign_non_tensor_data(batch, "global_steps", self.global_steps)
-        tags = [{"is_prompt": True, "status": "pending", "global_steps": self.global_steps} for _ in inflight_uids]
-        tq.kv_batch_put(keys=inflight_uids, partition_id=partition_id, tags=tags)
+        if requested is None:
+            tags = [_pending_prompt_tag(self.global_steps, items[uid].get("attempt", 1)) for uid in inflight_uids]
+            tq.kv_batch_put(keys=inflight_uids, partition_id=partition_id, tags=tags)
+        else:
+            tags = [_pending_prompt_tag(self.global_steps, items[uid].get("attempt", 1) + 1) for uid in inflight_uids]
+            # Retire the old attempt's keys and register the new attempt under fresh uids with its prompt rows,
+            # so a later re-issue (or a checkpoint restore) can find them again.
+            new_uids = [uuid.uuid4().hex for _ in inflight_uids]
+            batch["uid"] = new_uids
+            tq.kv_clear(keys=inflight_uids, partition_id=partition_id)
+            tq.kv_batch_put(keys=new_uids, partition_id=partition_id, tags=tags, fields=_prompt_fields(batch))
         self.agent_loop_manager.generate_sequences(batch)
 
         logger.info(
-            f"Re-issued {len(inflight_uids)} in-flight prompts for step {self.global_steps}; "
+            f"Re-issued {len(inflight_uids)} in-flight prompts for step {self.global_steps}"
+            f"{' under fresh uids' if requested is not None else ''}; "
             f"cleared {len(old_trajectory_keys)} old trajectories from partition {partition_id}"
         )
-        return len(inflight_uids)
+        return len(inflight_uids) if requested is None else inflight_uids
 
     def _save_checkpoint(self):
         """Save actor, critic, and dataloader checkpoints to local (and optionally remote) storage."""
@@ -1067,9 +1132,7 @@ class PPOTrainer(ABC):
             tu.assign_non_tensor_data(batch, "validate", True)
             # Register each prompt (GRPO group) in TransferQueue as a tag-only status marker.
             # global_steps is required by ReplayBuffer's metadata sync / staleness ordering.
-            tags = [
-                {"is_prompt": True, "status": "pending", "global_steps": self.global_steps} for _ in range(len(batch))
-            ]
+            tags = [_pending_prompt_tag(self.global_steps) for _ in range(len(batch))]
             tq.kv_batch_put(keys=list(batch["uid"]), partition_id="val", tags=tags)
             self.agent_loop_manager.generate_sequences(batch)
 
@@ -1496,15 +1559,15 @@ class PPOTrainer(ABC):
 
     def _submit_batch_to_rollout(self, batch: TensorDict) -> int:
         """Register prompts in TransferQueue and dispatch them for generation."""
-        tags = [{"is_prompt": True, "status": "pending", "global_steps": self.global_steps} for _ in range(len(batch))]
-        if self.trainer_mode != "sync":
+        tags = [_pending_prompt_tag(self.global_steps) for _ in range(len(batch))]
+        if self.trainer_mode != "sync" or getattr(self, "inflight_recovery_enabled", False):
             tq.kv_batch_put(
                 keys=list(batch["uid"]),
                 partition_id="train",
                 tags=tags,
-                # Persist prompt data for async checkpoint recovery.
+                # Persist prompt data for async checkpoint recovery and for mid-run re-issue.
                 # TODO: maybe let workers do it?
-                fields=batch.select(*[key for key in batch.keys() if not isinstance(batch.get(key), NonTensorData)]),
+                fields=_prompt_fields(batch),
             )
         else:
             tq.kv_batch_put(keys=list(batch["uid"]), partition_id="train", tags=tags)

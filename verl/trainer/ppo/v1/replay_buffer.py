@@ -14,6 +14,7 @@
 import logging
 import os
 import time
+import uuid
 from collections import Counter, defaultdict
 
 import numpy as np
@@ -132,6 +133,41 @@ class ReplayBuffer:
         gen_batch_size (int, optional): Dataloader fetch granularity for refill dispatches.
         max_inflight_gen_batches (int): Maximum Sync DAPO prompt batches concurrently pending or running.
         sync_refill_failed_groups (bool): Whether sync sampling replaces failed groups with no trajectories.
+        inflight_ttl_s (float, optional): Seconds a training prompt may stay pending/running (measured from
+            its ``dispatched_at`` tag, engine queueing included) before it is handed to ``reissue_fn``.
+            ``None`` disables the TTL.
+        max_inflight_reissues (int): Re-issues one prompt may receive before it is marked ``failure`` instead
+            (the ``attempt`` tag counts dispatches; the original is attempt 1). Defaults to 3.
+        max_inflight_reissues_per_step (int, optional): TTL-induced discards the buffer may perform within one
+            training step (the sampling calls that share a ``global_steps``): re-issues and the failures that
+            end exhausted prompts (each of which makes the refill path start another generation). Beyond it the
+            remaining expired prompts are waited for. ``None`` (default) resolves to
+            ``(max_inflight_reissues + 1)`` times the step's prompt count (``train_batch_size``, else the call's
+            batch size): every prompt of the step may be re-issued up to the cap and failed once.
+            ``max_inflight_reissues=0`` never re-issues: an expired prompt is failed on its first expiry.
+        reissue_fn (callable, optional): Trainer-injected ``(partition_id, uids) -> list[str]`` that discards
+            the partial rows of those in-flight prompts, re-dispatches them under fresh uids and returns the
+            uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` is set.
+
+    ### [In-flight recovery]
+    Only the agent loop worker that runs a prompt writes its terminal status. If that worker dies or its
+    generation silently hangs, the prompt stays ``running`` forever and sampling never completes. With
+    ``inflight_ttl_s`` the loops re-issue such prompts through ``reissue_fn`` and keep polling.
+    A re-issued prompt gets a fresh uid, so late writes from the retired attempt (a slow-not-dead worker) can
+    never merge into the new group; the buffer sweeps any key the retired attempt still writes. The trainer
+    never sees partial rows: the old trajectories are cleared before the new attempt is dispatched. After
+    ``max_inflight_reissues`` re-issues a prompt is marked ``failure`` under a fresh uid and the existing
+    failure paths (padding or refill) finish the step. That per-prompt cap alone does not bound a step (the
+    refill that replaces an exhausted prompt starts at attempt 1), so every TTL-induced discard, a re-issue or
+    the failure that ends an exhausted prompt, is charged against ``max_inflight_reissues_per_step`` (counted
+    across the sampling calls that share a ``global_steps``); once it is spent the TTL retires nothing more in
+    that step and the loop waits for the in-flight generations as it does without a TTL
+    (``{prefix}/inflight_ttl_suspended`` = 1, one warning per step), so pending healthy work completes and the
+    step returns. The sync DAPO drain's discard of surplus in-flight groups is not charged (it never
+    regenerates). The number of TTL-induced discards per step is therefore bounded by the budget; a generation
+    that never returns still blocks the step once it is spent, as without a TTL (an explicit wait-vs-abort
+    policy at that point is a follow-up). Validation prompts are never regenerated: the TTL does not apply to
+    ``val``.
     """
 
     def __init__(
@@ -148,6 +184,10 @@ class ReplayBuffer:
         gen_batch_size: int | None = None,
         max_inflight_gen_batches: int = 1,
         sync_refill_failed_groups: bool = False,
+        inflight_ttl_s: float | None = None,
+        max_inflight_reissues: int = 3,
+        max_inflight_reissues_per_step: int | None = None,
+        reissue_fn=None,
     ):
         self.trainer_mode = trainer_mode
         self.trainer_config = trainer_config
@@ -161,7 +201,34 @@ class ReplayBuffer:
         self.gen_batch_size = gen_batch_size
         self.max_inflight_gen_batches = max_inflight_gen_batches
         self.sync_refill_failed_groups = sync_refill_failed_groups
+        self.inflight_ttl_s = inflight_ttl_s
+        self.max_inflight_reissues = max_inflight_reissues
+        self.max_inflight_reissues_per_step = max_inflight_reissues_per_step
+        self.reissue_fn = reissue_fn
 
+        if self.inflight_ttl_s is not None:
+            assert (
+                isinstance(self.inflight_ttl_s, int | float)
+                and not isinstance(self.inflight_ttl_s, bool)
+                and self.inflight_ttl_s > 0
+            ), f"Invalid inflight_ttl_s: {self.inflight_ttl_s}, must be a positive number of seconds or null"
+        assert (
+            isinstance(self.max_inflight_reissues, int)
+            and not isinstance(self.max_inflight_reissues, bool)
+            and self.max_inflight_reissues >= 0
+        ), f"Invalid max_inflight_reissues: {self.max_inflight_reissues}, must be a non-negative integer"
+        if self.max_inflight_reissues_per_step is not None:
+            assert (
+                isinstance(self.max_inflight_reissues_per_step, int)
+                and not isinstance(self.max_inflight_reissues_per_step, bool)
+                and self.max_inflight_reissues_per_step >= 1
+            ), (
+                f"Invalid max_inflight_reissues_per_step: {self.max_inflight_reissues_per_step}, must be a "
+                "positive integer or null (null = (max_inflight_reissues + 1) x train_batch_size; to disable the "
+                "TTL set inflight_ttl_s to null)"
+            )
+        if self.inflight_ttl_s is not None and self.reissue_fn is None:
+            raise ValueError("inflight_ttl_s requires reissue_fn to re-issue expired in-flight prompts")
         if self.max_off_policy_threshold is not None:
             assert isinstance(self.max_off_policy_threshold, int) and self.max_off_policy_threshold > 0, (
                 f"Invalid max off policy threshold: {self.max_off_policy_threshold}, "
@@ -188,8 +255,18 @@ class ReplayBuffer:
         self.failure_keys: dict[str, set] = defaultdict(set)
         # partition_id => {prompt_key: global_steps}, used to prioritize older samples.
         self.prompt_global_steps: dict[str, dict[str, int]] = defaultdict(dict)
+        # partition_id => {prompt_key: wall-clock dispatch time}, used by the in-flight TTL.
+        self.prompt_dispatched_at: dict[str, dict[str, float]] = defaultdict(dict)
         # Finished groups are immutable, so their DAPO classification can be reused across polling iterations.
         self._dapo_classification_cache: dict[str, dict[str, float | None]] = defaultdict(dict)
+        # partition_id => uids of re-issued attempts whose late writes must be swept (see [In-flight recovery]).
+        self._retired_uids: dict[str, set[str]] = defaultdict(set)
+        # partition_id => {prompt_key: dispatch attempt (1 = original)}, bounds re-issues per prompt.
+        self.prompt_attempt: dict[str, dict[str, int]] = defaultdict(dict)
+        # partition_id => the global_steps whose TTL budget is open / discards spent in it / warned once.
+        self._ttl_budget_step: dict[str, int] = {}
+        self._ttl_discards_in_step: dict[str, int] = defaultdict(int)
+        self._ttl_suspension_warned: set[str] = set()
 
     def _validate_mode_config(self) -> None:
         if self.filter_groups_metric is not None:
@@ -206,6 +283,8 @@ class ReplayBuffer:
         self.finished_keys.clear()
         self.failure_keys.clear()
         self.prompt_global_steps.clear()
+        self.prompt_dispatched_at.clear()
+        self.prompt_attempt.clear()
 
         data = tq.kv_list()
         if data is None:
@@ -217,6 +296,9 @@ class ReplayBuffer:
                 if tag.get("is_prompt", False):
                     # see: [GRPO group sampling control]
                     self.prompt_global_steps[partition_id][key] = tag["global_steps"]
+                    if tag.get("dispatched_at") is not None:
+                        self.prompt_dispatched_at[partition_id][key] = tag["dispatched_at"]
+                    self.prompt_attempt[partition_id][key] = tag.get("attempt", 1)
                     match tag["status"]:
                         case "pending":
                             self.pending_keys[partition_id].add(key)
@@ -256,7 +338,222 @@ class ReplayBuffer:
             status_keys[partition_id].difference_update(uids)
         for uid in uids:
             self.prompt_global_steps[partition_id].pop(uid, None)
+            self.prompt_dispatched_at[partition_id].pop(uid, None)
+            self.prompt_attempt[partition_id].pop(uid, None)
             self._dapo_classification_cache[partition_id].pop(uid, None)
+
+    def _expired_inflight_keys(self, partition_id: str, now: float | None = None) -> set[str]:
+        """Training prompts still pending/running whose age since ``dispatched_at`` exceeds ``inflight_ttl_s``.
+
+        The age is dispatch-to-terminal, engine queueing included (``running`` is stamped before the engine
+        queue). Prompts without a ``dispatched_at`` tag (older checkpoints, custom submitters) never expire.
+        """
+        if self.inflight_ttl_s is None or partition_id == "val":
+            return set()
+        now = time.time() if now is None else now
+        dispatched_at = self.prompt_dispatched_at[partition_id]
+        return {
+            uid
+            for uid in self._inflight_uids(partition_id)
+            if uid in dispatched_at and now - dispatched_at[uid] > self.inflight_ttl_s
+        }
+
+    def _inflight_uids(self, partition_id: str) -> set[str]:
+        return self.pending_keys[partition_id] | self.running_keys[partition_id]
+
+    def _registered_prompt_uids(self, partition_id: str) -> set[str]:
+        status_sets = (self.pending_keys, self.running_keys, self.finished_keys, self.failure_keys)
+        return set().union(*(status_keys[partition_id] for status_keys in status_sets))
+
+    def _sweep_retired_attempts(self, partition_id: str) -> int:
+        """Clear any key a retired (re-issued or failed) attempt wrote after it was replaced."""
+        retired = self._retired_uids[partition_id]
+        if not retired:
+            return 0
+        late_keys = {key for key in self.partitions[partition_id] if key.split("_")[0] in retired}
+        late_keys |= self._registered_prompt_uids(partition_id) & retired
+        if late_keys:
+            tq.kv_clear(partition_id=partition_id, keys=list(late_keys))
+            for key in late_keys:
+                self.partitions[partition_id].pop(key, None)
+            for status_keys in (self.pending_keys, self.running_keys, self.finished_keys, self.failure_keys):
+                status_keys[partition_id].difference_update(late_keys)
+        return len(late_keys)
+
+    def _fail_exhausted(self, partition_id: str, uids: set[str]) -> None:
+        """Turn groups whose re-issues are exhausted into ``failure`` under fresh uids, so the existing failure
+        paths (padding, refill) finish the step; the old attempt is retired and its rows cleared, as for a
+        re-issue."""
+        tags = [
+            {
+                "is_prompt": True,
+                "status": "failure",
+                "global_steps": self.prompt_global_steps[partition_id].get(uid, 0),
+                "attempt": self.prompt_attempt[partition_id].get(uid, 1),
+            }
+            for uid in sorted(uids)
+        ]
+        tq.kv_batch_put(keys=[uuid.uuid4().hex for _ in tags], partition_id=partition_id, tags=tags)
+        self._clear_groups(partition_id, uids)
+        self._retired_uids[partition_id] |= uids
+
+    def _reissue_budget(self, batch_size: int) -> int:
+        """TTL-induced discards (re-issues and exhaustion failures) allowed within one training step:
+        ``max_inflight_reissues_per_step``, by default ``(max_inflight_reissues + 1)`` x the step's prompt count
+        (``train_batch_size`` when the trainer wired it, else the sampling call's ``batch_size``)."""
+        if self.max_inflight_reissues_per_step is not None:
+            return self.max_inflight_reissues_per_step
+        prompts_per_step = self.train_batch_size if self.train_batch_size is not None else batch_size
+        return (self.max_inflight_reissues + 1) * prompts_per_step
+
+    def _begin_ttl_budget(self, partition_id: str, global_steps: int) -> None:
+        """Open the step's TTL-discard accounting: the sampling calls that share a ``global_steps`` share it."""
+        if self._ttl_budget_step.get(partition_id) != global_steps:
+            self._ttl_budget_step[partition_id] = global_steps
+            self._ttl_discards_in_step[partition_id] = 0
+            self._ttl_suspension_warned.discard(partition_id)
+
+    def _within_reissue_budget(
+        self, partition_id: str, candidates: set[str], eviction_metrics: dict, reissue_budget: int
+    ) -> set[str]:
+        """The expired prompts (to re-issue or to fail as exhausted) the step budget still lets the TTL retire,
+        oldest first.
+
+        Beyond it the TTL retires nothing more in this step: the held-back prompts are waited for, as without a
+        TTL (``{prefix}/inflight_ttl_suspended`` = 1 in every sampling call that holds one back, one warning per
+        step), so pending healthy work completes and the step returns.
+        """
+        allowance = reissue_budget - self._ttl_discards_in_step[partition_id]
+        if len(candidates) <= allowance:
+            return candidates
+        eviction_metrics[f"{self._metrics_prefix(partition_id)}/inflight_ttl_suspended"] = 1
+        if partition_id not in self._ttl_suspension_warned:
+            self._ttl_suspension_warned.add(partition_id)
+            logger.warning(
+                f"[V1ReplayBuffer] the in-flight TTL retired {self._ttl_discards_in_step[partition_id]} generations "
+                f"in step {self._ttl_budget_step.get(partition_id)} (max_inflight_reissues_per_step="
+                f"{reissue_budget}); it re-issues or fails nothing more this step and waits for the "
+                f"{len(candidates) - max(allowance, 0)} expired generations still in flight"
+            )
+        if allowance <= 0:
+            return set()
+        dispatched_at = self.prompt_dispatched_at[partition_id]
+        return set(sorted(candidates, key=lambda uid: dispatched_at.get(uid, 0.0))[:allowance])
+
+    def _hold_back_last_groups(
+        self, partition_id: str, held: set[str], eviction_metrics: dict, reissue_budget: int | None
+    ) -> None:
+        """The padding-mode sampler's guard: failing ``held`` would leave the step without a finishable group
+        (no finished group, nothing else in flight) and nothing replaces a failure, so they are held back for
+        this poll and their generations are waited for (``{prefix}/inflight_ttl_suspended`` = 1, one warning
+        per step). Re-evaluated on every poll and charged nothing: once another group is finished or in
+        flight, an exhausted prompt is failed under the normal step budget."""
+        eviction_metrics[f"{self._metrics_prefix(partition_id)}/inflight_ttl_suspended"] = 1
+        if partition_id not in self._ttl_suspension_warned:
+            self._ttl_suspension_warned.add(partition_id)
+            logger.warning(
+                f"[V1ReplayBuffer] the in-flight TTL would fail the last {len(held)} finishable groups of step "
+                f"{self._ttl_budget_step.get(partition_id)} (past max_inflight_reissues; nothing replaces a failed "
+                "group without sync_refill_failed_groups): holding them back and waiting for their generations"
+            )
+
+    def _recover_stuck_inflight(
+        self,
+        partition_id: str,
+        eviction_metrics: dict,
+        draining: bool = False,
+        reissue_budget: int | None = None,
+        keep_last_finishable: bool = False,
+    ) -> bool:
+        """Re-issue or fail in-flight prompts that expired; True when the caller must re-poll.
+
+        Runs on a fresh ``_sync_metadata_from_transfer_queue`` snapshot and re-checks the TransferQueue right
+        before acting, so a group that reached a terminal status in the meantime is sampled, never retired.
+        Metrics accrue into ``eviction_metrics`` under ``{prefix}/inflight_*``. ``reissue_budget`` caps the
+        TTL-induced discards (re-issues and exhaustion failures) of the step opened by ``_begin_ttl_budget``
+        (``None``: no cap); the drain's discard is never charged or delayed. With ``keep_last_finishable`` (the
+        padding-mode sampler, where a failure is not replaced) an exhaustion failure that would leave no finished
+        group and nothing else in flight is held back for this poll instead (see ``_hold_back_last_groups``).
+        """
+        if self.reissue_fn is None:
+            return False
+        self._sweep_retired_attempts(partition_id)
+
+        now = time.time()
+        stuck = expired = self._expired_inflight_keys(partition_id, now)
+        if not stuck:
+            return False
+        prefix = self._metrics_prefix(partition_id)
+        dispatched_at = self.prompt_dispatched_at[partition_id]
+        age_max = max((now - dispatched_at[uid] for uid in expired), default=0.0)
+
+        def count(name: str, value: int) -> None:
+            eviction_metrics[f"{prefix}/{name}"] = eviction_metrics.get(f"{prefix}/{name}", 0) + value
+
+        # Re-check before acting: a slow-but-alive worker may have finished the group since the snapshot.
+        self._sync_metadata_from_transfer_queue()
+        stuck &= self._inflight_uids(partition_id)
+        if not stuck:
+            return True
+        if draining:
+            # Sync DAPO drain: every in-flight group is discarded as surplus anyway, so do not regenerate.
+            self._clear_groups(partition_id, stuck)
+            self._retired_uids[partition_id] |= stuck
+            count("inflight_discarded_while_draining", len(stuck))
+            return True
+
+        attempts = self.prompt_attempt[partition_id]
+        exhausted = {uid for uid in stuck if attempts.get(uid, 1) > self.max_inflight_reissues}
+        to_reissue = stuck - exhausted
+        if reissue_budget is not None and (to_reissue or exhausted):
+            # A re-issue and the failure that ends an exhausted prompt (the refill path then starts another
+            # generation) are both TTL-induced discards: the step budget bounds their sum.
+            allowed = self._within_reissue_budget(
+                partition_id, to_reissue | exhausted, eviction_metrics, reissue_budget
+            )
+            to_reissue, exhausted = to_reissue & allowed, exhausted & allowed
+        if exhausted and keep_last_finishable:
+            survivors = (self._inflight_uids(partition_id) - exhausted) | self.finished_keys[partition_id]
+            if not survivors:
+                self._hold_back_last_groups(partition_id, exhausted, eviction_metrics, reissue_budget)
+                exhausted = set()
+        if not to_reissue and not exhausted:
+            return False  # the step budget holds every expired prompt back: wait, as without a TTL
+        reissued: set[str] = set()
+        if to_reissue:
+            repeats = sorted(uid for uid in to_reissue if attempts.get(uid, 1) >= 2)
+            if repeats:
+                logger.warning(
+                    f"[V1ReplayBuffer] {len(repeats)} prompts are being re-issued again (attempt >= 2), e.g. "
+                    f"{repeats[0]}; inflight_ttl_s={self.inflight_ttl_s} must exceed the dispatch-to-terminal time "
+                    "including engine queueing, or healthy generations are restarted from scratch"
+                )
+            logger.warning(
+                f"[V1ReplayBuffer] re-issuing {len(to_reissue)} expired in-flight prompts (oldest age: {age_max:.1f}s)"
+            )
+            result = self.reissue_fn(partition_id, sorted(to_reissue))
+            claimed = None if isinstance(result, int) else set(result)
+            # Retire only what was actually replaced: a uid still registered turned terminal in the window.
+            self._sync_metadata_from_transfer_queue()
+            reissued = to_reissue - self._registered_prompt_uids(partition_id)
+            if claimed is not None:
+                reissued &= claimed
+            self._retired_uids[partition_id] |= reissued
+            exhausted &= self._inflight_uids(partition_id)
+        if exhausted:
+            logger.warning(
+                f"[V1ReplayBuffer] {len(exhausted)} prompts exceeded max_inflight_reissues="
+                f"{self.max_inflight_reissues}; marking them failure: {sorted(exhausted)[:4]}"
+            )
+            self._fail_exhausted(partition_id, exhausted)
+        self._ttl_discards_in_step[partition_id] += len(reissued) + len(exhausted)
+
+        count("inflight_reissued", len(reissued))
+        count("inflight_reissue_exhausted", len(exhausted))
+        if expired & (reissued | exhausted):
+            key = f"{prefix}/inflight_expired_age_max"
+            eviction_metrics[key] = max(eviction_metrics.get(key, 0.0), age_max)
+        return True
 
     def _dapo_filtered_keys(self, partition_id: str) -> tuple[set[str], Counter]:
         """Finished groups whose configured DAPO metric is identical across all trajectories.
@@ -445,10 +742,20 @@ class ReplayBuffer:
         max_inflight_prompts = 0
         if dapo_enabled:
             max_inflight_prompts = self.max_inflight_gen_batches * self.train_batch_size
+        reissue_budget = self._reissue_budget(batch_size)
+        self._begin_ttl_budget(partition_id, global_steps)
 
         while True:
             # Eviction, gating, and selection below must all use this snapshot.
             self._sync_metadata_from_transfer_queue()
+            if self._recover_stuck_inflight(
+                partition_id,
+                eviction_metrics,
+                draining=draining,
+                reissue_budget=reissue_budget,
+                keep_last_finishable=not self.sync_refill_failed_groups,  # padding: a failure is not replaced
+            ):
+                continue
 
             eviction_reasons = self._terminal_eviction_reasons(global_steps, partition_id)
             failed_count = len(eviction_reasons[2])
@@ -568,10 +875,14 @@ class ReplayBufferAsync(ReplayBuffer):
         """
         last_debug_time = time.time()
         eviction_metrics: dict = {}
+        reissue_budget = self._reissue_budget(target_count)
+        self._begin_ttl_budget(partition_id, global_steps)
 
         while True:
             # Eviction and selection share one snapshot so newly terminal stale groups wait for the next eviction pass.
             self._sync_metadata_from_transfer_queue()
+            if self._recover_stuck_inflight(partition_id, eviction_metrics, reissue_budget=reissue_budget):
+                continue
 
             eviction_reasons = self._terminal_eviction_reasons(global_steps, partition_id)
             evicted_uids, stale_count, _dapo_count, metrics = self._evict_terminal_groups(
