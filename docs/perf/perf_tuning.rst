@@ -1,7 +1,7 @@
 Performance Tuning Guide
 ==============================
 
-Last updated: 10/22/2026.
+Last updated: 10/28/2026.
 
 Author: `Guangming Sheng <https://github.com/PeterSH6>`_, `Jiali Zheng <https://github.com/CurryRice233>`_
 
@@ -26,6 +26,8 @@ In this section, we will discuss how to tune the performance of all the stages i
 9. Memory optimization for entropy calculation from logits
 
 10. Node-local low-precision gradient communication with VeOmni
+
+11. Project the LM head only for loss rows (FSDP)
 
 Rollout Generation Tuning
 --------------------------
@@ -367,3 +369,30 @@ This processes the tensor in chunks of shape ``[chunk_size, voc]`` (e.g., 2048) 
 Additionally, during training, standard gradient checkpointing (``enable_gradient_checkpointing=True``) does not apply to entropy calculations. To reduce memory peaks in this context, set:
 ``actor_rollout_ref.actor.entropy_checkpointing = True``
 This enables entropy recomputation specifically for the entropy calculation, lowering memory usage during training.
+
+Project the LM head only for loss rows (FSDP)
+----------------------------------------------
+
+On the default FSDP path (``use_remove_padding=True``, ``use_fused_kernels=False``) the actor
+and reference forwards project the LM head, and compute log-probs and entropy, for every packed
+token, although the PPO loss and the metrics only read the row before each response token. The
+``(tokens, vocab)`` logits tensor is usually the largest activation of these passes (7.5 GB in
+bf16 at 24k tokens for a 152k vocabulary) and the head is 7-17 % of the forward FLOPs for
+1.7B-8B models.
+
+Set ``actor_rollout_ref.actor.fsdp_config.response_only_lm_head=True`` to hand the model only
+those rows (HF's tensor-valued ``logits_to_keep``). The reference model follows the actor
+unless ``actor_rollout_ref.ref.fsdp_config.response_only_lm_head`` is set explicitly. Head FLOPs,
+the logits tensor and the log-prob / entropy work all shrink by the prompt fraction of the packed
+micro-batch: ~6 % for GSM8K-style 80-token prompts with 1k responses, ~33 % at 1k/2k, ~86 % for a
+6k-token prompt with a 1k response, and more for agentic prompts. Response log-probs, entropy and
+gradients are identical to the full projection (the rows nobody reads come back as zeros), so
+training curves do not change; on GPUs the GEMM runs with a different row count, which may
+change bf16 rounding at the noise level.
+
+The flag keeps the full projection, with a warning at start-up where the layout is fixed, when
+it cannot apply: ``use_fused_kernels=True`` (the fused forwards project every row),
+``ulysses_sequence_parallel_size > 1``, the ``fsdp_turbo`` strategy, vision-language models, the
+critic, top-K distillation, score centering, SFT batches, and models whose ``forward`` accepts
+neither ``logits_to_keep`` nor ``slice_logits_to_keep``. It applies to the engine-based FSDP
+workers.
