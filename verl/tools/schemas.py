@@ -101,6 +101,9 @@ class ToolResponse(BaseModel):
     text: str | None = None
     image: list[Any] | None = None
     video: list[Any] | None = None
+    done: bool = False
+    """Set by a tool to end the episode: the agent loop appends this response as the final
+    observation and terminates instead of generating another turn."""
 
     @model_validator(mode="before")
     @classmethod

@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+import warnings
 from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
@@ -33,6 +34,7 @@ from verl.tools.function_tool import FunctionTool, normalize_function_tool_retur
 from verl.tools.schemas import OpenAIFunctionCallSchema, OpenAIFunctionParsedSchema, ToolResponse
 from verl.utils.profiler import simple_timer
 from verl.utils.rollout_trace import rollout_trace_op
+from verl.utils.tokenizer.continuous_token import MergeResult
 from verl.workers.rollout.replica import TokenOutput
 
 logger = logging.getLogger(__file__)
@@ -86,6 +88,12 @@ class AgentData:
         self.response_logprobs: list[float] = []
         self.turn_scores: list[float] = []
         self.tool_rewards: list[float] = []
+        # [start, end) offsets of each generated (assistant) turn within response_ids, and the
+        # tool step rewards of that turn summed; the two lists stay index-aligned.
+        self.generated_turn_spans: list[tuple[int, int]] = []
+        self.turn_rewards: list[float] = []
+        # True once a tool response carried ``done=True`` (the episode ended on the tool's signal).
+        self.episode_done: bool = False
         self.user_turns = 0
         self.assistant_turns = 0
 
@@ -96,6 +104,35 @@ class AgentData:
 
         # Extra fields for dynamic addition, e.g., tool session data
         self.extra_fields: dict[str, Any] = {}
+
+
+def _align_generated_turn_spans(agent_data: AgentData, merge_result: MergeResult) -> None:
+    """Apply a Continuous Token merge's suffix edits to the generated-turn spans.
+
+    Called before ``agent_data.response_mask`` is replaced by the merge's aligned mask: tokens the
+    merge trimmed from the runtime suffix clip the spans that covered them (a span left empty is
+    dropped together with its turn reward), and an assistant merge appends the span of the newly
+    generated tokens, skipping the mask-0 boundary tokens inserted ahead of them.
+    """
+    retained = max(0, len(agent_data.response_mask) - merge_result.removed_prefix_token_count)
+    spans, rewards = [], []
+    for (start, end), reward in zip(agent_data.generated_turn_spans, agent_data.turn_rewards, strict=True):
+        if start < retained:
+            spans.append((start, min(end, retained)))
+            rewards.append(reward)
+        elif reward:
+            warnings.warn(
+                f"a Continuous Token merge removed {merge_result.removed_prefix_token_count} runtime tokens and "
+                f"with them the whole generated turn [{start}, {end}); its reward {reward} is dropped",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+    if merge_result.kind == "assistant" and merge_result.appended_token_count:
+        start = retained + len(merge_result.inserted_token_ids)
+        spans.append((start, start + merge_result.appended_token_count))
+        rewards.append(0.0)
+    agent_data.generated_turn_spans = spans
+    agent_data.turn_rewards = rewards
 
 
 @register("tool_agent")
@@ -111,6 +148,7 @@ class ToolAgentLoop(AgentLoopBase):
         self.max_user_turns = self.rollout_config.multi_turn.max_user_turns
         self.max_assistant_turns = self.rollout_config.multi_turn.max_assistant_turns
         self.max_parallel_calls = self.rollout_config.multi_turn.max_parallel_calls
+        self.turn_level_rewards = self.rollout_config.multi_turn.turn_level_rewards
         self.max_tool_response_length = self.rollout_config.multi_turn.max_tool_response_length
         self.tool_response_truncate_side = self.rollout_config.multi_turn.tool_response_truncate_side
 
@@ -210,6 +248,21 @@ class ToolAgentLoop(AgentLoopBase):
             extra_fields=agent_data.extra_fields,
         )
         output.extra_fields.update({"turn_scores": agent_data.turn_scores, "tool_rewards": agent_data.tool_rewards})
+        if self.turn_level_rewards:
+            # Spans past the response budget are cut like the tokens they cover.
+            generated_turn_spans, turn_rewards = [], []
+            for (start, end), reward in zip(agent_data.generated_turn_spans, agent_data.turn_rewards, strict=True):
+                if start < len(output.response_ids):
+                    generated_turn_spans.append((start, min(end, len(output.response_ids))))
+                    turn_rewards.append(reward)
+            output.turn_rewards = turn_rewards
+            output.extra_fields.update(
+                {
+                    "turn_rewards": turn_rewards,
+                    "generated_turn_spans": generated_turn_spans,
+                    "episode_done": agent_data.episode_done,
+                }
+            )
         return output
 
     async def _handle_pending_state(self, agent_data: AgentData, sampling_params: dict[str, Any]) -> AgentState:
@@ -278,6 +331,8 @@ class ToolAgentLoop(AgentLoopBase):
             agent_data.response_logprobs if (agent_data.response_logprobs or output.log_probs) else None,
             assistant_logprobs=output.log_probs if output.log_probs else None,
         )
+        if self.turn_level_rewards:
+            _align_generated_turn_spans(agent_data, merge_result)
         agent_data.prompt_ids = merge_result.token_ids
         agent_data.response_mask = response_mask
         if response_logprobs is not None:
@@ -322,6 +377,7 @@ class ToolAgentLoop(AgentLoopBase):
 
         # Process tool responses and update multi_modal_data
         # Removed: agent_data.new_images_this_turn = []
+        turn_reward, episode_done = 0.0, False
         for tool_index, (tool_response, tool_reward, _) in enumerate(responses):
             tool_call = agent_data.tool_calls[tool_index]
             # Create message from tool response
@@ -374,6 +430,13 @@ class ToolAgentLoop(AgentLoopBase):
 
             if tool_reward is not None:
                 agent_data.tool_rewards.append(tool_reward)
+                turn_reward += float(tool_reward)
+            episode_done = episode_done or tool_response.done
+
+        # The step rewards of this turn's tool calls credit the assistant turn that made them.
+        if agent_data.turn_rewards:
+            agent_data.turn_rewards[-1] += turn_reward
+        agent_data.episode_done = agent_data.episode_done or episode_done
 
         # Continuous Token is the only tokenization path; tool responses that add new
         # images require a VL builder + processor. Validate before mutating rollout state
@@ -392,7 +455,12 @@ class ToolAgentLoop(AgentLoopBase):
             tools=schemas,
         )
         if len(response_mask) >= self.response_length:
+            # The merged context would reach the response budget: terminate without applying the merge
+            # (as before this change). The turn's step reward and ``done`` above are kept; the tool
+            # response itself is not part of the trajectory (see docs/advance/agent_loop.rst).
             return AgentState.TERMINATED
+        if self.turn_level_rewards:
+            _align_generated_turn_spans(agent_data, merge_result)
         agent_data.prompt_ids = merge_result.token_ids
         agent_data.response_mask = response_mask
         if agent_data.response_logprobs:
@@ -408,6 +476,9 @@ class ToolAgentLoop(AgentLoopBase):
                 agent_data.image_data.append(img)
 
         agent_data.user_turns += 1
+        # A tool ended the episode: its response stays in the trajectory as the final observation.
+        if episode_done:
+            return AgentState.TERMINATED
         return AgentState.GENERATING
 
     def _build_assistant_message(self, content: str, agent_data: AgentData) -> dict[str, Any]:
@@ -506,7 +577,10 @@ class ToolAgentLoop(AgentLoopBase):
                 tool_response_text = tool_response_text[:length] + "...(truncated)..." + tool_response_text[-length:]
 
         # Create ToolResponse from tool execution result
-        tool_response_kwargs = {"text": tool_response_text}
+        tool_response_kwargs = {
+            "text": tool_response_text,
+            "done": bool(getattr(tool_execution_response, "done", False)),
+        }
 
         # Add multimedia data if present
         for attr_name in ["image", "video"]:

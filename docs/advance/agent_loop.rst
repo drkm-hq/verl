@@ -1,7 +1,7 @@
 Agent Loop
 ==========
 
-Last updated: 07/17/2025.
+Last updated: 10/28/2026.
 
 .. versionadded:: 0.4.2
    [status: alpha]
@@ -229,6 +229,85 @@ they can call ``LLMServerClient.generate`` to generate response_ids.
                List[int]: List of generated token ids.
            """
            ...
+
+Turn-level rewards and episode done
+-----------------------------------
+
+.. versionadded:: 0.10.0
+
+A ``BaseTool.execute`` already returns a per-call step reward, and ``ToolAgentLoop`` collects every
+step reward of a trajectory in ``extra_fields["tool_rewards"]``. By default that signal never reaches
+training: the trajectory's only reward is the episode score, placed on the last response token.
+Three opt-in pieces turn the step rewards into per-turn credit, the shape an environment loop needs
+(an observation per turn, an action per turn, a reward per cycle, an episode that ends when the
+environment says so):
+
+1. **A tool can end the episode.** ``ToolResponse(text=..., done=True)`` makes the loop append the
+   response as the final observation and terminate instead of generating another turn
+   (``extra_fields["episode_done"]`` records it). The response budget, ``max_assistant_turns`` and
+   ``max_user_turns`` still apply; note that the last allowed assistant turn never executes its tool
+   calls, so an environment of ``K`` steps needs ``max_assistant_turns >= K + 1`` for the final step
+   reward and ``done`` to land. A wall-clock deadline per episode is a planned follow-up.
+
+2. **Every generated turn is located.** With the flag below on, ``extra_fields["generated_turn_spans"]``
+   holds the ``[start, end)`` offsets of each assistant turn within ``response_ids`` (the names of
+   draft PR #8305, so the two can stack), ``extra_fields["turn_rewards"]`` the step rewards of the
+   tool calls each turn made, summed per turn and index-aligned with the spans, and
+   ``extra_fields["episode_done"]`` the ``done`` signal; a ``custom_reward_function`` sees all three
+   in ``extra_info`` under every reward manager when the flag is on (``naive``, ``dapo``, ``gdpo``,
+   ``rate_limited``, ``remote`` then build it with ``RewardManagerBase.extra_info_for_reward_fn``: a copy
+   of the dataset's ``extra_info`` merged with copies of the loop's metadata plus ``num_turns``, the
+   loop's fields overriding dataset keys of the same name; a dataset whose ``extra_info`` is not a
+   mapping is handed over unchanged, with one warning). With the flag off the trajectory metadata and
+   each manager's callback contract are exactly what they are today: ``naive`` / ``remote`` merge the
+   loop's ``tool_extra_fields`` plus ``num_turns`` as before, ``rate_limited`` merges ``tool_extra_fields``
+   as before, ``dapo`` / ``gdpo`` hand the dataset's ``extra_info`` over untouched.
+
+3. **A dense reward tensor** (``actor_rollout_ref.rollout.multi_turn.turn_level_rewards: True``):
+   each turn's reward is written on the *last generated token* of its span and the episode score on
+   the last generated token of the response, never on a tool-response token. GAE and REINFORCE++
+   carry returns across ``response_mask == 0`` spans but drop a reward that sits on one (issue
+   #8367), so this placement is what makes them credit turns. ``grpo``, ``rloo`` and
+   ``reinforce_plus_plus_baseline`` sum the row and keep behaving episodically. With the flag off
+   nothing changes: one score on the last token, as before. Two consequences to keep in mind:
+   the row is written by the agent loop, so the reward must be computed there (a rule-based reward,
+   or a reward model with ``reward.reward_model.enable_resource_pool=True``; a colocated reward model
+   would overwrite the row, and the config validation rejects that combination), and every metric
+   that sums ``rm_scores`` (``critic/score/*``, ``val-core/*/reward``, DAPO's group filter) then reports
+   the undiscounted return, step rewards plus outcome, instead of the outcome alone. The flag applies
+   to validation rollouts too.
+
+**The response-budget boundary.** When the tokens of a tool response (the context merge) would make
+the response reach ``response_length``, the loop terminates *before* applying that merge, exactly as it
+did before this feature. The turn's step reward and ``done`` were recorded when the tool ran, so
+``turn_rewards`` / ``rm_scores`` and ``episode_done`` keep them, but the tool response itself is not part
+of ``response_ids``: a reward function that decodes the response never sees that terminal observation,
+and ``episode_done`` can be ``True`` while the trajectory ends with the assistant turn that triggered it.
+Budget ``response_length`` for the final observation when the scorer needs it.
+
+A minimal device tool, with the configuration that trains on its step rewards:
+
+.. code:: python
+
+   from verl.tools.base_tool import BaseTool
+   from verl.tools.schemas import ToolResponse
+
+   class WorkcellTool(BaseTool):
+       async def execute(self, instance_id, parameters, **kwargs):
+           observation, step_reward, placed = await self.device.step(parameters)  # one cycle
+           return ToolResponse(text=observation, done=placed), step_reward, {}
+
+.. code:: yaml
+
+   actor_rollout_ref:
+     rollout:
+       multi_turn:
+         enable: True
+         tool_config_path: workcell_tools.yaml
+         turn_level_rewards: True
+   algorithm:
+     adv_estimator: reinforce_plus_plus   # or gae; both read the dense rewards
+     gamma: 1.0
 
 Next
 ----
