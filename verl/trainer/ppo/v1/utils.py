@@ -51,6 +51,8 @@ class MetricsAggregator:
                 "training/inflight_reissued",
                 "training/inflight_reissue_exhausted",
                 "training/inflight_discarded_while_draining",
+            ],
+            "max": [
                 "training/inflight_ttl_suspended",
             ],
             "last": [

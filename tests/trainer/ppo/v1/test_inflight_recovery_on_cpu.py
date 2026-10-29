@@ -645,24 +645,27 @@ def test_step_budget_defaults_to_the_per_prompt_cap_plus_one_times_the_steps_pro
     assert rb._reissue_budget(16) == 32, "the step's prompt count, not the sampling call's batch size"
     assert _make_rb(inflight_ttl_s=1, max_inflight_reissues=0, reissue_fn=reissue_fn)._reissue_budget(16) == 16
     assert _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=5, reissue_fn=reissue_fn)._reissue_budget(16) == 5
-    assert _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=0, reissue_fn=reissue_fn)._reissue_budget(16) == 0
-    for bad in (True, -1, 1.5):
+    for bad in (True, -1, 1.5, 0):
         with pytest.raises(AssertionError, match="max_inflight_reissues_per_step"):
             _make_rb(inflight_ttl_s=1, max_inflight_reissues_per_step=bad, reissue_fn=reissue_fn)
 
 
 def test_zero_max_inflight_reissues_fails_an_expired_prompt_on_its_first_expiry(tq_init, partition_id):
-    """``max_inflight_reissues=0`` means never re-issue: the step budget resolves to 0 and must not make the
-    TTL inert; the expired prompt is failed under a fresh uid at once."""
-    stuck = _uid()
+    """``max_inflight_reissues=0`` means never re-issue: the default budget is one failure per prompt of the
+    step and the expired prompt is failed under a fresh uid at once (another group of the step is finished, so
+    the padding-mode guard does not apply)."""
+    stuck, finished = _uid(), _uid()
     _submit_prompt(partition_id, stuck, "running", 1, dispatched_at=time.time() - 100)
+    _submit_prompt(partition_id, finished, "running", 1, dispatched_at=time.time())
+    _finish(partition_id, finished, 1)
     reissuer = RecordingReissuer(partition_id)
     try:
         rb = _make_rb(inflight_ttl_s=1, max_inflight_reissues=0, reissue_fn=reissuer)
         rb._begin_ttl_budget(partition_id, 1)
         rb._sync_metadata_from_transfer_queue()
         metrics: dict = {}
-        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=rb._reissue_budget(4)) is True
+        budget = rb._reissue_budget(4)
+        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=budget, keep_last_finishable=True)
         assert reissuer.calls == [] and stuck in rb._retired_uids[partition_id]
         assert (
             metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 1 and f"{PREFIX}/inflight_ttl_suspended" not in metrics
@@ -732,5 +735,47 @@ def test_step_budget_is_shared_by_the_sampling_calls_of_one_step_and_reset_by_th
         _submit_prompt(partition_id, later, "running", 2, dispatched_at=time.time() - 100)
         SampleThread(lambda: rb.sample(global_steps=2, partition_id=partition_id, batch_size=1)).result_or_raise()
         assert reissuer.calls == [[older], [later]]
+    finally:
+        _clear_partition(partition_id)
+
+
+def test_padding_mode_never_lets_the_ttl_fail_the_last_finishable_groups(tq_init, partition_id, caplog):
+    """Sync mode without ``sync_refill_failed_groups`` (the default): a failure is padded, never replaced, so
+    failing every expired prompt would end ``sample`` in the all-failed RuntimeError. The sampler holds the
+    last finishable groups back, suspends the TTL for the step (metric, one warning) and waits: healthy
+    generations slower than the TTL are trained on. Once another group is finished, an exhausted prompt is
+    failed as usual."""
+    caplog.set_level(logging.WARNING, logger=ReplayBuffer.__module__)
+    slow_a, slow_b = _uid(), _uid()
+    for uid in (slow_a, slow_b):
+        _submit_prompt(partition_id, uid, "running", 1, dispatched_at=time.time() - 100)
+    reissuer = RecordingReissuer(partition_id)
+    try:
+        rb = _make_rb(inflight_ttl_s=1, max_inflight_reissues=0, reissue_fn=reissuer)
+        thread = SampleThread(lambda: rb.sample(global_steps=1, partition_id=partition_id, batch_size=2))
+        thread.start()
+        deadline = time.time() + 10
+        while not any("holding them back" in record.message for record in caplog.records):
+            assert thread.is_alive() and time.time() < deadline, "the last groups were not held back"
+            time.sleep(POLL_INTERVAL)
+        time.sleep(0.3)
+        assert set(_inflight_prompt_uids(partition_id)) == {slow_a, slow_b}, "nothing failed, nothing re-issued"
+        _finish(partition_id, slow_a, 1)
+        _finish(partition_id, slow_b, 1)
+        batch, metrics = thread.result_or_raise()
+        assert {key.split("_")[0] for key in batch.keys} == {slow_a, slow_b}
+        assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1 and reissuer.calls == []
+        assert metrics.get(f"{PREFIX}/inflight_reissue_exhausted", 0) == 0
+        assert sum("holding them back" in record.message for record in caplog.records) == 1
+        # Step 2: a finished group exists, so an exhausted prompt is failed (and charged) as usual.
+        exhausted, done = _uid(), _uid()
+        _submit_prompt(partition_id, exhausted, "running", 2, dispatched_at=time.time() - 100)
+        _submit_prompt(partition_id, done, "running", 2, dispatched_at=time.time())
+        _finish(partition_id, done, 2)
+        batch, metrics = SampleThread(
+            lambda: rb.sample(global_steps=2, partition_id=partition_id, batch_size=2)
+        ).result_or_raise()
+        assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 1 and exhausted in rb._retired_uids[partition_id]
+        assert {key.split("_")[0] for key in batch.keys} == {done}, "the failure group is padded, not materialized"
     finally:
         _clear_partition(partition_id)

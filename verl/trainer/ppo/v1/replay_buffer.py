@@ -221,10 +221,11 @@ class ReplayBuffer:
             assert (
                 isinstance(self.max_inflight_reissues_per_step, int)
                 and not isinstance(self.max_inflight_reissues_per_step, bool)
-                and self.max_inflight_reissues_per_step >= 0
+                and self.max_inflight_reissues_per_step >= 1
             ), (
                 f"Invalid max_inflight_reissues_per_step: {self.max_inflight_reissues_per_step}, must be a "
-                "non-negative integer or null"
+                "positive integer or null (null = (max_inflight_reissues + 1) x train_batch_size; to disable the "
+                "TTL set inflight_ttl_s to null)"
             )
         if self.inflight_ttl_s is not None and self.reissue_fn is None:
             raise ValueError("inflight_ttl_s requires reissue_fn to re-issue expired in-flight prompts")
@@ -439,8 +440,31 @@ class ReplayBuffer:
         dispatched_at = self.prompt_dispatched_at[partition_id]
         return set(sorted(candidates, key=lambda uid: dispatched_at.get(uid, 0.0))[:allowance])
 
+    def _hold_back_last_groups(
+        self, partition_id: str, held: set[str], eviction_metrics: dict, reissue_budget: int | None
+    ) -> None:
+        """The padding-mode sampler's guard: failing ``held`` would leave the step without a finishable group
+        (no finished group, nothing else in flight) and nothing replaces a failure, so the TTL is suspended for
+        the step instead and their generations are waited for (``{prefix}/inflight_ttl_suspended`` = 1)."""
+        eviction_metrics[f"{self._metrics_prefix(partition_id)}/inflight_ttl_suspended"] = 1
+        if reissue_budget is not None:
+            self._ttl_discards_in_step[partition_id] = max(self._ttl_discards_in_step[partition_id], reissue_budget)
+        if partition_id not in self._ttl_suspension_warned:
+            self._ttl_suspension_warned.add(partition_id)
+            logger.warning(
+                f"[V1ReplayBuffer] the in-flight TTL would fail the last {len(held)} finishable groups of step "
+                f"{self._ttl_budget_step.get(partition_id)} (past max_inflight_reissues; nothing replaces a failed "
+                "group without sync_refill_failed_groups): holding them back, suspending the TTL for the step and "
+                "waiting for their generations"
+            )
+
     def _recover_stuck_inflight(
-        self, partition_id: str, eviction_metrics: dict, draining: bool = False, reissue_budget: int | None = None
+        self,
+        partition_id: str,
+        eviction_metrics: dict,
+        draining: bool = False,
+        reissue_budget: int | None = None,
+        keep_last_finishable: bool = False,
     ) -> bool:
         """Re-issue or fail in-flight prompts that expired; True when the caller must re-poll.
 
@@ -448,7 +472,9 @@ class ReplayBuffer:
         before acting, so a group that reached a terminal status in the meantime is sampled, never retired.
         Metrics accrue into ``eviction_metrics`` under ``{prefix}/inflight_*``. ``reissue_budget`` caps the
         TTL-induced discards (re-issues and exhaustion failures) of the step opened by ``_begin_ttl_budget``
-        (``None``: no cap); the drain's discard is never charged or delayed.
+        (``None``: no cap); the drain's discard is never charged or delayed. With ``keep_last_finishable`` (the
+        padding-mode sampler, where a failure is not replaced) an exhaustion failure that would leave no finished
+        group and nothing else in flight is held back instead (see ``_hold_back_last_groups``).
         """
         if self.reissue_fn is None:
             return False
@@ -487,6 +513,11 @@ class ReplayBuffer:
                 partition_id, to_reissue | exhausted, eviction_metrics, reissue_budget
             )
             to_reissue, exhausted = to_reissue & allowed, exhausted & allowed
+        if exhausted and keep_last_finishable:
+            survivors = (self._inflight_uids(partition_id) - exhausted) | self.finished_keys[partition_id]
+            if not survivors:
+                self._hold_back_last_groups(partition_id, exhausted, eviction_metrics, reissue_budget)
+                exhausted = set()
         if not to_reissue and not exhausted:
             return False  # the step budget holds every expired prompt back: wait, as without a TTL
         reissued: set[str] = set()
@@ -719,7 +750,11 @@ class ReplayBuffer:
             # Eviction, gating, and selection below must all use this snapshot.
             self._sync_metadata_from_transfer_queue()
             if self._recover_stuck_inflight(
-                partition_id, eviction_metrics, draining=draining, reissue_budget=reissue_budget
+                partition_id,
+                eviction_metrics,
+                draining=draining,
+                reissue_budget=reissue_budget,
+                keep_last_finishable=not self.sync_refill_failed_groups,  # padding: a failure is not replaced
             ):
                 continue
 

@@ -324,8 +324,11 @@ trainer:
       # the refill path start another generation). Once spent, the TTL retires nothing more in
       # that step and the sampler waits for the in-flight generations, as without a TTL, so
       # pending healthy work completes. The per-prompt cap alone does not bound a step: the
-      # refill that replaces an exhausted prompt starts at attempt 1.
-      # null = (max_inflight_reissues + 1) x data.train_batch_size.
+      # refill that replaces an exhausted prompt starts at attempt 1. Without
+      # sync_refill_failed_groups a failure is padded, not replaced, so the sampler never lets the
+      # TTL fail its last finishable groups: it holds them back and waits instead.
+      # null = (max_inflight_reissues + 1) x data.train_batch_size; otherwise a positive integer
+      # (to turn the TTL off set inflight_ttl_s to null).
       max_inflight_reissues_per_step: null
 
       # Custom sampler config

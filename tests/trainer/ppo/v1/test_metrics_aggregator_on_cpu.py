@@ -253,4 +253,8 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
     assert out["training/inflight_reissued"] == 4
     assert out["training/inflight_reissue_exhausted"] == 1
     assert out["training/inflight_ttl_suspended"] == 1
+    agg = MetricsAggregator()
+    agg.add_step_metrics({"training/inflight_ttl_suspended": 1}, sample_count=16)
+    agg.add_step_metrics({"training/inflight_ttl_suspended": 1}, sample_count=16)
+    assert agg.get_aggregated_metrics()["training/inflight_ttl_suspended"] == 1, "a per-step flag, not a count"
     assert out["training/inflight_expired_age_max"] == 30.0
