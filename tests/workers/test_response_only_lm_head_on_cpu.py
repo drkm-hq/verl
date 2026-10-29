@@ -171,11 +171,6 @@ class TestLossRowIndex:
         nested = torch.nested.nested_tensor_from_jagged(packed, micro_batch["input_ids"].offsets())
         assert torch.equal(response_from_nested(nested, micro_batch["response_mask"]).values(), packed[index])
 
-    def test_rejects_an_empty_prompt(self):
-        micro_batch = TensorDict({"input_ids": _nested([[1, 2, 3]]), "responses": _nested([[1, 2, 3]])}, batch_size=[1])
-        with pytest.raises(AssertionError, match="prompt_len > 0"):
-            loss_row_index(micro_batch)
-
 
 class TestIdentityWithTheFullProjection:
     @pytest.mark.parametrize(

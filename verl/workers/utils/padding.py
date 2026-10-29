@@ -153,17 +153,16 @@ def loss_row_index(data: TensorDict) -> torch.Tensor:
     Args:
         data: TensorDict with nested ``input_ids`` and ``responses`` (``DatasetPadMode.NO_PADDING``).
 
+    Assumes every prompt is non-empty, like :func:`no_padding_2_padding` (which asserts it on the
+    consumer side); runs without a device-to-host sync.
+
     Returns:
         LongTensor of shape ``(sum_i r_i,)`` on the device of ``input_ids``, strictly increasing.
     """
     offsets = data["input_ids"].offsets()
     response_lens = data["responses"].offsets().diff().to(offsets.device)
     starts = offsets[1:] - response_lens - 1
-    assert bool((starts >= offsets[:-1]).all()), (
-        f"seq_offset - resp_len - 1 assumes prompt_len > 0. Got offsets {offsets.tolist()}, "
-        f"response lengths {response_lens.tolist()}"
-    )
-    total = int(response_lens.sum().item())
+    total = data["responses"].values().shape[0]  # sum of the response lengths, from the shape
     seq_id = torch.repeat_interleave(
         torch.arange(response_lens.numel(), device=offsets.device), response_lens, output_size=total
     )
