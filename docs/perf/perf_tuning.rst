@@ -1,7 +1,7 @@
 Performance Tuning Guide
 ==============================
 
-Last updated: 10/22/2026.
+Last updated: 10/28/2026.
 
 Author: `Guangming Sheng <https://github.com/PeterSH6>`_, `Jiali Zheng <https://github.com/CurryRice233>`_
 
@@ -136,6 +136,42 @@ Therefore, users may need to tune the ``*micro_batch_size_per_gpu`` to accelerat
    does not declare them or when only part of the stack should be offloaded. Free pinned-host
    buffers are capped by ``actor_rollout_ref.actor.veomni.activation_offload_host_cache_limit_gb``
    (default 4.0 GB).
+
+Skip the old-log-prob pass when strictly on-policy
+--------------------------------------------------
+
+The actor forward runs over the sampled batch several times per step: the old-log-prob pass
+(``timing_s/old_log_prob``), the optional reference pass and the update pass. When the whole sampled
+batch is updated in **one** optimizer step, i.e. ``actor_rollout_ref.actor.ppo_epochs=1`` and
+``actor_rollout_ref.actor.ppo_mini_batch_size`` equal to ``data.train_batch_size`` (the shape the
+shipped Qwen3.5 / DeepSeek-V4 / gpt-oss GRPO examples use), every micro-batch of the update pass is
+evaluated at the sampling weights: gradient accumulation does not touch the parameters before the
+single optimizer step. The log-probs the update pass computes are then exactly the old log-probs,
+and the separate pass only recomputes them.
+
+``actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True`` (default ``False``) removes that
+pass:
+
+- ``timing_s/old_log_prob`` drops to the TransferQueue bookkeeping: one actor forward over the batch
+  less per step. The update pass computes the entropy metric instead (under ``no_grad`` unless
+  ``entropy_coeff != 0``, so it adds no backward-time tensor), a small fraction of one forward.
+- ``ppo_loss`` uses the current log-probs, detached, as ``old_log_prob``: the ratio is exactly 1, so
+  ``actor/pg_clipfrac`` and ``actor/ppo_kl`` are 0 by construction (without the skip they are 1 plus
+  the kernel noise between the two passes' micro-batch shapes).
+- The update pass returns its per-token log-probs and entropy through TransferQueue, so
+  ``actor/entropy``, the ``training/rollout_*`` and the ``rollout_corr/*`` diagnostics keep their
+  definitions; they are logged after the update instead of before it.
+
+The flag is rejected at config validation, naming every violated condition, whenever the skip would
+not be exact: ``ppo_epochs != 1``; ``ppo_mini_batch_size != train_batch_size / parameter_sync_step``
+(only the first mini-batch runs at the sampling weights, so multi-mini-batch configurations gain
+nothing); ``actor.shuffle=True``; ``algorithm.use_kl_in_reward=True``; a ``rollout_correction`` with
+``bypass_mode``, ``rollout_is`` or ``rollout_rs`` set (they read ``old_log_probs`` before the update;
+``bypass_mode`` already avoids the pass by using the rollout engine's log-probs, a different
+estimator); the ``optimal_token_baseline`` estimators; ``calculate_sum_pi_squared``; distillation;
+router replay ``R2``; the ``separate_async`` trainer mode (it restores the old policy from a CPU
+snapshot); and the legacy trainer (``trainer.use_v1=False``). Megatron and the other engines compute
+the entropy metric with grad as before.
 
 Tuning for Dynamic Batch Size
 -----------------------------
