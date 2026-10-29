@@ -75,7 +75,7 @@ from verl.trainer.ppo.v1.replay_buffer import DAPO_FILTERED_REWARD_COUNTS_KEY, R
 from verl.trainer.ppo.v1.utils import MetricsAggregator, compute_advantage_for_multi_trajectories
 from verl.utils import tensordict_utils as tu
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
-from verl.utils.config import omega_conf_to_dataclass
+from verl.utils.config import _validate_skip_old_log_prob_config, omega_conf_to_dataclass
 from verl.utils.dataset.rl_dataset import collate_fn
 from verl.utils.debug import marked_timer
 from verl.utils.debug.metrics import calculate_debug_metrics
@@ -129,6 +129,15 @@ class PPOTrainer(ABC):
 
         self.trainer_mode = self.config.trainer.v1.trainer_mode
         self.parameter_sync_step = self.config.trainer.v1.get(self.trainer_mode, {}).get("parameter_sync_step", 1)
+        if self.skip_old_log_prob:
+            # the trainer owns this exactness invariant: check the config here too, not only in the entry
+            # point's validate_config (recipes and custom mains may build the trainer directly)
+            _validate_skip_old_log_prob_config(self.config)
+            logger.info(
+                "actor.skip_old_log_prob_when_on_policy=True: the old-log-prob pass is skipped; old_log_probs, "
+                "actor/entropy and the training/rollout_* metrics come from the update pass, and "
+                "actor/pg_clipfrac and actor/ppo_kl are 0 by construction"
+            )
         self.replay_buffer = self._build_replay_buffer()
         self._rollout_moe_lb_metrics_accumulator = RolloutMoELoadBalanceMetricsAccumulator(
             model_config=self.config.actor_rollout_ref.model
@@ -1632,8 +1641,50 @@ class PPOTrainer(ABC):
         metrics.update(global_balance_stats)
         return batch
 
+    @property
+    def skip_old_log_prob(self) -> bool:
+        """Strictly on-policy update: the old-log-prob pass is skipped and the update pass hands back its
+        log-probs instead (``actor.skip_old_log_prob_when_on_policy``, exactness conditions enforced by
+        ``verl.utils.config.validate_config``)."""
+        return bool(self.config.actor_rollout_ref.actor.get("skip_old_log_prob_when_on_policy", False))
+
+    def _skip_old_log_prob_this_step(self) -> bool:
+        """The skip applies to steps that update the actor; a critic-warmup step runs the old-log-prob pass
+        as before (there is no update pass to take the log-probs from, so there is nothing to save)."""
+        return self.skip_old_log_prob and self.config.trainer.critic_warmup <= self.global_steps
+
+    def _check_single_mini_batch(self, batch: KVBatchMeta) -> None:
+        """The skip is exact only if the worker takes ONE optimizer step over the rows it receives, i.e. the
+        update pass is exactly one mini-batch: ``len(batch) == ppo_mini_batch_size * rollout.n`` rows AFTER
+        ``_balance_batch`` (its padding rows are trained too, at the same weights; agent loops that return
+        several trajectories per session add rows beyond ``train_batch_size * n``, which would pad the batch
+        to a second mini-batch trained after the optimizer step). The config gate compares prompt counts;
+        this is the row count the worker actually iterates."""
+        actor_config, rollout_config = self.config.actor_rollout_ref.actor, self.config.actor_rollout_ref.rollout
+        mini_batch_rows = actor_config.ppo_mini_batch_size * rollout_config.n
+        num_rows = len(batch)
+        if num_rows == mini_batch_rows:
+            return
+        num_padding = sum(bool(tag.get("is_padding", False)) for tag in batch.tags)
+        raise ValueError(
+            "actor.skip_old_log_prob_when_on_policy: the actor update must be exactly one mini-batch of "
+            f"ppo_mini_batch_size x rollout.n = {mini_batch_rows} rows, so that every row is trained in the single "
+            f"optimizer step at the sampling weights, but this step's batch has {num_rows} rows "
+            f"({num_rows - num_padding} sampled + {num_padding} padding), i.e. {num_rows // mini_batch_rows} optimizer "
+            "step(s). The skip needs exactly train_batch_size x rollout.n rows per step: it cannot be used when the "
+            "agent loop returns a varying number of trajectories per session."
+        )
+
     def _compute_old_log_prob(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
         """Compute the old log prob of the batch."""
+        if self._skip_old_log_prob_this_step():
+            # The update pass runs every micro-batch of its single mini-batch at these same weights, so it
+            # computes exactly these log-probs; _update_actor stores them as old_log_probs afterwards and
+            # nothing before the update reads them (validate_config). Fail here, before the step is spent,
+            # if the batch is not exactly one mini-batch.
+            self._check_single_mini_batch(batch)
+            return batch
+
         # Operating Mode Selection:
         # - Bypass mode: Sets old_log_probs = rollout_log_probs (2 policies: π_rollout, π_θ)
         # - Decoupled mode: Recomputes old_log_probs as proximal anchor (3 policies: π_rollout, π_old, π_θ)
@@ -1658,7 +1709,12 @@ class PPOTrainer(ABC):
         )
         output: KVBatchMeta = self.actor_rollout_wg.compute_log_prob(batch)
         assert len(output) == len(batch)
+        return self._store_actor_log_prob(batch, metrics)
 
+    def _store_actor_log_prob(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
+        """Turn the actor's per-token ``log_probs``/``entropy`` in TransferQueue (written by the old-log-prob
+        pass, or by the update pass under ``skip_old_log_prob_when_on_policy``) into the response-only
+        ``old_log_probs``/``entropy`` fields; log ``actor/entropy`` and the rollout-vs-actor metrics."""
         fields = ["entropy", "log_probs", "response_mask"]
         if self.config.actor_rollout_ref.rollout.calculate_log_probs:
             fields.extend(["responses", "rollout_log_probs"])
@@ -1690,6 +1746,16 @@ class PPOTrainer(ABC):
         # 4. calculate rollout vs actor logprobs diff
         if self.config.actor_rollout_ref.rollout.calculate_log_probs:
             metrics.update(calculate_debug_metrics(data))
+            rollout_corr_config = self.config.algorithm.get("rollout_correction", None)
+            if (
+                self._skip_old_log_prob_this_step()
+                and rollout_corr_config is not None
+                and "rollout_log_probs" in data.batch
+            ):
+                # metrics-only rollout correction, deferred from _compute_advantage: the same function of the
+                # same tensors, so the rollout_corr/* metrics keep their values; nothing is written back
+                _, rollout_corr_metrics = compute_rollout_correction_and_add_to_batch(data, rollout_corr_config)
+                metrics.update(rollout_corr_metrics)
 
         return batch
 
@@ -1768,6 +1834,10 @@ class PPOTrainer(ABC):
         rollout_correction = (
             rollout_corr_config is not None and "rollout_log_probs" in data.batch and not bypass_recomputing_logprobs
         )
+        if rollout_correction and self._skip_old_log_prob_this_step():
+            # Only the metrics-only mode is allowed with the skip (validate_config), and old_log_probs exist
+            # only after the update: _store_actor_log_prob logs the rollout_corr/* metrics from there.
+            rollout_correction = False
         if rollout_correction:
             data, is_metrics = compute_rollout_correction_and_add_to_batch(data, rollout_corr_config)
             metrics.update(is_metrics)
@@ -1827,6 +1897,8 @@ class PPOTrainer(ABC):
 
     def _update_actor(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
         """Update the actor network."""
+        if self.skip_old_log_prob:
+            self._check_single_mini_batch(batch)
         ppo_mini_batch_size = self.config.actor_rollout_ref.actor.ppo_mini_batch_size
         ppo_mini_batch_size = ppo_mini_batch_size * self.config.actor_rollout_ref.rollout.n
         calculate_entropy = self.config.actor_rollout_ref.actor.calculate_entropy or (
@@ -1860,10 +1932,41 @@ class PPOTrainer(ABC):
             "dataloader_kwargs": {"shuffle": self.config.actor_rollout_ref.actor.shuffle},
             "temperature": self.config.actor_rollout_ref.rollout.temperature,
         }
+        skip_keys = {
+            # actor/entropy is read off this pass now; without an entropy loss it needs no graph
+            "calculate_entropy": True,
+            "entropy_requires_grad": self.config.actor_rollout_ref.actor.entropy_coeff != 0.0,
+            # the engine keeps the per-token log_probs/entropy and the worker returns them
+            "return_model_output": True,
+            # ppo_loss: old_log_prob = log_prob.detach()
+            "on_policy_skip_old_log_prob": True,
+        }
+        if self.skip_old_log_prob:
+            extra_info.update(skip_keys)
         batch.extra_info.update(extra_info)
 
-        output: TensorDict = self.actor_rollout_wg.update_actor(batch)
-        output = rename_dict(output["metrics"], "actor/")
+        try:
+            output = self.actor_rollout_wg.update_actor(batch)
+        finally:
+            if self.skip_old_log_prob:
+                # the meta carries extra_info to every later worker call: do not let the skip keys linger
+                for key in skip_keys:
+                    if key != "calculate_entropy":
+                        batch.extra_info.pop(key, None)
+        if self.skip_old_log_prob:
+            # The worker returned the update pass's log_probs/entropy as a batch-sized TensorDict: the TQ
+            # bridge wrote them to TransferQueue and handed back a KVBatchMeta whose extra_info carries one
+            # metrics dict per collecting rank, in rank order (BatchData.concat); rank 0's is what the
+            # TensorDict path returns too (concat_tensordict_with_none_bsz), and every rank's dict is already
+            # DP-aggregated by the worker.
+            assert len(output) == len(batch)
+            actor_output = output.extra_info["metrics"]
+            assert isinstance(actor_output, list) and actor_output, f"expected per-rank metrics, got {actor_output!r}"
+            actor_output = actor_output[0]
+            self._store_actor_log_prob(batch, metrics)
+        else:
+            actor_output = output["metrics"]
+        output = rename_dict(actor_output, "actor/")
         output["perf/mfu/actor"] = output.pop("actor/mfu")
         actor_metrics = reduce_metrics(output)
         metrics.update(actor_metrics)

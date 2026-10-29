@@ -94,8 +94,15 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
 
     metrics = {}
 
+    # Strictly on-policy update (actor.skip_old_log_prob_when_on_policy): the old-log-prob pass was skipped
+    # because this forward runs at the sampling weights, so the current log-probs, detached, are the old
+    # ones (ratio 1, clipping inert; pg_clipfrac and ppo_kl are 0 by construction).
+    on_policy = tu.get_non_tensor_data(data=data, key="on_policy_skip_old_log_prob", default=False)
+
     # select fields and convert to padded tensor
-    fields = ["response_mask", "old_log_probs", "advantages"]
+    fields = ["response_mask", "advantages"]
+    if not on_policy:
+        fields.append("old_log_probs")
     if "rollout_is_weights" in data:
         fields.append("rollout_is_weights")
     if "ref_log_prob" in data:
@@ -104,7 +111,7 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
 
     response_mask = data["response_mask"].to(bool)
     # compute policy loss
-    old_log_prob = data["old_log_probs"]
+    old_log_prob = log_prob.detach() if on_policy else data["old_log_probs"]
     advantages = data["advantages"]
     rollout_is_weights = data.get("rollout_is_weights", None)
 
@@ -159,8 +166,9 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
             metrics[f"actor/{key}"] = Metric(value=value, aggregation=aggregation)
     policy_loss = pg_loss
 
-    # add entropy loss
-    if entropy is not None:
+    # add entropy loss (under the skip without an entropy bonus the entropy is computed, without grad, only
+    # for the actor/entropy metric the trainer logs: it is not a loss term and not reported as one)
+    if entropy is not None and not (on_policy and config.entropy_coeff == 0.0):
         entropy_loss = agg_loss(
             loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode, **config.global_batch_info
         )

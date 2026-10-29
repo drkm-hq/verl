@@ -121,6 +121,16 @@ ppo_epochs: 1
 # Shuffle training data across PPO epochs
 shuffle: false
 
+# Skip the separate old-log-prob forward pass when the actor update is strictly on-policy, i.e. one
+# optimizer step per sampled batch (ppo_epochs=1, ppo_mini_batch_size=train_batch_size, shuffle=false).
+# Every micro-batch of that single mini-batch is then evaluated at the sampling weights, so the
+# log-probs the update pass computes are the old log-probs: the loss uses them detached (ratio 1,
+# clipping inert; actor/pg_clipfrac and actor/ppo_kl are 0 by construction) and the update pass
+# returns them so actor/entropy and the training/rollout_* metrics keep their definitions.
+# The config is rejected unless the skip is exact; see verl/utils/config.py (validate_config).
+# Megatron/other engines compute the entropy metric with grad as before. V1 trainer only.
+skip_old_log_prob_when_on_policy: false
+
 # The seed used to construct mini-batch
 data_loader_seed: 42
 

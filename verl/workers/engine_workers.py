@@ -41,6 +41,7 @@ from verl.utils.flops_counter import FlopsCounter
 from verl.utils.import_utils import import_external_libs
 from verl.utils.memory_utils import aggressive_empty_cache
 from verl.utils.metric.utils import Metric
+from verl.utils.model import find_train_mode_dependent_modules
 from verl.utils.profiler import DistProfiler, DistProfilerExtension, ProfilerConfig, log_gpu_memory_usage
 from verl.utils.py_functional import append_to_dict
 from verl.utils.qat import dispatch_rollout_weight_quantizer
@@ -302,6 +303,16 @@ class TrainingWorker(Worker, DistProfilerExtension):
             )
             mini_batch_size_per_gpu = mini_batch_size // self.engine.get_data_parallel_size()
 
+        if tu.get(data, key="on_policy_skip_old_log_prob", default=False):
+            # The update pass stands in for the old-log-prob pass (actor.skip_old_log_prob_when_on_policy):
+            # every row must be trained at the sampling weights, i.e. in the single optimizer step of ONE
+            # mini-batch; a second mini-batch would be trained after that step with ratio 1 and no clipping.
+            assert batch_size_per_dp == mini_batch_size_per_gpu and epochs == 1, (
+                "on_policy_skip_old_log_prob needs exactly one mini-batch and one epoch per update (one optimizer "
+                f"step), got {batch_size_per_dp} rows on this rank for a mini-batch of {mini_batch_size_per_gpu} "
+                f"rows and {epochs=}"
+            )
+
         # make iterator
         dataloader = tu.make_iterator(
             data,
@@ -366,7 +377,24 @@ class TrainingWorker(Worker, DistProfilerExtension):
                             )
                     append_to_dict(metrics, output)
 
-                output = tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": metrics}).cpu()
+                output = tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": metrics})
+                if tu.get(data, key="return_model_output", default=False):
+                    # Also return the per-token model outputs of the update pass (log_probs, entropy, ...),
+                    # one row per input sample in input order: the sequential dataloader yields the
+                    # mini-batches in order and the engine restores each one to its own input order, so
+                    # their concatenation is row-aligned with `data` as long as nothing shuffles.
+                    assert epochs == 1 and not dataloader_kwargs.get("shuffle", False), (
+                        "return_model_output needs the mini-batches in input order (epochs=1, shuffle=False), "
+                        f"got {epochs=} {dataloader_kwargs=}"
+                    )
+                    model_output = tu.concat_tensordict([out.exclude("metrics") for out in output_lst])
+                    assert model_output.batch_size[0] == batch_size_per_dp, (
+                        f"{model_output.batch_size[0]} model output rows for {batch_size_per_dp} samples"
+                    )
+                    output = tu.get_tensordict(
+                        tensor_dict=dict(model_output.items()), non_tensor_dict={"metrics": metrics}
+                    )
+                output = output.cpu()
             else:
                 output = None
         return output
@@ -411,8 +439,9 @@ class TrainingWorker(Worker, DistProfilerExtension):
             lr = None
 
         if self.engine.is_mp_src_rank_with_outputs():
-            # we don't need model_output in training. Maybe we change out mind later
-            output.pop("model_output")
+            if not tu.get(data, key="return_model_output", default=False):
+                # we don't need model_output in training. Maybe we change out mind later
+                output.pop("model_output")
             if lr is not None:
                 output["metrics"]["lr"] = lr
             final_output = self._postprocess_output(
@@ -687,6 +716,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                 self.loss_fn = partial(ppo_loss, config=actor_config)
             self.actor = self.actor_worker_cls(config=actor_training_config)
             self.actor.reset()
+            self._check_actor_for_on_policy_skip()
             self.actor.set_loss_fn(self.loss_fn)
             self.set_dispatch_collect(mesh_name="actor", **self.actor.get_dispatch_collect())
 
@@ -742,6 +772,35 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
 
         # Free cached GPU memory so colocated vLLM processes can see it via cudaMemGetInfo
         aggressive_empty_cache(force_sync=True)
+
+    def _check_actor_for_on_policy_skip(self) -> None:
+        """``actor.skip_old_log_prob_when_on_policy`` stores the update pass's train-mode log-probs as the old
+        log-probs, so the actor's forward must not depend on the train/eval mode. The config-level check
+        (``verl.utils.config._validate_skip_old_log_prob_config``) inspects the effective HF config and the
+        adapter config; this walk over the built module runs on every rank before any update and rejects every
+        train-mode-dependent module or rate that is visible structurally (dropout modules and rates, LoRA / LoHa
+        dropout, DropPath / StochasticDepth, router jitter, layerdrop, BatchNorm), naming the module paths.
+        Behaviour hidden in forward code is not detectable, so for custom models the skip remains the user's
+        assertion."""
+        if not self.config.actor.get("skip_old_log_prob_when_on_policy", False):
+            return
+        module = getattr(self.actor.engine, "module", None)
+        if module is None:
+            raise ValueError(
+                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True: the actor engine exposes no `module` "
+                "to check for train-mode-dependent sub-modules"
+            )
+        offenders = find_train_mode_dependent_modules(module)
+        if not offenders:
+            return
+        shown = "; ".join(f"{path or '<root>'}: {reason}" for path, reason in offenders[:5])
+        more = f"; +{len(offenders) - 5} more" if len(offenders) > 5 else ""
+        raise ValueError(
+            "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True requires an actor whose forward does not "
+            "depend on train/eval mode (the update pass's train-mode log-probs stand in for the eval-mode old "
+            f"log-probs), but the built actor module has {len(offenders)} train-mode-dependent sub-module(s): "
+            f"{shown}{more}"
+        )
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="ref"))
     @DistProfiler.annotate(color="olive", role="ref_compute_log_prob")

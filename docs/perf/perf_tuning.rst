@@ -1,7 +1,7 @@
 Performance Tuning Guide
 ==============================
 
-Last updated: 10/22/2026.
+Last updated: 10/29/2026.
 
 Author: `Guangming Sheng <https://github.com/PeterSH6>`_, `Jiali Zheng <https://github.com/CurryRice233>`_
 
@@ -136,6 +136,76 @@ Therefore, users may need to tune the ``*micro_batch_size_per_gpu`` to accelerat
    does not declare them or when only part of the stack should be offloaded. Free pinned-host
    buffers are capped by ``actor_rollout_ref.actor.veomni.activation_offload_host_cache_limit_gb``
    (default 4.0 GB).
+
+Skip the old-log-prob pass when strictly on-policy
+--------------------------------------------------
+
+The actor forward runs over the sampled batch several times per step: the old-log-prob pass
+(``timing_s/old_log_prob``), the optional reference pass and the update pass. When the whole sampled
+batch is updated in **one** optimizer step, i.e. ``actor_rollout_ref.actor.ppo_epochs=1`` and
+``actor_rollout_ref.actor.ppo_mini_batch_size`` equal to ``data.train_batch_size`` (the shape the
+shipped Qwen3.5 / DeepSeek-V4 / gpt-oss GRPO examples use), every micro-batch of the update pass is
+evaluated at the sampling weights: gradient accumulation does not touch the parameters before the
+single optimizer step. The log-probs the update pass computes are then exactly the old log-probs,
+and the separate pass only recomputes them.
+
+``actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True`` (default ``False``) removes that
+pass:
+
+- ``timing_s/old_log_prob`` drops to the TransferQueue bookkeeping: one actor forward over the batch
+  less per step. The update pass computes the entropy metric instead (under ``no_grad`` unless
+  ``entropy_coeff != 0``, so it adds no backward-time tensor), a small fraction of one forward.
+- ``ppo_loss`` uses the current log-probs, detached, as ``old_log_prob``: the ratio is exactly 1, so
+  ``actor/pg_clipfrac`` and ``actor/ppo_kl`` are 0 by construction (without the skip they are 1 plus
+  the kernel noise between the two passes' micro-batch shapes).
+- The update pass returns its per-token log-probs and entropy through TransferQueue, so
+  ``actor/entropy``, the ``training/rollout_*`` and the ``rollout_corr/*`` diagnostics keep their
+  definitions; they are logged after the update instead of before it. Without an entropy bonus
+  (``entropy_coeff=0``) ``actor/entropy_loss`` is not reported (the entropy is a metric, not a loss term).
+  Critic-warmup steps have no actor update and run the old-log-prob pass as before.
+
+What changes semantically: the stored old log-probs are the update pass's **train-mode** values (the
+old-log-prob pass runs in eval mode). For the dropout-free models verl trains this is the same number.
+An actor whose forward depends on the mode is rejected twice: at config validation from the *effective*
+model, i.e. the HF config after ``override_config`` (every nested sub-config included) scanned for
+dropout, MoE router jitter (Mixtral's ``router_jitter_noise``, DBRX's ``moe_jitter_eps``), layer drop and
+drop path, plus a ``lora_adapter_path`` adapter's train-mode settings (``lora_rank > 0``: only
+``peft_type=LORA`` adapters are accepted, LoHa / LoKr ``rank_dropout`` / ``module_dropout`` being train-mode
+rates, and ``lora_dropout`` must be 0; verl's own ``LoraConfig`` sets none); and again on every rank when the
+actor is built, by walking the module for ``nn.Dropout`` modules with ``p > 0`` (peft's ``lora_dropout``
+included), BatchNorm / InstanceNorm with running statistics, DropPath / StochasticDepth modules and modules
+carrying a dropout / jitter / layerdrop rate > 0 (dict-valued rates included), which lists the offending
+module paths. When the config cannot be loaded at validation time a warning says so. The walk rejects every
+train-mode-dependent module or rate that is visible structurally (dropout modules and rates, DropPath /
+StochasticDepth, router jitter, layerdrop, BatchNorm); behaviour hidden in forward code (a hard-coded
+``F.dropout(p)``, a rate read from the config inside ``forward``) is not detectable, so for custom
+(``trust_remote_code``) models the skip remains the user's assertion.
+With ``use_fused_kernels=True`` the fused kernel's entropy stays attached to the
+graph, so that path saves no memory (it saves the forward only).
+
+The flag is rejected at config validation (and again when the trainer is built), naming every
+violated condition, whenever the skip would not be exact: ``ppo_epochs != 1``;
+``ppo_mini_batch_size != train_batch_size / parameter_sync_step`` (only the first mini-batch runs at
+the sampling weights, so multi-mini-batch configurations gain nothing); ``actor.shuffle=True``;
+``algorithm.use_kl_in_reward=True``; a ``rollout_correction`` with ``bypass_mode``, ``rollout_is`` or
+``rollout_rs`` set (they read ``old_log_probs`` before the update; ``bypass_mode`` already avoids the
+pass by using the rollout engine's log-probs, a different estimator); the ``optimal_token_baseline``
+estimators; ``calculate_sum_pi_squared``; distillation; router replay ``R2``; the ``separate_async``
+trainer mode (it restores the old policy from a CPU snapshot); the legacy trainer
+(``trainer.use_v1=False``); dropout or another train-mode-only setting in the effective model config or
+the LoRA adapter (see above); W4A4 QAT (``actor.fsdp_config.qat.enable=True`` with ``mode=w4a4``: its
+activation observers update the quantization scale in train mode only, so the two passes would quantize
+with different scales; W4A16 is weight-only and accepted, but untested with the skip); and every engine other than the FSDP family (``actor.strategy``
+fsdp, fsdp2 and fsdp_turbo, which shares the FSDP engine's forward and output path; megatron, veomni,
+torchtitan and automodel are rejected: their update-pass output path exists but is unverified, and
+Megatron's update-pass entropy would add a (T, V) logits copy).
+
+The one-mini-batch condition is also enforced per step on the rows the worker trains: after
+``_balance_batch`` pads the batch to a multiple of ``ppo_mini_batch_size * rollout.n``, the batch must be
+exactly that many rows (padding rows included). Agent loops that return a varying number of
+trajectories per session change the row count and pad to a second mini-batch, which would be trained
+after the optimizer step; the trainer (before any forward) and the worker (before any optimizer step)
+refuse such a step with an error naming the row counts instead of training it silently.
 
 Tuning for Dynamic Batch Size
 -----------------------------

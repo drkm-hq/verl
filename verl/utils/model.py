@@ -18,6 +18,7 @@ Utilities to create common models from huggingface
 import json
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Optional
 
@@ -668,6 +669,80 @@ def get_lora_rank_from_adapter(adapter_path: str | os.PathLike) -> int:
         raise ValueError(f"Invalid JSON in {config_path}: {e}") from e
     except (KeyError, ValueError) as e:
         raise ValueError(f"Cannot parse LoRA rank from {config_path}: {e}") from e
+
+
+# Numeric module attributes > 0 that make a forward depend on ``module.training`` without an nn.Dropout module
+# (transformers 5.16, peft 0.19): functional dropout rates (``attention_dropout`` on the Llama / Qwen / Mixtral
+# attention, passed as ``dropout=0.0 if not self.training else self.attention_dropout``; ``dropout``,
+# ``activation_dropout``, ``hidden_dropout``, ``resid_pdrop``, ...), MoE router jitter (``jitter_noise``: Mixtral /
+# MiniMax / Switch; ``router_jitter_noise``: PhiMoE; ``moe_jitter_eps``: DBRX), layer drop (``layerdrop``), stochastic
+# depth (``drop_prob`` on the DropPath modules, ``p`` on torchvision's StochasticDepth) and peft's lycoris layers,
+# which keep ``rank_dropout`` / ``module_dropout`` as ``{adapter_name: rate}`` dicts.
+_TRAIN_MODE_ATTR_FRAGMENTS = ("dropout", "pdrop", "drop_path", "drop_prob", "drop_rate", "layerdrop", "jitter")
+
+
+def _is_positive_rate(value) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
+
+
+def _positive_rates(value) -> list[tuple[str, float]]:
+    """``(suffix, rate)`` for the positive rates in a numeric attribute or in a dict / list of them."""
+    if _is_positive_rate(value):
+        return [("", float(value))]
+    if isinstance(value, dict):
+        return [(f"[{key}]", float(rate)) for key, rate in value.items() if _is_positive_rate(rate)]
+    if isinstance(value, list | tuple):
+        return [(f"[{index}]", float(rate)) for index, rate in enumerate(value) if _is_positive_rate(rate)]
+    return []
+
+
+def find_train_mode_dependent_modules(module: nn.Module | Sequence[nn.Module]) -> list[tuple[str, str]]:
+    """Sub-modules of ``module`` whose forward differs between train and eval mode, as ``(path, reason)``:
+    ``nn.Dropout``-family modules with ``p > 0`` (peft's ``lora_dropout`` entries included: an ``nn.Dropout``
+    when the rate is > 0, an ``nn.Identity`` otherwise), BatchNorm / InstanceNorm with running statistics,
+    DropPath / StochasticDepth modules with a rate > 0, and modules carrying a dropout / jitter / layerdrop /
+    drop-path attribute > 0, numeric or a dict / list of numbers (functional dropout, MoE router jitter, peft
+    lycoris ``rank_dropout``), and verl's ``QATLinear`` in W4A4 mode (its activation observer runs in train
+    mode only; W4A16 is weight-only and not flagged). The walk is structural: it rejects every
+    train-mode-dependent module or rate that is visible as a module or a named attribute; a train-mode branch
+    written into a forward (a hard-coded ``F.dropout(p)``, a rate read from the config inside ``forward``) is
+    not detectable. FSDP1-wrapped and
+    FSDP2-sharded modules keep their sub-modules, so the walk sees them. Example:
+    ``[("model.layers.0.self_attn", "attention_dropout=0.5")]``. A list of modules (pipeline chunks) is walked
+    with an ``[i].`` prefix."""
+    roots = list(module) if isinstance(module, list | tuple) else [module]
+    found: list[tuple[str, str]] = []
+    for index, root in enumerate(roots):
+        prefix = f"[{index}]." if len(roots) > 1 else ""
+        for name, sub in root.named_modules():
+            path = prefix + name
+            class_name = type(sub).__name__
+            if isinstance(sub, nn.modules.dropout._DropoutNd):
+                if _is_positive_rate(sub.p):
+                    found.append((path, f"{class_name}(p={sub.p})"))
+                continue
+            if isinstance(sub, nn.modules.batchnorm._NormBase):
+                if sub.track_running_stats:
+                    found.append((path, f"{class_name}(track_running_stats=True)"))
+                continue
+            if "DropPath" in class_name or "StochasticDepth" in class_name:
+                rate = getattr(sub, "drop_prob", getattr(sub, "p", None))
+                if _is_positive_rate(rate):
+                    found.append((path, f"{class_name}(p={rate})"))
+                continue
+            mode = getattr(sub, "mode", None)
+            if hasattr(sub, "_fake_quantize_activation") and getattr(mode, "value", mode) == "w4a4":
+                # verl's QATLinear in W4A4 mode: _fake_quantize_activation runs the activation observer only when
+                # self.training, so train and eval quantize with different input_global_scale values
+                reason = "the activation observer updates input_global_scale in train mode only"
+                found.append((path, f"{class_name}(mode=w4a4): {reason}"))
+                continue
+            for attr, value in vars(sub).items():
+                if attr.startswith("_") or not any(fragment in attr for fragment in _TRAIN_MODE_ATTR_FRAGMENTS):
+                    continue
+                for suffix, rate in _positive_rates(value):
+                    found.append((path, f"{attr}{suffix}={rate}"))
+    return found
 
 
 @dataclass

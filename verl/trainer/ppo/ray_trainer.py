@@ -330,6 +330,13 @@ class RayPPOTrainer:
         self.processor = processor
         self.config = config
 
+        if config.actor_rollout_ref.actor.get("skip_old_log_prob_when_on_policy", False):
+            raise ValueError(
+                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True is implemented by the V1 trainer only "
+                "(trainer.use_v1=True); the legacy RayPPOTrainer always runs the old-log-prob pass, so the flag "
+                "would be a silent no-op here"
+            )
+
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
 

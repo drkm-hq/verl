@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import os
 from dataclasses import is_dataclass
 from typing import Any, Optional
 
@@ -82,6 +84,228 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
         raise ValueError(
             "router_replay.mode='R2' requires algorithm.rollout_correction.bypass_mode=False: "
             "R2 records routes while recomputing actor old_log_probs, but bypass mode skips that forward."
+        )
+
+
+# Settings of an HF config that make the forward depend on ``module.training`` (the update pass runs in train
+# mode, the old-log-prob pass in eval mode): every numeric key > 0 whose name contains one of these fragments.
+# In transformers 5.16's configuration classes that covers the dropout keys (``attention_dropout``,
+# ``hidden_dropout``, ``dropout``, ``resid_pdrop``, ``embd_pdrop``, ``attn_pdrop``, ``hidden_dropout_prob``,
+# ``attention_probs_dropout_prob``, ``activation_dropout``, ``ffn_dropout``, ...), MoE router jitter
+# (``router_jitter_noise``: Mixtral, PhiMoE, MiniMax, Llama4, DeepSeek-V4, Switch; ``moe_jitter_eps``: DBRX),
+# layer drop (``layerdrop``, ``encoder_layerdrop``, ``decoder_layerdrop``) and stochastic depth
+# (``drop_path_rate``). ``jitter_noise`` and ``stochastic_depth_prob`` exist there only as module attributes;
+# the module walk in the worker (``verl.utils.model.find_train_mode_dependent_modules``) covers them.
+_TRAIN_MODE_KEY_FRAGMENTS = ("dropout", "pdrop", "drop_path", "drop_prob", "drop_rate", "layerdrop", "jitter")
+
+
+def _is_positive_rate(value: Any) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
+
+
+def _effective_hf_config(model_config: DictConfig):
+    """The actor's HF config as ``HFModelConfig.__post_init__`` builds it: the saved config with
+    ``override_config`` applied (the Megatron-style ``model_config`` sub-key and ``update_model_config``
+    included). None when it cannot be loaded here (missing path, offline hub, custom loader)."""
+    path = model_config.get("hf_config_path", None) or model_config.get("path", None)
+    if not path:
+        return None
+    try:
+        from transformers import AutoConfig
+
+        from verl.utils.fs import copy_to_local
+        from verl.utils.model import update_model_config
+
+        hf_config = AutoConfig.from_pretrained(
+            copy_to_local(path), trust_remote_code=model_config.get("trust_remote_code", False)
+        )
+        override_config = model_config.get("override_config", None) or {}
+        if isinstance(override_config, DictConfig):
+            override_config = OmegaConf.to_container(override_config, resolve=True)
+        if "model_config" in override_config:
+            override_config = override_config["model_config"]
+        update_model_config(hf_config, override_config_kwargs=dict(override_config))
+    except Exception:
+        return None
+    return hf_config
+
+
+def _lora_adapter_dropout(model_config: DictConfig) -> Optional[list[tuple[str, Any]]]:
+    """The train-mode settings of a pre-trained peft adapter (``adapter_config.json`` under ``lora_adapter_path``)
+    when ``lora_rank > 0``. ``_build_lora_module`` loads ANY ``peft_type`` through ``PeftModel.from_pretrained``,
+    so the type itself is checked: only ``LORA`` is supported (LoHa / LoKr keep ``rank_dropout`` /
+    ``module_dropout`` as train-mode rates, and the rollout LoRA sync expects LoRA tensors); then every numeric
+    rate key > 0 of the adapter config (``lora_dropout``: peft builds an ``nn.Dropout`` for it, active in train
+    mode only). Without an adapter path verl's ``_build_lora_module`` builds the ``LoraConfig`` without
+    ``lora_dropout``, so peft's default 0.0 (an ``nn.Identity``) applies. None when the adapter config cannot be
+    read here."""
+    if int(model_config.get("lora_rank", 0) or 0) <= 0:
+        return []
+    adapter_path = model_config.get("lora_adapter_path", None)
+    if not adapter_path:
+        return []
+    try:
+        from verl.utils.fs import copy_to_local
+
+        with open(os.path.join(copy_to_local(adapter_path), "adapter_config.json")) as f:
+            adapter = json.load(f)
+    except Exception:
+        return None
+    found: list[tuple[str, Any]] = []
+    peft_type = adapter.get("peft_type", None)
+    if peft_type != "LORA":
+        found.append(("peft_type", peft_type))
+    for key, value in adapter.items():
+        if any(fragment in key for fragment in _TRAIN_MODE_KEY_FRAGMENTS) and _is_positive_rate(value):
+            found.append((key, float(value)))
+    return found
+
+
+def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, Any]]]:
+    """The train-mode-dependent settings > 0 of the EFFECTIVE actor model, as ``(key, value)``: dropout, MoE
+    router jitter, layer drop and drop path in the HF config after ``override_config`` (the top level and
+    every nested sub-config: a VLM's towers run in train mode during the update as well) and a loaded peft
+    adapter's type and rates (``peft_type`` must be LORA; ``lora_dropout``). None when the config or the adapter
+    cannot be read here; the worker then enforces the same rule on the built module
+    (``ActorRolloutRefWorker.init_model``)."""
+    hf_config = _effective_hf_config(model_config)
+    if hf_config is None:
+        return None
+    from transformers import PretrainedConfig
+
+    found: list[tuple[str, Any]] = []
+    seen: set[int] = set()
+
+    def scan(cfg) -> None:
+        if id(cfg) in seen:
+            return
+        seen.add(id(cfg))
+        for key, value in vars(cfg).items():
+            if key.startswith("_"):
+                continue
+            if isinstance(value, PretrainedConfig):
+                scan(value)
+            elif any(fragment in key for fragment in _TRAIN_MODE_KEY_FRAGMENTS) and _is_positive_rate(value):
+                if (key, float(value)) not in found:
+                    found.append((key, float(value)))
+
+    scan(hf_config)
+    lora = _lora_adapter_dropout(model_config)
+    if lora is None:
+        return None
+    return found + lora
+
+
+def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
+    """``actor.skip_old_log_prob_when_on_policy`` is exact only when the whole sampled batch is updated in one
+    optimizer step at the sampling weights and nothing before the update reads ``old_log_probs``. Reject every
+    configuration where that does not hold, naming all violated conditions; there is no silent fallback."""
+    actor = config.actor_rollout_ref.actor
+    if not actor.get("skip_old_log_prob_when_on_policy", False):
+        return
+    trainer = config.trainer
+    v1 = trainer.get("v1", None) or {}
+    trainer_mode = v1.get("trainer_mode", None)
+    parameter_sync_step = (v1.get(trainer_mode, None) or {}).get("parameter_sync_step", 1) if trainer_mode else 1
+    sample_batch_size = config.data.train_batch_size // max(int(parameter_sync_step), 1)
+    algorithm = config.algorithm
+    distillation = config.get("distillation", None)
+
+    violations = []
+    if not trainer.get("use_v1", True):
+        violations.append("trainer.use_v1=False (the legacy trainer does not implement the skip)")
+    strategy = actor.get("strategy", None)
+    if strategy not in ("fsdp", "fsdp2", "fsdp_turbo"):
+        violations.append(
+            f"actor.strategy={strategy} (the skip is implemented and verified for the FSDP engines only, fsdp / "
+            "fsdp2 / fsdp_turbo; Megatron, VeOmni, TorchTitan and automodel keep the old-log-prob pass: their "
+            "update-pass output path is untested, Megatron's update-pass entropy would add a (T, V) logits copy "
+            "and its dynamic context parallel drops the training outputs)"
+        )
+    dropouts = _hf_config_dropouts(config.actor_rollout_ref.model)
+    if dropouts is None:
+        print(
+            "WARNING: actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True could not load the model's HF "
+            "config (or the LoRA adapter config) to check for dropout and other train-mode-only settings here; the "
+            "check is enforced on the built actor module in the worker (ActorRolloutRefWorker.init_model), which "
+            "refuses the flag before any update for every structurally visible train-mode mechanism (dropout modules "
+            "and rates, DropPath, router jitter, layerdrop, BatchNorm)."
+        )
+    elif dropouts:
+        message = (
+            "the effective actor model (HF config after override_config, LoRA adapter) has train-mode-only settings ("
+            + ", ".join(f"{key}={value}" for key, value in dropouts)
+            + "): the update pass runs in train mode, so its log-probs would be dropout- or noise-sampled instead "
+            "of the eval-mode old log-probs"
+        )
+        if any(key == "peft_type" for key, _ in dropouts):
+            message += (
+                "; only a peft_type=LORA adapter is supported at lora_adapter_path (its lora_dropout is checked; "
+                "LoHa / LoKr rank_dropout and module_dropout are train-mode rates)"
+            )
+        violations.append(message)
+    # the FSDP engine reads engine_config.qat; ActorConfig.__post_init__ aliases engine = fsdp_config
+    qat = (
+        (actor.get("fsdp_config", None) or {}).get("qat", None)
+        or (actor.get("engine", None) or {}).get("qat", None)
+        or {}
+    )
+    qat_mode = qat.get("mode", "")
+    # a programmatic DictConfig can carry the QATMode enum itself; compare its value, as apply_qat and the walk do
+    if qat.get("enable", False) and str(getattr(qat_mode, "value", qat_mode)).lower() == "w4a4":
+        violations.append(
+            "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the "
+            "activation quantization scale in train mode only, so the update pass would quantize with different "
+            "scales than the eval-mode old-log-prob pass; W4A16 is weight-only and accepted, but untested with "
+            "the skip)"
+        )
+    if trainer_mode == "separate_async":
+        violations.append(
+            "trainer.v1.trainer_mode=separate_async (it restores pi_old from a CPU snapshot, so the update "
+            "pass does not run at the sampling weights)"
+        )
+    if actor.ppo_epochs != 1:
+        violations.append(
+            f"actor.ppo_epochs={actor.ppo_epochs} (needs 1: the second epoch runs after an optimizer step)"
+        )
+    if actor.ppo_mini_batch_size != sample_batch_size:
+        violations.append(
+            f"actor.ppo_mini_batch_size={actor.ppo_mini_batch_size} != data.train_batch_size / parameter_sync_step "
+            f"= {sample_batch_size} (the sampled batch must be one mini-batch, i.e. one optimizer step; only the "
+            "first mini-batch is evaluated at the sampling weights)"
+        )
+    if actor.get("shuffle", False):
+        violations.append("actor.shuffle=True (the returned log-probs must stay row-aligned with the batch)")
+    if actor.get("calculate_sum_pi_squared", False):
+        violations.append("actor.calculate_sum_pi_squared=True (the variance proxy reads old_log_probs)")
+    if algorithm.get("use_kl_in_reward", False):
+        violations.append(
+            "algorithm.use_kl_in_reward=True (the reward KL penalty reads old_log_probs before the update)"
+        )
+    rollout_corr = algorithm.get("rollout_correction", None) or {}
+    if (
+        rollout_corr.get("bypass_mode", False)
+        or rollout_corr.get("rollout_is", None) is not None
+        or rollout_corr.get("rollout_rs", None) is not None
+    ):
+        violations.append(
+            "algorithm.rollout_correction has bypass_mode, rollout_is or rollout_rs set (bypass mode already avoids "
+            "the pass with a different estimator; IS weights and rejection sampling read old_log_probs before the "
+            "update); only the metrics-only default (rollout_is=null, rollout_rs=null, bypass_mode=false) is compatible"
+        )
+    router_replay = (actor.get("engine", None) or {}).get("router_replay", None) or {}
+    if router_replay.get("mode", "disabled") == "R2":
+        violations.append("actor.engine.router_replay.mode=R2 (it records expert routes during the old-log-prob pass)")
+    if algorithm.adv_estimator in ("optimal_token_baseline", "tir_optimal_token_baseline"):
+        violations.append(
+            f"algorithm.adv_estimator={algorithm.adv_estimator} (it reads old_log_probs before the update)"
+        )
+    if distillation is not None and distillation.get("enabled", False):
+        violations.append("distillation.enabled=True (the distillation losses read old_log_probs)")
+    if violations:
+        raise ValueError(
+            "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True requires a strictly on-policy update, "
+            "but: " + "; ".join(violations)
         )
 
 
@@ -199,6 +423,7 @@ def validate_config(
     actor_config.validate(n_gpus, config.data.train_batch_size, config.actor_rollout_ref.model)
     _validate_router_replay_config(actor_config, config.algorithm.get("rollout_correction", None))
     _validate_score_centering_config(config)
+    _validate_skip_old_log_prob_config(config)
 
     if not config.actor_rollout_ref.actor.use_dynamic_bsz:
         if use_reference_policy:
