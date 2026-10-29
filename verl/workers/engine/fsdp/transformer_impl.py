@@ -24,7 +24,7 @@ from typing import Callable, ContextManager, Optional
 
 import torch
 import torch.distributed
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, PeftModel, TaskType, get_peft_model
 from tensordict import TensorDict
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, ShardedStateDictConfig, StateDictType
@@ -104,12 +104,16 @@ def _scale_logits_by_temperature(logits, temperature, *, is_unit_temperature: bo
 
 
 def _probe_logits_to_keep_kwarg(module) -> str | None:
-    """``"logits_to_keep"`` when ``module.forward`` names that parameter, else ``None``.
+    """``"logits_to_keep"`` when the HF model's ``forward`` names that parameter, else ``None``.
 
     HF text CausalLMs take a tensor of row indices as ``logits_to_keep`` and project the LM head
     for those rows only. Only a parameter spelled out in the signature counts: a bare ``**kwargs``
-    would swallow the index and the model would still project every row.
+    would swallow the index and the model would still project every row. A PEFT wrapper is
+    probed through ``get_base_model()``: its ``forward(*args, **kwargs)`` passes the index on to
+    the base model, so the base model's signature is the one that decides.
     """
+    if isinstance(module, PeftModel):
+        module = module.get_base_model()
     try:
         parameters = signature(module.forward).parameters
     except (TypeError, ValueError):

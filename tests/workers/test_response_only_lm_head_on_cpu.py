@@ -124,6 +124,16 @@ def _make_model():
     return Qwen3ForCausalLM(config).float().eval()
 
 
+def _make_lora_model():
+    """The tiny model under a PEFT wrapper, the way ``_build_lora_module`` wraps it for LoRA."""
+    from peft import LoraConfig, TaskType, get_peft_model
+
+    model = _make_model()
+    torch.manual_seed(1)
+    config = LoraConfig(task_type=TaskType.CAUSAL_LM, r=4, lora_alpha=8, target_modules=["q_proj", "v_proj"])
+    return get_peft_model(model, config)
+
+
 def _forward_backward(engine, model, micro_batch):
     """Run the engine's input / output path around the model.
 
@@ -223,6 +233,35 @@ class TestIdentityWithTheFullProjection:
         assert packed_log_probs.shape[0] == micro_batch["input_ids"].offsets()[-1]
         assert (packed_log_probs[unread] == 0).all()
 
+    def test_the_index_passes_through_a_peft_wrapper_to_the_base_model(self):
+        """``PeftModelForCausalLM.forward`` names no ``logits_to_keep`` but forwards ``**kwargs``."""
+        micro_batch = _make_micro_batch()
+        peft_model = _make_lora_model()
+        lm_head = peft_model.get_base_model().lm_head
+        read = {}
+        for flag in (False, True):
+            projected_rows = []
+            handle = lm_head.register_forward_hook(
+                lambda _m, inputs, _o, rows=projected_rows: rows.append(inputs[0].shape[1])
+            )
+            peft_model.zero_grad(set_to_none=True)
+            try:
+                model_inputs, output_args = _make_engine(flag).prepare_model_inputs(micro_batch)
+                output = peft_model(**model_inputs, use_cache=False)
+                model_output = _make_engine(flag).prepare_model_outputs(output, output_args, micro_batch, None)
+            finally:
+                handle.remove()
+            log_probs = no_padding_2_padding(model_output["log_probs"], micro_batch)
+            mask = torch.nested.to_padded_tensor(micro_batch["response_mask"], 0, output_size=log_probs.shape)
+            (log_probs * mask).sum().backward()
+            grads = {n: p.grad.clone() for n, p in peft_model.named_parameters() if p.grad is not None}
+            read[flag] = (projected_rows[0], log_probs.detach(), grads)
+        assert read[True][0] == sum(RESPONSE_LENS) < read[False][0] == model_inputs["input_ids"].shape[1]
+        assert torch.equal(read[True][1], read[False][1])
+        assert read[True][2].keys() == read[False][2].keys() and all("lora_" in n for n in read[True][2])
+        for name, grad in read[True][2].items():
+            torch.testing.assert_close(grad, read[False][2][name], rtol=1e-5, atol=1e-6)
+
 
 class TestTheFlagIsANoOpWhenIneligible:
     @pytest.mark.parametrize(
@@ -292,6 +331,13 @@ class TestBuildTimeResolution:
         assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=patched_vlm_forward)) is None
         assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=None)) is None
         assert _probe_logits_to_keep_kwarg(_make_model()) == "logits_to_keep"
+
+    def test_probe_and_resolver_see_the_base_model_through_a_peft_wrapper(self, caplog):
+        peft_model = _make_lora_model()
+        assert _probe_logits_to_keep_kwarg(peft_model) == "logits_to_keep"
+        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
+            assert _bare_engine(FSDPEngineWithLMHead)._resolve_response_only_lm_head(peft_model) is True
+        assert "ignored" not in caplog.text
 
     def test_a_text_causal_lm_on_the_default_layout_is_eligible(self, caplog):
         with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
