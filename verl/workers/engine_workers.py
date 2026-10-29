@@ -41,6 +41,7 @@ from verl.utils.flops_counter import FlopsCounter
 from verl.utils.import_utils import import_external_libs
 from verl.utils.memory_utils import aggressive_empty_cache
 from verl.utils.metric.utils import Metric
+from verl.utils.model import find_train_mode_dependent_modules
 from verl.utils.profiler import DistProfiler, DistProfilerExtension, ProfilerConfig, log_gpu_memory_usage
 from verl.utils.py_functional import append_to_dict
 from verl.utils.qat import dispatch_rollout_weight_quantizer
@@ -715,6 +716,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                 self.loss_fn = partial(ppo_loss, config=actor_config)
             self.actor = self.actor_worker_cls(config=actor_training_config)
             self.actor.reset()
+            self._check_actor_for_on_policy_skip()
             self.actor.set_loss_fn(self.loss_fn)
             self.set_dispatch_collect(mesh_name="actor", **self.actor.get_dispatch_collect())
 
@@ -770,6 +772,33 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
 
         # Free cached GPU memory so colocated vLLM processes can see it via cudaMemGetInfo
         aggressive_empty_cache(force_sync=True)
+
+    def _check_actor_for_on_policy_skip(self) -> None:
+        """``actor.skip_old_log_prob_when_on_policy`` stores the update pass's train-mode log-probs as the old
+        log-probs, so the actor's forward must not depend on the train/eval mode. The config-level check
+        (``verl.utils.config._validate_skip_old_log_prob_config``) inspects the effective HF config and the
+        adapter config; this walk over the built module is the guarantee, on every rank and before any update:
+        dropout modules (LoRA dropout included), DropPath / StochasticDepth modules and functional dropout /
+        MoE router jitter / layer-drop rates > 0 refuse the flag, naming the module paths."""
+        if not self.config.actor.get("skip_old_log_prob_when_on_policy", False):
+            return
+        module = getattr(self.actor.engine, "module", None)
+        if module is None:
+            raise ValueError(
+                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True: the actor engine exposes no `module` "
+                "to check for train-mode-dependent sub-modules"
+            )
+        offenders = find_train_mode_dependent_modules(module)
+        if not offenders:
+            return
+        shown = "; ".join(f"{path or '<root>'}: {reason}" for path, reason in offenders[:5])
+        more = f"; +{len(offenders) - 5} more" if len(offenders) > 5 else ""
+        raise ValueError(
+            "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True requires an actor whose forward does not "
+            "depend on train/eval mode (the update pass's train-mode log-probs stand in for the eval-mode old "
+            f"log-probs), but the built actor module has {len(offenders)} train-mode-dependent sub-module(s): "
+            f"{shown}{more}"
+        )
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="ref"))
     @DistProfiler.annotate(color="olive", role="ref_compute_log_prob")
