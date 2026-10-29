@@ -236,16 +236,18 @@ def test_mixed_batch_decodes_the_healthy_row_and_scores_the_failed_session_zero(
 def test_single_dead_worker_owning_every_batch_counts_each_batch_and_drains_the_relaunch(monkeypatch):
     """One worker owned every validation chunk: each batch comes back empty, the failed counts accumulate
     across batches, and the manager's relaunch counters raised during validation are drained into the
-    validation metrics (namespaced ``validation/``) instead of being lost or logged with the next step."""
+    validation metrics (re-keyed ``validation/``) instead of being lost or logged with the next step."""
     memory, workers, trainer = _setup(monkeypatch, batches=(["a", "b"], ["c"]))
-    workers.recovery_metrics.update({"dead_workers_relaunched": 1, "prompts_orphaned_by_dead_workers": 3})
+    workers.recovery_metrics.update(
+        {"rollout/dead_workers_relaunched": 1, "rollout/prompts_orphaned_by_dead_workers": 3}
+    )
     assert trainer._validate() == {
         "validation/inflight_dead_worker_failed": 3,
         "validation/dead_workers_relaunched": 1,
         "validation/prompts_orphaned_by_dead_workers": 3,
     }
     assert workers.recovery_metrics == Counter(), "drained by the validation, not double-counted by the step"
-    workers.recovery_metrics["dead_workers_relaunched"] = 2
+    workers.recovery_metrics["rollout/dead_workers_relaunched"] = 2
     assert trainer._consume_recovery_metrics() == {"rollout/dead_workers_relaunched": 2}
 
 

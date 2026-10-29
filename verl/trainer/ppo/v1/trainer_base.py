@@ -716,12 +716,13 @@ class PPOTrainer(ABC):
         return metrics
 
     def _consume_recovery_metrics(self, prefix: str = "rollout") -> dict:
-        """Dead-worker relaunch counters the agent loop manager accumulated since the last drain, namespaced
-        under ``prefix``: ``rollout/`` for a training step, ``validation/`` when ``_validate`` drains them."""
+        """Dead-worker relaunch counters the agent loop manager accumulated since the last drain (its
+        ``rollout/...`` keys), re-keyed under ``prefix``: ``rollout/`` for a training step, ``validation/`` when
+        ``_validate`` drains them."""
         counters = getattr(self.agent_loop_manager, "recovery_metrics", None)
         if not counters:
             return {}
-        metrics = {f"{prefix}/{name}": value for name, value in counters.items()}
+        metrics = {f"{prefix}/{name.removeprefix('rollout/')}": value for name, value in counters.items()}
         counters.clear()
         return metrics
 
