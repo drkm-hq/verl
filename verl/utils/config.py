@@ -101,13 +101,15 @@ _HF_DROPOUT_KEYS = (
 
 
 def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, float]]]:
-    """The dropout rates > 0 set in the actor's HF config (top level and ``text_config``), or None when the
-    config cannot be loaded here (missing path, offline hub, custom loader)."""
+    """The dropout rates > 0 set anywhere in the actor's HF config: the top level and every nested
+    sub-config (``text_config``, ``vision_config``, ``audio_config``, ...; a VLM's towers run in train mode
+    during the update as well). None when the config cannot be loaded here (missing path, offline hub,
+    custom loader)."""
     path = model_config.get("hf_config_path", None) or model_config.get("path", None)
     if not path:
         return None
     try:
-        from transformers import AutoConfig
+        from transformers import AutoConfig, PretrainedConfig
 
         from verl.utils.fs import copy_to_local
 
@@ -116,12 +118,24 @@ def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, fl
         )
     except Exception:
         return None
-    found = []
-    for cfg in (hf_config, getattr(hf_config, "text_config", None)):
+
+    found: list[tuple[str, float]] = []
+    seen: set[int] = set()
+
+    def scan(cfg) -> None:
+        if id(cfg) in seen:
+            return
+        seen.add(id(cfg))
         for key in _HF_DROPOUT_KEYS:
-            value = getattr(cfg, key, None) if cfg is not None else None
+            value = getattr(cfg, key, None)
             if isinstance(value, int | float) and not isinstance(value, bool) and value > 0:
-                found.append((key, float(value)))
+                if (key, float(value)) not in found:
+                    found.append((key, float(value)))
+        for sub in vars(cfg).values():
+            if isinstance(sub, PretrainedConfig):
+                scan(sub)
+
+    scan(hf_config)
     return found
 
 
@@ -144,12 +158,12 @@ def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
     if not trainer.get("use_v1", True):
         violations.append("trainer.use_v1=False (the legacy trainer does not implement the skip)")
     strategy = actor.get("strategy", None)
-    if strategy not in ("fsdp", "fsdp2"):
+    if strategy not in ("fsdp", "fsdp2", "fsdp_turbo"):
         violations.append(
-            f"actor.strategy={strategy} (the skip is implemented and verified for the FSDP engines only; Megatron, "
-            "VeOmni, TorchTitan and automodel keep the old-log-prob pass: their update-pass output path is "
-            "untested, Megatron's update-pass entropy would add a (T, V) logits copy and its dynamic context "
-            "parallel drops the training outputs)"
+            f"actor.strategy={strategy} (the skip is implemented and verified for the FSDP engines only, fsdp / "
+            "fsdp2 / fsdp_turbo; Megatron, VeOmni, TorchTitan and automodel keep the old-log-prob pass: their "
+            "update-pass output path is untested, Megatron's update-pass entropy would add a (T, V) logits copy "
+            "and its dynamic context parallel drops the training outputs)"
         )
     dropouts = _hf_config_dropouts(config.actor_rollout_ref.model)
     if dropouts is None:

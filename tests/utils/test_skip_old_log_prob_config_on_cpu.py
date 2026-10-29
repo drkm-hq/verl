@@ -170,3 +170,35 @@ def test_hf_config_dropouts_reads_a_saved_config(tmp_path):
     assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "no_dropout")})) == []
     assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "missing")})) is None
     assert _hf_config_dropouts(OmegaConf.create({"path": None})) is None
+
+
+def test_hf_config_dropouts_scans_every_nested_sub_config(tmp_path):
+    """A VLM actor runs its vision tower in train mode during the update as well: dropout there perturbs
+    the image features and hence the log-probs exactly like text dropout does (review finding R1)."""
+    from transformers import CLIPVisionConfig, LlamaConfig, LlavaConfig
+
+    text_only = LlavaConfig(
+        text_config=LlamaConfig(attention_dropout=0.2, hidden_size=8, num_attention_heads=1, num_key_value_heads=1)
+    )
+    text_only.save_pretrained(tmp_path / "text")
+    assert ("attention_dropout", 0.2) in _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "text")}))
+
+    vision_only = LlavaConfig(
+        text_config=LlamaConfig(attention_dropout=0.0, hidden_size=8, num_attention_heads=1, num_key_value_heads=1),
+        vision_config=CLIPVisionConfig(attention_dropout=0.1, hidden_size=8, num_attention_heads=1),
+    )
+    vision_only.save_pretrained(tmp_path / "vision")
+    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "vision")})) == [("attention_dropout", 0.1)]
+
+    clean = LlavaConfig(
+        text_config=LlamaConfig(attention_dropout=0.0, hidden_size=8, num_attention_heads=1, num_key_value_heads=1),
+        vision_config=CLIPVisionConfig(attention_dropout=0.0, hidden_size=8, num_attention_heads=1),
+    )
+    clean.save_pretrained(tmp_path / "clean")
+    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "clean")})) == []
+
+
+@pytest.mark.parametrize("strategy", ["fsdp", "fsdp2", "fsdp_turbo"])
+def test_every_fsdp_family_strategy_is_accepted(on_policy_config, strategy):
+    """fsdp_turbo subclasses the FSDP engine and inherits its forward / output path (fsdp_turbo_impl.py)."""
+    _validate_skip_old_log_prob_config(_with(on_policy_config, **{"actor_rollout_ref.actor.strategy": strategy}))

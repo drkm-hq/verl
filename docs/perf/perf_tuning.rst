@@ -179,9 +179,11 @@ the sampling weights, so multi-mini-batch configurations gain nothing); ``actor.
 pass by using the rollout engine's log-probs, a different estimator); the ``optimal_token_baseline``
 estimators; ``calculate_sum_pi_squared``; distillation; router replay ``R2``; the ``separate_async``
 trainer mode (it restores the old policy from a CPU snapshot); the legacy trainer
-(``trainer.use_v1=False``); dropout in the model config; and every engine other than FSDP/FSDP2
-(``actor.strategy`` megatron, veomni, torchtitan, automodel: the update-pass output path exists but is
-unverified, and Megatron's update-pass entropy would add a (T, V) logits copy).
+(``trainer.use_v1=False``); dropout anywhere in the model config (nested ``text_config`` /
+``vision_config`` / ... included); and every engine other than the FSDP family (``actor.strategy``
+fsdp, fsdp2 and fsdp_turbo, which shares the FSDP engine's forward and output path; megatron, veomni,
+torchtitan and automodel are rejected: their update-pass output path exists but is unverified, and
+Megatron's update-pass entropy would add a (T, V) logits copy).
 
 The one-mini-batch condition is also enforced per step on the rows the worker trains: after
 ``_balance_batch`` pads the batch to a multiple of ``ppo_mini_batch_size * rollout.n``, the batch must be
