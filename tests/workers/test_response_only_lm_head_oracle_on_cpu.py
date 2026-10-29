@@ -19,7 +19,8 @@ uses it. NaN in any inspected tensor must be reported, in bf16 and in fp32, as m
 optimizer step (non-finite gradients, unchanged parameters, zero update); the direct bf16 gradient
 bound rejects a 27 % on/off difference that the relative-error guard alone accepts, while a
 difference within the baseline's own error passes (the guard is not an identity statement); the
-direct bound has an absolute floor for near-zero tensors.
+direct bound never hides a negated tensor; a key without an fp32 reference, an empty shard and all-zero
+response rows are handled as the docstring says.
 """
 
 import importlib.util
@@ -108,24 +109,57 @@ def test_the_direct_gradient_bound_rejects_what_the_guard_alone_accepts():
     assert not gpu._compare("within the error", {GRAD: torch.tensor([1.05])}, reference, "bf16", truth, verbose=False)
 
 
-def test_the_direct_bound_has_an_absolute_floor_for_near_zero_tensors():
-    big, tiny = "grad/model.layers.0.big", "grad/model.layers.0.tiny"
-    reference = {big: torch.ones(4), tiny: torch.full((4,), 1e-9)}
-    enabled = {big: torch.ones(4), tiny: torch.full((4,), 1e-9) + 1e-8}  # 1000 % relative, 2e-8 below 1e-6 * |big|
-    assert not gpu._compare("floor", enabled, reference, "bf16", None, verbose=False)
-    enabled[big] = torch.ones(4) * 1.2  # 20 % on a tensor of the layer's scale is rejected
-    assert gpu._compare("20 % apart", enabled, reference, "bf16", None, verbose=False)
+def test_the_direct_bound_never_hides_a_negated_tensor():
+    big, tiny = "grad/model.layers.0.mlp.up_proj.weight", "grad/model.layers.0.input_layernorm.weight"
+    reference = {big: torch.full((4,), 500.0), tiny: torch.full((4,), 2.5e-4)}  # |big| = 1e3, |tiny| = 5e-4
+    enabled = {big: reference[big].clone(), tiny: -reference[tiny]}  # the tiny gradient points the other way
+    assert gpu._compare("negated", enabled, reference, "bf16", None, verbose=False)
+    enabled[tiny] = reference[tiny] * 1.05  # 5 % on a tensor far below the layer's scale: within the bound
+    assert not gpu._compare("tiny 5 %", enabled, reference, "bf16", None, verbose=False)
+    enabled[tiny] = torch.zeros(4) + 1e-13  # below the absolute term: no gradient at all, compared as such
+    reference[tiny] = torch.zeros(4)
+    assert not gpu._compare("no gradient", enabled, reference, "bf16", None, verbose=False)
+
+
+def test_a_key_without_an_fp32_reference_is_reported():
+    reference, enabled = {GRAD: torch.tensor([1.0])}, {GRAD: torch.tensor([1.01])}
+    failures = gpu._compare("missing truth", enabled, reference, "bf16", {}, verbose=False)
+    assert failures and "no such key" in failures[0]
+
+
+def test_an_empty_shard_is_skipped_not_crashed():
+    reference = {"grad/model.layers.0.scale": torch.empty(0), "sgd/grad_norm": torch.tensor(1.0)}
+    enabled = {key: value.clone() for key, value in reference.items()}
+    assert not gpu._compare("empty shard", enabled, reference, "bf16", None, verbose=False)
+
+
+def _rows(seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+    rows = -torch.rand(6, 256, generator=torch.Generator().manual_seed(seed)) * 20
+    mask = torch.zeros(6, 256, dtype=torch.bool)
+    for i, length in enumerate(gpu.RESPONSE_LENS):
+        mask[i, :length] = True
+    return rows * mask, mask
+
+
+def test_all_zero_response_rows_are_reported_not_treated_as_padding():
+    rows, mask = _rows()
+    zeros = torch.zeros_like(rows)
+    assert gpu._compare("all zero", {"forward/log_probs": zeros}, {"forward/log_probs": zeros.clone()}, verbose=False)
+    with_mask = {"forward/log_probs": zeros, "mask/response": mask}
+    assert gpu._compare("all zero, masked", with_mask, dict(with_mask), verbose=False)
+    assert not gpu._compare(
+        "padding only",
+        {"forward/log_probs": rows, "mask/response": mask},
+        {"forward/log_probs": rows.clone(), "mask/response": mask},
+        verbose=False,
+    )
 
 
 def test_an_ulp_sized_bf16_forward_difference_passes_and_a_row_shift_fails():
-    rows = -torch.rand(6, 256, generator=torch.Generator().manual_seed(0)) * 20
-    rows[:, 128:] = 0  # padding, zero in both arms
+    rows, mask = _rows()
     shifted = rows.clone()
     shifted[0, 0] += 0.125  # one bf16 ulp of a logit of 20 on one row
-    assert not gpu._compare(
-        "one ulp", {"forward/log_probs": shifted}, {"forward/log_probs": rows}, "bf16", verbose=False
-    )
-    shifted = rows - 0.03  # every row shifted: the batch mean catches it
-    assert gpu._compare(
-        "shifted", {"forward/log_probs": shifted * (rows != 0)}, {"forward/log_probs": rows}, "bf16", verbose=False
-    )
+    reference = {"forward/log_probs": rows, "mask/response": mask}
+    assert not gpu._compare("one ulp", {"forward/log_probs": shifted, "mask/response": mask}, reference, verbose=False)
+    shifted = (rows - 0.03) * mask  # every response row shifted: the batch mean catches it
+    assert gpu._compare("shifted", {"forward/log_probs": shifted, "mask/response": mask}, reference, verbose=False)

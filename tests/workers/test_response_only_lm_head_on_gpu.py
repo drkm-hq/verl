@@ -24,6 +24,8 @@ after one optimizer step. Cases: plain, gradient checkpointing, LoRA (PEFT rank 
 seeded with small non-zero values, since a fresh zero ``lora_B`` gives ``lora_A`` a zero gradient
 at the first backward) and LoRA with checkpointing, each on ``fsdp`` (FSDP1, the default strategy)
 and ``fsdp2`` on one rank, plus the plain case on two ranks (``FULL_SHARD`` for both strategies;
+rank r keeps sequences r::2 of the frozen batch with its own rank-local ``max_response_len``, which
+``ppo_loss`` pads every field to, while the comparison view is padded to the width over all ranks;
 every rank compares its own shard after the gradient all-reduce, rank 0 prints). Each case runs
 five engines:
 
@@ -62,8 +64,9 @@ Measured on 1x H100 (torch 2.13 cu130, transformers 5.16.1, flash-attn 2.8.3;
   3.2e-2 for LoRA). The head's backward GEMMs split the vocabulary reduction differently for K and
   T rows and every bf16 backward layer re-rounds that one-ulp difference; the fp32 agreement says
   the gradient itself is the same. Two assertions: the direct bound
-  ``|g_on - g_off| <= 0.1 |g_off| + 1e-6 G_layer`` per tensor (0.1 is ~2.5x the worst measured;
-  ``G_layer``, the largest gradient norm of the tensor's layer, floors near-zero tensors), and a
+  ``|g_on - g_off| <= 0.1 |g_off| + 1e-12`` per tensor (0.1 is ~2.5x the worst measured; the
+  absolute term only matters for a tensor with no gradient at all, so a negated tensor never passes;
+  tensors below 1e-6 of their layer's largest gradient norm are listed with the table), and a
   relative-error guard against the truth: with ``g32`` the fp32 flag-off gradient,
   ``D_off = |g_off - g32|`` and ``D_on = |g_on - g32|``, ``D_on <= 2 D_off + 1e-6 |g32|``
   (independent rounding noise gives sqrt(2); 2 is margin). The guard admits on/off differences up
@@ -81,7 +84,10 @@ Measured on 1x H100 (torch 2.13 cu130, transformers 5.16.1, flash-attn 2.8.3;
   difference and sign agreement are printed; the parameters after the step may differ by two
   first-step updates plus 1e-2 relative (the form that also holds for AdamW's sign-like step).
 * every inspected tensor of every arm (and of the truth) must be finite before any of the above
-  is evaluated: a comparison with NaN is false, so NaN would otherwise pass.
+  is evaluated: a comparison with NaN is false, so NaN would otherwise pass. Every key of the
+  reference must exist in the truth; an empty shard (a leading dimension below the world size) is
+  skipped with a note; the row checks run on the response mask, and rows that are zero in both arms
+  are reported, not treated as padding.
 * fp32 reference sanity: its flag-off log-probs must agree with the bf16 flag-off ones within bf16
   noise (mean |delta| below 0.5 nat; measured 2.9e-2), which rules out a broken packed-attention
   mask behind an fp32 identity.
@@ -146,7 +152,8 @@ TOLERANCES = {  # rows / sum_pi_squared / loss: (rtol, atol) per element; grad: 
     "bf16": {"rows": (2e-2, 5e-2), "sum_pi_squared": (2e-2, 5e-2), "loss": (1e-2, 5e-3), "grad": 1e-1},
     "fp32": {"rows": (0.0, 1e-4), "sum_pi_squared": (0.0, 1e-4), "loss": (0.0, 1e-4), "grad": 1e-4},
 }
-GRAD_FLOOR = 1e-6  # absolute floor of the direct gradient bound, as a fraction of the layer's largest gradient norm
+GRAD_ABS_FLOOR = 1e-12  # the direct bound is 0.1 |g_off| + this: only a tensor with no gradient at all needs it
+GRAD_LAYER_NOTE = 1e-6  # gradient tensors below this fraction of their layer's largest gradient norm are listed
 TRUTH_RATIO, TRUTH_FLOOR = 2.0, 1e-6  # bf16: D_on <= TRUTH_RATIO * D_off + TRUTH_FLOOR * |g_fp32| per tensor
 SGD_RESIDUAL_ULPS = 4.0  # |param_after - (param_before - lr * grad)| within this many fp32 ulp of |param| + |lr * grad|
 CROSS_PRECISION_MEAN_NAT = 0.5  # bf16 vs fp32 flag-off log-probs: bf16 noise, not a different attention
@@ -197,8 +204,8 @@ def _make_batch(vocab_size: int, rank: int = 0, world_size: int = 1) -> TensorDi
         global_batch_size=len(PROMPT_LENS),
         pad_mode=DatasetPadMode.NO_PADDING,
         pad_token_id=0,
-        max_response_len=max(RESPONSE_LENS),
-        max_response_length=max(RESPONSE_LENS),
+        max_response_len=max(RESPONSE_LENS[i] for i in keep),  # rank-local: ppo_loss pads every field to it
+        max_response_length=max(RESPONSE_LENS[i] for i in keep),
         calculate_entropy=True,
         calculate_sum_pi_squared=True,
         return_model_output=True,
@@ -275,9 +282,18 @@ def _snapshot(module, kind: str) -> dict[str, torch.Tensor]:
 
 
 def _consumer_view(model_output, batch: TensorDict) -> dict[str, torch.Tensor]:
-    """What the PPO loss and the metrics read: the response rows, padded to (bsz, max_response_len)."""
+    """What the PPO loss and the metrics read: the response rows, padded to (bsz, the width over all ranks)."""
     keys = ("log_probs", "entropy", "sum_pi_squared")
-    return {key: no_padding_2_padding(model_output[key], batch.to(model_output[key].device)).float() for key in keys}
+    view = {key: no_padding_2_padding(model_output[key], batch.to(model_output[key].device)).float() for key in keys}
+    return {
+        key: torch.nn.functional.pad(value, (0, max(RESPONSE_LENS) - value.shape[1])) for key, value in view.items()
+    }
+
+
+def _response_mask(batch: TensorDict, device) -> torch.Tensor:
+    """Which positions of the consumer view are response tokens; the padding is excluded from every row check."""
+    mask = batch["response_mask"].to(device)
+    return torch.nested.to_padded_tensor(mask, 0, output_size=(mask.shape[0], max(RESPONSE_LENS))).bool()
 
 
 def _run_arm(flag, variant, strategy, precision, batch, world_size, *, freeze: bool, label: str, verbose: bool):
@@ -287,6 +303,7 @@ def _run_arm(flag, variant, strategy, precision, batch, world_size, *, freeze: b
     with engine.eval_mode():
         forward = engine.forward_backward_batch(batch, loss_function=None, forward_only=True)
     out.update({f"forward/{key}": value for key, value in _consumer_view(forward["model_output"], batch).items()})
+    out["mask/response"] = _response_mask(batch, out["forward/log_probs"].device)
     if freeze:  # the first flag-off log-probs are every arm's old_log_probs: ratio 1 in the PPO loss
         log_probs = out["forward/log_probs"].cpu()
         lengths = batch["responses"].offsets().diff().tolist()
@@ -350,22 +367,24 @@ def _finite(enabled: dict, reference: dict, truth: dict | None) -> tuple[list[st
         arms = [("on", enabled[key]), ("off", reference[key])]
         if truth is not None and key in truth:
             arms.append(("fp32 reference", truth[key]))
+        elif truth is not None:
+            failures.append(f"{key}: the fp32 reference has no such key")
+            bad.add(key)
         for arm, tensor in arms:
-            if not bool(torch.isfinite(tensor).all()):
+            if tensor.is_floating_point() and not bool(torch.isfinite(tensor).all()):
                 failures.append(f"{key}: non-finite values in the flag-{arm} arm")
                 bad.add(key)
     return failures, bad
 
 
-def _rows_check(label: str, key: str, on, off, rtol: float, atol: float, verbose: bool) -> list[str]:
+def _rows_check(label: str, key: str, on, off, rtol: float, atol: float, verbose: bool, valid) -> list[str]:
     """Per-element tolerance on the response rows, and a tighter one on their mean; prints the measured maxima."""
     delta = (on - off).abs()
-    valid = (on != 0) | (off != 0)  # padded positions are zero in both arms
     rows = max(int(valid.sum().item()), 1)
     mean_delta = (on - off)[valid].mean().abs().item() if valid.any() else 0.0
     mean_tol = (atol + rtol * off[valid].abs().mean().item()) / rows**0.5 if valid.any() else atol
-    bad = int((delta > atol + rtol * off.abs()).sum().item())
-    max_abs = delta.max().item()
+    bad = int(((delta > atol + rtol * off.abs()) & valid).sum().item())
+    max_abs = delta[valid].max().item() if valid.any() else 0.0
     if verbose:
         print(f"[response_only_lm_head][{label}] {key}: max_abs={max_abs:.3e} mean_delta={mean_delta:.3e} rows={rows}")
     failures = []
@@ -384,7 +403,7 @@ def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=Tr
     tol = TOLERANCES[precision]
     assert enabled.keys() == reference.keys()
     failures, bad = _finite(enabled, reference, truth)
-    layer_scale: dict[str, float] = {}  # the largest reference gradient norm per layer: the floor of the direct bound
+    layer_scale: dict[str, float] = {}  # the largest reference gradient norm per layer, to list near-zero tensors
     for key in reference:
         if key.startswith("grad/") and key not in bad:
             layer_scale[_layer_of(key)] = max(layer_scale.get(_layer_of(key), 0.0), reference[key].norm().item())
@@ -394,14 +413,24 @@ def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=Tr
     summary: dict[
         str, list
     ] = {}  # group -> [max_abs, worst rel_fro, its key, sum |delta|^2, sum |ref|^2, min sign agr.]
+    near_zero: list[str] = []  # gradient tensors below GRAD_LAYER_NOTE of their layer's largest gradient norm
     grads_present = any(key.startswith("grad/") and key not in bad and reference[key].norm() > 0 for key in reference)
+    mask = reference.get("mask/response")
     for key in sorted(reference):
         if key in bad:
             continue
         on, off = enabled[key], reference[key]
+        group = key.split("/", 1)[0]
+        if on.numel() == 0:  # FSDP2 gives a rank an empty shard when a leading dimension is below the world size
+            if verbose:
+                print(f"[response_only_lm_head][{label}] {key}: empty shard on this rank, skipped")
+            continue
+        if group == "mask":
+            if not torch.equal(on, off):
+                failures.append(f"{key}: the response masks differ between the arms")
+            continue
         delta = (on - off).abs()
         max_abs, rel_fro = delta.max().item(), (delta.norm() / off.norm().clamp_min(1e-30)).item()
-        group = key.split("/", 1)[0]
         if group == "before":
             if not torch.equal(on, off):
                 failures.append(f"{key}: weights differ before the step (max |delta| {max_abs:.3e})")
@@ -417,7 +446,12 @@ def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=Tr
             rtol, atol = (
                 tol["loss"] if group == "loss" else tol["sum_pi_squared" if key.endswith("sum_pi_squared") else "rows"]
             )
-            failures += _rows_check(label, key, on, off, rtol, atol, verbose)
+            masked = group != "loss" and mask is not None and mask.shape == off.shape
+            valid = mask.bool() if masked else torch.ones_like(off, dtype=torch.bool)
+            if group != "loss" and not bool((off[valid] != 0).any()):
+                failures.append(f"{key}: every compared response row is zero in the reference: nothing was compared")
+                continue
+            failures += _rows_check(label, key, on, off, rtol, atol, verbose, valid)
         else:
             stats = summary.setdefault(group, [0.0, -1.0, "", 0.0, 0.0, 1.0])
             stats[0] = max(stats[0], max_abs)
@@ -429,11 +463,10 @@ def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=Tr
                 layer = _layer_of(key)
                 row = layers.setdefault(layer, [0, 0.0, 0.0, 0.0, 0.0, 0.0])
                 row[0], row[1] = row[0] + 1, max(row[1], rel_fro)
-                bound = tol["grad"] * off.norm().item() + GRAD_FLOOR * layer_scale.get(layer, 0.0)
-                if delta.norm().item() > bound:
-                    failures.append(
-                        f"{key}: gradients {rel_fro:.3e} relative Frobenius apart (bound {tol['grad']:g} + floor)"
-                    )
+                if off.norm().item() < GRAD_LAYER_NOTE * layer_scale.get(layer, 0.0):
+                    near_zero.append(key)
+                if delta.norm().item() > tol["grad"] * off.norm().item() + GRAD_ABS_FLOOR:
+                    failures.append(f"{key}: gradients {rel_fro:.3e} relative Frobenius apart (bound {tol['grad']:g})")
                 if truth is not None and key in truth:
                     g32 = truth[key]
                     d_off, d_on, scale = (off - g32).norm().item(), (on - g32).norm().item(), g32.norm().item()
@@ -463,6 +496,9 @@ def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=Tr
             elif group == "param":  # two opposite first-step updates (|update| <= LR each) plus 1e-2 relative
                 if not bool((delta <= 2 * LR * 1.01 + 1e-2 * off.abs()).all()):
                     failures.append(f"{key}: |delta| {max_abs:.3e} exceeds 2 * lr + 1e-2 * |ref|")
+    if verbose and near_zero:
+        note = f"{len(near_zero)} tensors below {GRAD_LAYER_NOTE:g} of their layer's largest gradient: {near_zero[:5]}"
+        print(f"[response_only_lm_head][{label}] {note}")
     if verbose:
         for layer, (count, worst, d_off2, d_on2, scale2, ratio) in sorted(layers.items()):
             line = f"[response_only_lm_head][{label}] grad {layer}: n={count} max on-vs-off rel_fro={worst:.3e}"
