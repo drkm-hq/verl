@@ -226,3 +226,14 @@ def test_w4a4_qat_is_rejected_for_its_train_mode_observers_and_w4a16_is_accepted
     ) in str(excinfo.value)
     _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": "w4a16"}))
     _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": False, f"{qat}.mode": "w4a4"}))
+    # a programmatic DictConfig can carry the enum itself (verl's QATMode is a str Enum; apply_qat lowercases it):
+    # the validator compares the enum's value, not str(enum) == "qatmode.w4a4"
+    from enum import Enum
+
+    class _QATMode(str, Enum):
+        W4A4 = "w4a4"
+
+    with pytest.raises(ValueError, match="actor.fsdp_config.qat.mode=w4a4 with qat.enable=True"):
+        _validate_skip_old_log_prob_config(
+            _with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": _QATMode.W4A4})
+        )

@@ -250,7 +250,9 @@ def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
         or (actor.get("engine", None) or {}).get("qat", None)
         or {}
     )
-    if qat.get("enable", False) and str(qat.get("mode", "")).lower() == "w4a4":
+    qat_mode = qat.get("mode", "")
+    # a programmatic DictConfig can carry the QATMode enum itself; compare its value, as apply_qat and the walk do
+    if qat.get("enable", False) and str(getattr(qat_mode, "value", qat_mode)).lower() == "w4a4":
         violations.append(
             "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the "
             "activation quantization scale in train mode only, so the update pass would quantize with different "
