@@ -18,7 +18,6 @@
 import asyncio
 import logging
 import os
-import time
 from collections import Counter
 from typing import Any
 from uuid import uuid4
@@ -44,6 +43,7 @@ logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 WORKER_LIVENESS_PROBE_TIMEOUT_SECONDS = float(os.getenv("VERL_WORKER_LIVENESS_PROBE_TIMEOUT_SECONDS", "2"))
 # Consecutive ActorUnavailableError results (transient by Ray's definition) before a worker counts as dead.
 WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD = int(os.getenv("VERL_WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD", "3"))
+# How long the second-opinion ping after an unavailable dispatch reply may wait before the worker counts as busy.
 DISPATCH_RETRY_INTERVAL_SECONDS = float(os.getenv("VERL_DISPATCH_RETRY_INTERVAL_SECONDS", "1"))
 # Re-creations of one worker index without a served dispatch in between before the manager gives up.
 MAX_WORKER_RELAUNCHES = int(os.getenv("VERL_MAX_WORKER_RELAUNCHES", "5"))
@@ -312,9 +312,10 @@ class AgentLoopManagerTQ(AgentLoopManager):
         into TransferQueue once an agent loop finished.
 
         Chunks are assigned from a rotating start index so that a batch smaller than the worker count (refill,
-        re-issue) spreads over the workers instead of always hitting the lowest indices. A worker whose actor
-        died raises ``RayActorError`` on dispatch: with ``rollout.agent.relaunch_dead_workers`` it is re-created
-        and its chunk re-dispatched, otherwise the error is logged and re-raised as is.
+        re-issue) spreads over the workers instead of always hitting the lowest indices. A dispatch whose reply
+        is a ``RayActorError`` is never sent again (the call may have executed): with
+        ``rollout.agent.relaunch_dead_workers`` the chunk's prompts are parked for the replay buffer to re-issue
+        under fresh uids and a dead worker is re-created, otherwise the error is logged and re-raised as is.
 
         Args:
             prompts (TensorDict): Input batch from train or validation dataset.
@@ -332,33 +333,69 @@ class AgentLoopManagerTQ(AgentLoopManager):
                 ray.get(ref)
             except ray.exceptions.RayActorError as error:
                 self._recover_dispatch(index, chunk, error)
+                continue
             self._relaunch_streak[index] = 0
+            self._unavailable_streak[index] = 0
             if self.relaunch_dead_workers:
                 for uid in _chunk_uids(chunk):
                     self._prompt_owner[uid] = index
 
     def _recover_dispatch(self, index: int, chunk: TensorDict, error: ray.exceptions.RayActorError) -> None:
-        if isinstance(error, ray.exceptions.ActorUnavailableError):
-            # Transient by Ray's definition (raylet / GCS hiccup): retry before treating the worker as dead.
-            for _ in range(WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD):
-                time.sleep(DISPATCH_RETRY_INTERVAL_SECONDS)
-                try:
-                    ray.get(self.agent_loop_workers[index].generate_sequences.remote(chunk))
-                    return
-                except ray.exceptions.RayActorError as retry_error:
-                    error = retry_error
+        """Handle a dispatch whose reply was an actor error. The chunk is never sent a second time.
+
+        Ray cannot say whether the call executed, so a re-send could start a second live attempt of the same
+        uids on the same keys. Instead the chunk's prompts stay ``pending``/``running`` in TransferQueue and are
+        parked in ``_orphaned_uids``: the replay buffer collects them through :meth:`reap_dead_workers` and
+        re-issues them under fresh uids (old rows cleared), or drops them from the parked set once they reach a
+        terminal status on their own. A dead worker is re-created; a merely unavailable one is marked suspect.
+        """
         uids = _chunk_uids(chunk)
         if not self.relaunch_dead_workers:
             logger.error(
-                f"Agent loop worker {index} died and {len(uids)} prompts could not be dispatched "
-                f"(uids {uids[:4]}{'...' if len(uids) > 4 else ''}); their TransferQueue status stays non-terminal. "
-                "Set actor_rollout_ref.rollout.agent.relaunch_dead_workers=True to re-create dead workers and "
-                "trainer.v1.sampler.inflight_ttl_s to re-issue the prompts they left behind."
+                f"Agent loop worker {index} failed a dispatch of {len(uids)} prompts "
+                f"(uids {uids[:4]}{'...' if len(uids) > 4 else ''}, {type(error).__name__}); their TransferQueue "
+                "status stays non-terminal. Set actor_rollout_ref.rollout.agent.relaunch_dead_workers=True to "
+                "re-create dead workers and trainer.v1.sampler.inflight_ttl_s to re-issue the prompts they left."
             )
             raise error
-        self._relaunch_worker(index, error)
-        ray.get(self.agent_loop_workers[index].generate_sequences.remote(chunk))
-        self.recovery_metrics["rollout/prompts_redispatched"] += len(uids)
+        if isinstance(error, ray.exceptions.ActorUnavailableError) and not self._confirm_dead_after_unavailable(index):
+            logger.warning(
+                f"Agent loop worker {index} was unavailable for a dispatch of {len(uids)} prompts; they are parked "
+                "for re-issue and the worker is suspect"
+            )
+        else:
+            self._orphan_worker(index, error)
+        self._orphaned_uids.update(uids)
+        self.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] += len(uids)
+
+    def _confirm_dead_after_unavailable(self, index: int) -> bool:
+        """Second opinion after an unavailable dispatch reply: one ping bounded by DISPATCH_RETRY_INTERVAL_SECONDS.
+
+        A ping that answers resets the unavailable streak; one that times out counts as busy; an actor error
+        goes through the same consecutive-failure rule as the periodic probe.
+        """
+        self._unavailable_streak[index] += 1
+        ref = self.agent_loop_workers[index].ping.remote()
+        ready, _ = ray.wait([ref], timeout=DISPATCH_RETRY_INTERVAL_SECONDS)
+        if not ready:
+            return False
+        try:
+            ray.get(ref)
+        except ray.exceptions.RayActorError as probe_error:
+            return self._probe_marks_dead(index, probe_error)
+        self._unavailable_streak[index] = 0
+        return False
+
+    def _orphan_worker(self, index: int, error: BaseException) -> None:
+        """Park every prompt worker ``index`` still owns and re-create it (when relaunching is enabled)."""
+        owned = {uid for uid, owner in self._prompt_owner.items() if owner == index}
+        for uid in owned:
+            del self._prompt_owner[uid]
+        self._orphaned_uids |= owned
+        self.recovery_metrics["rollout/prompts_orphaned_by_dead_workers"] += len(owned)
+        logger.warning(f"Agent loop worker {index} died with {len(owned)} prompts in flight: {sorted(owned)[:4]}")
+        if self.relaunch_dead_workers:
+            self._relaunch_worker(index, error)
 
     def _relaunch_worker(self, index: int, error: BaseException) -> None:
         """Replace worker ``index`` with a fresh actor; give up loudly after ``MAX_WORKER_RELAUNCHES`` in a row."""
@@ -399,7 +436,9 @@ class AgentLoopManagerTQ(AgentLoopManager):
 
         A probe that merely times out is a busy, live worker. Dead workers are re-created when
         ``relaunch_dead_workers`` is on. The caller (the replay buffer) re-issues or fails the returned uids
-        of the partition it is polling, since the dead worker can never write their terminal status.
+        of the partition it is polling, since the dead worker can never write their terminal status. The set
+        also carries chunks parked by a failed dispatch; prompts that reached a terminal status on their own
+        leave it at the next call.
 
         Args:
             inflight_uids: prompt uids pending/running across every partition, used to prune bookkeeping.
@@ -420,12 +459,5 @@ class AgentLoopManagerTQ(AgentLoopManager):
         self._prompt_owner = {uid: owner for uid, owner in self._prompt_owner.items() if uid in inflight_uids}
         self._orphaned_uids &= inflight_uids
         for index, error in dead:
-            owned = {uid for uid, owner in self._prompt_owner.items() if owner == index}
-            for uid in owned:
-                del self._prompt_owner[uid]
-            logger.warning(f"Agent loop worker {index} died with {len(owned)} prompts in flight: {sorted(owned)[:4]}")
-            if self.relaunch_dead_workers:
-                self._relaunch_worker(index, error)
-            self._orphaned_uids |= owned
-            self.recovery_metrics["rollout/prompts_orphaned_by_dead_workers"] += len(owned)
+            self._orphan_worker(index, error)
         return set(self._orphaned_uids)
