@@ -203,8 +203,15 @@ class TestIdentityWithTheFullProjection:
         # the head projected the loss rows only (static pad included in the full count)
         assert (full_rows, kept_rows) == (full_inputs["input_ids"].shape[1], sum(RESPONSE_LENS))
         assert set(full) == set(kept)
-        for name, value in full.items():
-            assert torch.equal(value, kept[name]), f"{name}: max |diff| {(value - kept[name]).abs().max().item():.3e}"
+        # row-wise maths on identical hidden states: bitwise
+        for name in (n for n in full if not n.endswith(".grad")):
+            assert torch.equal(full[name], kept[name]), (
+                f"{name}: max |diff| {(full[name] - kept[name]).abs().max().item():.3e}"
+            )
+        # the weight-gradient GEMMs reduce over K rows instead of T rows: the same terms, but a different
+        # blocking may round differently (up to 5.6e-7 relative on a 1-token layout), hence a tolerance
+        torch.testing.assert_close(kept["lm_head.weight.grad"], full["lm_head.weight.grad"], rtol=1e-5, atol=1e-6)
+        torch.testing.assert_close(kept["embed_tokens.weight.grad"], full["embed_tokens.weight.grad"], rtol=1e-5, atol=1e-6)
         # the rows nobody reads are zero in the packed layout every consumer still sees
         packed_log_probs = kept_output["log_probs"].values()
         unread = torch.ones(packed_log_probs.shape[0], dtype=torch.bool)
