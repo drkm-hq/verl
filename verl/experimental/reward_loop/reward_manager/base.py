@@ -19,7 +19,7 @@ from collections.abc import Mapping
 from typing import Any, Callable
 
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from transformers import AutoTokenizer
 
 from verl import DataProto
@@ -33,6 +33,19 @@ RawRewardFn = Callable[..., Any] | None
 
 # types of non-mapping ``extra_info`` values already reported by extra_info_for_reward_fn (one warning each)
 _NON_MAPPING_EXTRA_INFO_WARNED: set[str] = set()
+
+
+def turn_level_rewards_enabled(config) -> bool:
+    """``actor_rollout_ref.rollout.multi_turn.turn_level_rewards`` of the trainer config; False when absent."""
+    path = ("actor_rollout_ref", "rollout", "multi_turn", "turn_level_rewards")
+    if isinstance(config, DictConfig):
+        return bool(OmegaConf.select(config, ".".join(path), default=False))
+    node = config
+    for key in path:
+        node = node.get(key) if isinstance(node, Mapping) else getattr(node, key, None)
+        if node is None:
+            return False
+    return bool(node)
 
 
 class RewardManagerBase(ABC):
@@ -63,18 +76,24 @@ class RewardManagerBase(ABC):
         raise NotImplementedError
 
     @staticmethod
-    def extra_info_for_reward_fn(data_item) -> Any:
+    def extra_info_for_reward_fn(data_item, merge_tool_fields: bool = True, rollout_fields: bool = True) -> Any:
         """Build the ``extra_info`` handed to the reward function for one sample.
 
-        A copy of the dataset's ``extra_info`` (the batch's own dict is never mutated) merged with the
-        agent loop's ``tool_extra_fields`` (``turn_scores``, ``tool_rewards`` and, under
-        ``rollout.multi_turn.turn_level_rewards``, ``generated_turn_spans`` / ``turn_rewards`` /
-        ``episode_done``; list values are copied, so the reward function cannot edit the row's metadata),
-        plus ``num_turns`` and ``rollout_reward_scores``. Every reward manager builds its ``extra_info``
+        ``merge_tool_fields=False`` hands the dataset's ``extra_info`` over as stored (``{}`` when absent): what
+        ``dapo`` and ``gdpo`` did before this helper existed and still do while
+        ``rollout.multi_turn.turn_level_rewards`` is off. Otherwise the result is a copy of the dataset's
+        ``extra_info`` (the batch's own dict is never mutated) merged with the agent loop's
+        ``tool_extra_fields`` (``turn_scores``, ``tool_rewards`` and, under the flag, ``generated_turn_spans``
+        / ``turn_rewards`` / ``episode_done``; list values are copied, so the reward function cannot edit
+        the row's metadata) and, with ``rollout_fields``, ``num_turns`` and ``rollout_reward_scores``.
+        Precedence: the loop's fields override dataset keys of the same name, and ``num_turns`` /
+        ``rollout_reward_scores`` override both. With the flag on every manager builds its ``extra_info``
         here, so a custom reward function sees the same keys whichever manager runs it. A dataset whose
         ``extra_info`` is not a mapping (a string, say) is handed over unchanged, without the merge, with
         one warning per type.
         """
+        if not merge_tool_fields:
+            return data_item.non_tensor_batch.get("extra_info", {})
         dataset_extra_info = data_item.non_tensor_batch.get("extra_info", None)
         if dataset_extra_info is not None and not isinstance(dataset_extra_info, Mapping):
             type_name = type(dataset_extra_info).__name__
@@ -90,8 +109,9 @@ class RewardManagerBase(ABC):
         tool_extra_fields = data_item.non_tensor_batch.get("tool_extra_fields", None)
         if tool_extra_fields is not None:
             extra_info.update((k, list(v) if isinstance(v, list) else v) for k, v in tool_extra_fields.items())
-        extra_info["num_turns"] = data_item.non_tensor_batch.get("__num_turns__", None)
-        extra_info["rollout_reward_scores"] = data_item.non_tensor_batch.get("reward_scores", {})
+        if rollout_fields:
+            extra_info["num_turns"] = data_item.non_tensor_batch.get("__num_turns__", None)
+            extra_info["rollout_reward_scores"] = data_item.non_tensor_batch.get("reward_scores", {})
         return extra_info
 
     @classmethod

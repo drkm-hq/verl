@@ -16,7 +16,7 @@ import inspect
 
 from verl import DataProto
 from verl.experimental.reward_loop.reward_manager import register
-from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
+from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase, turn_level_rewards_enabled
 from verl.utils.reward_score import default_compute_score
 
 
@@ -31,6 +31,9 @@ class GDPORewardManager(RewardManagerBase):
 
         self.reward_router_address = reward_router_address
         self.reward_model_tokenizer = reward_model_tokenizer
+        # the loop's tool metadata joins extra_info only under rollout.multi_turn.turn_level_rewards;
+        # with the flag off the dataset's extra_info is handed over untouched, as before
+        self.merge_tool_fields = turn_level_rewards_enabled(config)
 
     async def run_single(self, data: DataProto) -> dict:
         data = data[-1:]  # for multi-sequence outputs, we only compute reward based on the last sequence
@@ -42,7 +45,7 @@ class GDPORewardManager(RewardManagerBase):
 
         data_source = data_item.non_tensor_batch["data_source"]
         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
-        extra_info = self.extra_info_for_reward_fn(data_item)
+        extra_info = self.extra_info_for_reward_fn(data_item, merge_tool_fields=self.merge_tool_fields)
         extra_info["experiment_name"] = self.config.trainer.experiment_name
 
         response_str = await self.loop.run_in_executor(

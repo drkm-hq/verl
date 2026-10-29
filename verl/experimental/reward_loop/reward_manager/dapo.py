@@ -16,7 +16,7 @@ import inspect
 
 from verl import DataProto
 from verl.experimental.reward_loop.reward_manager import register
-from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
+from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase, turn_level_rewards_enabled
 from verl.utils.reward_score import default_compute_score
 
 
@@ -35,6 +35,9 @@ class DAPORewardManager(RewardManagerBase):
         self.max_resp_len = config.reward.get("reward_kwargs", {}).get("max_resp_len", None)
         self.reward_router_address = reward_router_address
         self.reward_model_tokenizer = reward_model_tokenizer
+        # the loop's tool metadata joins extra_info only under rollout.multi_turn.turn_level_rewards;
+        # with the flag off the dataset's extra_info is handed over untouched, as before
+        self.merge_tool_fields = turn_level_rewards_enabled(config)
 
         if self.overlong_buffer_cfg is not None and self.overlong_buffer_cfg.enable:
             assert self.max_resp_len is not None, (
@@ -59,7 +62,7 @@ class DAPORewardManager(RewardManagerBase):
 
         data_source = data_item.non_tensor_batch["data_source"]
         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
-        extra_info = self.extra_info_for_reward_fn(data_item)
+        extra_info = self.extra_info_for_reward_fn(data_item, merge_tool_fields=self.merge_tool_fields)
 
         response_str = await self.loop.run_in_executor(
             None, lambda: self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)

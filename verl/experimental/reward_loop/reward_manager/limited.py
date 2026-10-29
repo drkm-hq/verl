@@ -21,7 +21,7 @@ from transformers import AutoTokenizer
 
 from verl import DataProto
 from verl.experimental.reward_loop.reward_manager import register as register_manager
-from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
+from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase, turn_level_rewards_enabled
 from verl.utils.ray_utils import get_event_loop
 from verl.utils.reward_score import default_compute_score
 from verl.workers.reward_manager import register as register_manager_legacy
@@ -363,6 +363,9 @@ class RateLimitedRewardManager(RewardManagerBase):
         self.reward_router_address = reward_router_address
         self.reward_model_tokenizer = reward_model_tokenizer
         self.timeout = config.reward.get("timeout", 300.0)
+        # num_turns / rollout_reward_scores join extra_info only under rollout.multi_turn.turn_level_rewards;
+        # with the flag off this manager merges the loop's tool_extra_fields alone, as before
+        self.rollout_fields = turn_level_rewards_enabled(config)
 
     async def _compute_reward(
         self, data_source: str, solution_str: str, ground_truth: str, extra_info: dict
@@ -406,7 +409,7 @@ class RateLimitedRewardManager(RewardManagerBase):
 
         data_source = data_item.non_tensor_batch["data_source"]
         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
-        extra_info = self.extra_info_for_reward_fn(data_item)
+        extra_info = self.extra_info_for_reward_fn(data_item, rollout_fields=self.rollout_fields)
 
         response_str = await self.loop.run_in_executor(
             None, lambda: self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)

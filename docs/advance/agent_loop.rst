@@ -254,11 +254,14 @@ environment says so):
    draft PR #8305, so the two can stack), ``extra_fields["turn_rewards"]`` the step rewards of the
    tool calls each turn made, summed per turn and index-aligned with the spans, and
    ``extra_fields["episode_done"]`` the ``done`` signal; a ``custom_reward_function`` sees all three
-   in ``extra_info`` under every reward manager (``naive``, ``dapo``, ``gdpo``, ``rate_limited``,
-   ``remote`` build it with ``RewardManagerBase.extra_info_for_reward_fn``, a copy of the dataset's
-   ``extra_info`` merged with copies of the loop's metadata plus ``num_turns``; a dataset whose
-   ``extra_info`` is not a mapping is handed over unchanged, with one warning). With the flag off the
-   trajectory metadata is exactly what it is today.
+   in ``extra_info`` under every reward manager when the flag is on (``naive``, ``dapo``, ``gdpo``,
+   ``rate_limited``, ``remote`` then build it with ``RewardManagerBase.extra_info_for_reward_fn``: a copy
+   of the dataset's ``extra_info`` merged with copies of the loop's metadata plus ``num_turns``, the
+   loop's fields overriding dataset keys of the same name; a dataset whose ``extra_info`` is not a
+   mapping is handed over unchanged, with one warning). With the flag off the trajectory metadata and
+   each manager's callback contract are exactly what they are today: ``naive`` / ``remote`` merge the
+   loop's ``tool_extra_fields`` plus ``num_turns`` as before, ``rate_limited`` merges ``tool_extra_fields``
+   as before, ``dapo`` / ``gdpo`` hand the dataset's ``extra_info`` over untouched.
 
 3. **A dense reward tensor** (``actor_rollout_ref.rollout.multi_turn.turn_level_rewards: True``):
    each turn's reward is written on the *last generated token* of its span and the episode score on

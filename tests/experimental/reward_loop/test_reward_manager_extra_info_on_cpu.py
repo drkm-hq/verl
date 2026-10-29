@@ -57,8 +57,14 @@ def _batch() -> DataProto:
     )
 
 
-def _manager(cls, compute_score):
-    config = OmegaConf.create({"reward": {}, "trainer": {"experiment_name": "p4-check"}})
+def _manager(cls, compute_score, *, turn_level_rewards=True):
+    config = OmegaConf.create(
+        {
+            "reward": {},
+            "trainer": {"experiment_name": "p4-check"},
+            "actor_rollout_ref": {"rollout": {"multi_turn": {"turn_level_rewards": turn_level_rewards}}},
+        }
+    )
     tokenizer = SimpleNamespace(decode=lambda *args, **kwargs: "final response")
     if cls is RemoteRewardManager:
         # its __init__ starts Ray actors; run its run_single with an in-process stand-in for the worker pool
@@ -87,6 +93,7 @@ def _manager(cls, compute_score):
 )
 @pytest.mark.asyncio
 async def test_custom_reward_function_sees_the_turn_level_metadata_under_every_manager(cls):
+    """With rollout.multi_turn.turn_level_rewards on, every manager delivers the documented keys."""
     captured = {}
 
     def compute_score(data_source, solution_str, ground_truth, extra_info, **kwargs):
@@ -142,6 +149,53 @@ async def test_a_non_mapping_extra_info_is_passed_through_unchanged_with_one_war
     assert result["reward_score"] == 1.0 and seen == ['{"split": "train"}', '{"split": "train"}']
     warnings_ = [r for r in caplog.records if "not a mapping" in r.getMessage()]
     assert len(warnings_) == 1 and "str" in warnings_[0].getMessage(), "one warning per type, naming it"
+
+
+PROBE_DATASET = {"num_turns": 7, "tool_rewards": [123.0]}
+PROBE_LOOP = {"tool_rewards": [2.0]}
+MANAGERS = [NaiveRewardManager, DAPORewardManager, GDPORewardManager, RateLimitedRewardManager, RemoteRewardManager]
+
+
+@pytest.mark.parametrize("turn_level_rewards", [False, True])
+@pytest.mark.parametrize("cls", MANAGERS)
+@pytest.mark.asyncio
+async def test_each_manager_keeps_its_previous_callback_contract_with_the_flag_off(cls, turn_level_rewards):
+    """Nick's follow-up probe (R2-04): dataset extra_info num_turns=7 / tool_rewards=[123.0], loop __num_turns__=3 /
+    tool_rewards=[2.0], a callback returning extra_info["num_turns"]. Flag off = main's contract per manager: naive and
+    remote merge the loop's fields plus num_turns (3); rate_limited merges the loop's fields only (7, tool_rewards
+    [2.0]); dapo and gdpo hand the dataset's own dict over untouched (7, tool_rewards [123.0]). Flag on: every manager
+    delivers the merged contract, the loop's fields overriding dataset keys of the same name (3, [2.0])."""
+    seen = []
+
+    def compute_score(data_source, solution_str, ground_truth, extra_info, **kwargs):
+        seen.append(extra_info)
+        return float(extra_info["num_turns"])
+
+    data = _batch()
+    data.non_tensor_batch["extra_info"] = np.array([dict(PROBE_DATASET)], dtype=object)
+    data.non_tensor_batch["tool_extra_fields"] = np.array([dict(PROBE_LOOP)], dtype=object)
+    result = await _manager(cls, compute_score, turn_level_rewards=turn_level_rewards).run_single(data)
+    extra_info = seen[0]
+    if turn_level_rewards or cls in (NaiveRewardManager, RemoteRewardManager):
+        assert result["reward_score"] == 3.0 and extra_info["tool_rewards"] == [2.0]
+        assert extra_info["rollout_reward_scores"] == {}
+        assert data.non_tensor_batch["extra_info"][0] == PROBE_DATASET, "a copy was handed over"
+    elif cls is RateLimitedRewardManager:
+        assert result["reward_score"] == 7.0 and extra_info["tool_rewards"] == [2.0]
+        assert "rollout_reward_scores" not in extra_info
+    else:  # dapo, gdpo: the dataset's own dict, untouched (gdpo adds experiment_name to it, as on main)
+        assert result["reward_score"] == 7.0 and extra_info["tool_rewards"] == [123.0]
+        assert extra_info is data.non_tensor_batch["extra_info"][0]
+
+
+def test_turn_level_rewards_enabled_reads_the_trainer_config_and_defaults_to_false():
+    from verl.experimental.reward_loop.reward_manager.base import turn_level_rewards_enabled
+
+    assert turn_level_rewards_enabled(OmegaConf.create({"reward": {}})) is False
+    assert turn_level_rewards_enabled(OmegaConf.create({"actor_rollout_ref": {"rollout": {}}})) is False
+    on = {"actor_rollout_ref": {"rollout": {"multi_turn": {"turn_level_rewards": True}}}}
+    assert turn_level_rewards_enabled(OmegaConf.create(on)) is True and turn_level_rewards_enabled(on) is True
+    assert turn_level_rewards_enabled(SimpleNamespace(actor_rollout_ref=None)) is False
 
 
 def test_extra_info_for_reward_fn_without_metadata_or_dataset_extra_info():
