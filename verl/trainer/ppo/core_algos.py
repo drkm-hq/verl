@@ -697,13 +697,23 @@ def compute_turn_rloo_advantage(
     (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
     Tokens outside a span (tool observations) get 0. Spans must be ordered, non-empty, non-overlapping
     and within the row (``ValueError`` naming the row otherwise). A row without spans is one turn ``[0, L)``,
-    so without ``turn_spans`` the estimator equals ``rloo``. The tool agent loop exports spans only
-    under ``rollout.multi_turn.turn_level_rewards``; with that flag off ``turn_rloo`` is plain RLOO
-    on multi-turn data too.
+    so without ``turn_spans`` the estimator gives the same policy advantages as ``rloo`` (``returns``
+    differ: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its advantages). The tool agent
+    loop exports spans only under ``rollout.multi_turn.turn_level_rewards``; with that flag off
+    ``turn_rloo`` behaves like ``rloo`` on multi-turn data too.
 
     Normalising each turn by the group mean of the *same turn's reward* (the MT-GRPO shape) is biased
     whenever the policy decides whether a later turn happens at all; the leave-one-out return-to-go
     baseline is not. tests/trainer/ppo/test_turn_rloo_on_cpu.py checks both against the exact gradient.
+
+    The unbiasedness argument holds for independent trajectories with ``gamma = 1`` and
+    ``norm_adv_by_std=False`` (the defaults). ``norm_adv_by_std=True`` divides by a standard deviation
+    that includes the sample's own return, so the baseline is no longer action-independent: a
+    variance-reduction heuristic, not an unbiased estimator. With ``gamma < 1`` the advantage is the
+    discounted return-to-go without an outer ``gamma ** t`` weight (the ``reinforce_plus_plus``
+    convention); it is not the gradient of ``E[sum_t gamma ** t * r_t]``, so treat discounting as a
+    heuristic. Outputs of one V1 multi-output session share ``uid`` and are correlated, outside the
+    argument.
 
     Args:
         token_level_rewards: `(torch.Tensor)`

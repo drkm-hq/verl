@@ -21,6 +21,7 @@ mean of the intermediate reward, while a leave-one-out return-to-go baseline ove
 that reached the turn is unbiased. Both are measured against the closed-form gradient.
 """
 
+import itertools
 from types import SimpleNamespace
 
 import numpy as np
@@ -156,6 +157,66 @@ def test_turn_rloo_without_spans_equals_rloo():
     none_spans = np.empty(12, dtype=object)
     adv_none, _ = compute_turn_rloo_advantage(rewards.clone(), mask, index, turn_spans=none_spans)
     torch.testing.assert_close(adv_none, adv_rloo)
+
+
+def test_turn_rloo_gives_rloo_policy_advantages_but_keeps_raw_returns():
+    """One-token rewards 1 and 3: both estimators give advantages [-2, 2]; rloo hands its advantages back as
+    ``returns`` while turn_rloo keeps the raw return-to-go (return metrics differ, the actor gradient does not)."""
+    rewards, mask, index = torch.tensor([[1.0], [3.0]]), torch.ones(2, 1), np.array(["g", "g"], dtype=object)
+    adv_rloo, ret_rloo = compute_rloo_outcome_advantage(rewards.clone(), mask, index)
+    adv_turn, ret_turn = compute_turn_rloo_advantage(rewards.clone(), mask, index)
+    torch.testing.assert_close(adv_turn, torch.tensor([[-2.0], [2.0]]))
+    torch.testing.assert_close(adv_rloo, adv_turn)
+    torch.testing.assert_close(ret_rloo, torch.tensor([[-2.0], [2.0]]))
+    torch.testing.assert_close(ret_turn, torch.tensor([[1.0], [3.0]]))
+
+
+def test_norm_adv_by_std_is_a_variance_heuristic_not_a_rescaled_gradient():
+    """Single turn, three actions with rewards [0, 1, 4] and probabilities [0.2, 0.3, 0.5], groups of 3, every
+    joint outcome enumerated: the unnormalised expected score-gradient is the exact gradient p_k (r_k - E[r])
+    = [-0.46, -0.39, 0.85]; dividing by the group std (which contains the sample's own return) gives
+    [-0.245, -0.185, 0.430], not a common rescaling of it."""
+    rewards_by_action, probs = torch.tensor([0.0, 1.0, 4.0]), torch.tensor([0.2, 0.3, 0.5])
+    grads = {norm: torch.zeros(3, dtype=torch.float64) for norm in (False, True)}
+    for actions in itertools.product(range(3), repeat=3):
+        weight = probs[list(actions)].prod().double()
+        rewards = rewards_by_action[list(actions)].reshape(3, 1)
+        for norm in (False, True):
+            adv, _ = compute_turn_rloo_advantage(rewards, torch.ones(3, 1), np.array(["g"] * 3), norm_adv_by_std=norm)
+            for i, a in enumerate(actions):
+                score = -probs.double()
+                score[a] += 1.0  # d log pi(a) / d logits
+                grads[norm] += weight * score * adv[i, 0].double() / 3
+    exact = (probs * (rewards_by_action - (probs * rewards_by_action).sum())).double()
+    torch.testing.assert_close(grads[False], exact, atol=1e-6, rtol=0)
+    reviewer = torch.tensor([-0.46, -0.39, 0.85], dtype=torch.float64)
+    torch.testing.assert_close(grads[False], reviewer, atol=1e-6, rtol=0)
+    reviewer_normalised = torch.tensor([-0.2453, -0.1847, 0.4300], dtype=torch.float64)
+    torch.testing.assert_close(grads[True], reviewer_normalised, atol=2e-4, rtol=0)
+    ratio = grads[True] / grads[False]
+    assert ratio.max() / ratio.min() > 1.05, f"{grads[True].tolist()} is not a rescaling of {grads[False].tolist()}"
+
+
+def test_gamma_below_one_is_the_discounted_return_to_go_heuristic():
+    """Two independent Bernoulli turns (p = 0.5, reward = action, logit parameters) with gamma 0.5: the
+    implemented expected score-gradient is [0.25, 0.25], the gradient of E[r1 + 0.5 r2] is [0.25, 0.125]."""
+
+    def expected_gradient(gamma):
+        grad, mask = torch.zeros(2, dtype=torch.float64), torch.tensor([[1, 1, 0, 1, 1]], dtype=torch.float32)
+        spans = np.empty(1, dtype=object)
+        spans[0] = [(0, 2), (3, 5)]
+        for a1, a2 in itertools.product((0, 1), repeat=2):
+            rewards = torch.tensor([[0.0, float(a1), 0.0, 0.0, float(a2)]])  # [t1 t1 obs t2 t2]
+            adv, _ = compute_turn_rloo_advantage(
+                rewards, mask, np.array(["g"]), turn_spans=spans, config=SimpleNamespace(gamma=gamma)
+            )
+            score = torch.tensor([a1 - 0.5, a2 - 0.5], dtype=torch.float64)  # d log pi / d logit
+            grad += 0.25 * score * torch.tensor([adv[0, 0].item(), adv[0, 3].item()], dtype=torch.float64)
+        return grad
+
+    torch.testing.assert_close(expected_gradient(1.0), torch.tensor([0.25, 0.25], dtype=torch.float64))
+    torch.testing.assert_close(expected_gradient(0.5), torch.tensor([0.25, 0.25], dtype=torch.float64))
+    assert not torch.allclose(expected_gradient(0.5), torch.tensor([0.25, 0.125], dtype=torch.float64))
 
 
 def test_turn_rloo_hand_computed_with_ragged_turn_counts_and_gamma():

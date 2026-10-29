@@ -292,12 +292,26 @@ members that reached turn :math:`t`, i.e.
 :math:`A_{i,t} = G_{i,t} - \frac{1}{|J_t| - 1} \sum_{j \in J_t, j \neq i} G_{j,t}` with
 :math:`G_{i,t} = \sum_{t' \ge t} \gamma^{t'-t} r_{i,t'}` (``algorithm.gamma`` discounts per turn;
 1.0 is the RFC's form). When no other member reached the turn the baseline is 0. Rows without spans
-are one turn, so on single-turn data the estimator equals ``rloo``; the same holds on multi-turn
+are one turn, so on single-turn data the estimator gives the same policy advantages as ``rloo`` (only
+the ``returns`` tensor differs: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its
+advantages, which changes ``critic/returns/*`` and nothing in the actor update); the same holds on multi-turn
 data whenever ``rollout.multi_turn.turn_level_rewards`` is off, because the loop then exports no
 spans and the trainer forwards none, so set both keys as in the example below. The simpler per-turn-index
 normalisation (subtracting the group mean of *the same turn's reward*) is biased as soon as the
 policy decides whether a later turn happens at all; ``tests/trainer/ppo/test_turn_rloo_on_cpu.py``
 checks both against the exact policy gradient of a two-turn MDP.
+
+**Conditions of the unbiasedness argument.** It holds for independent trajectories, ``gamma: 1.0`` and
+``norm_adv_by_std=False`` (the defaults; the exact-gradient test is that case). With
+``norm_adv_by_std=True`` each advantage is divided by a standard deviation that includes the sample's
+own return, so the baseline is no longer independent of the action: it is a variance-reduction
+heuristic (rewards ``[0, 1, 4]`` with probabilities ``[0.2, 0.3, 0.5]`` in groups of 3 give the expected
+score-gradient ``[-0.46, -0.39, 0.85]`` unnormalised and about ``[-0.245, -0.185, 0.430]`` normalised,
+not a common rescaling). With ``gamma < 1`` the advantage is the discounted return-to-go *without* the
+outer :math:`\gamma^t` weight, the convention ``reinforce_plus_plus`` uses: it is not the gradient of
+:math:`E[\sum_t \gamma^t r_t]` (two independent Bernoulli turns with ``gamma: 0.5`` give ``[0.25, 0.25]``
+instead of ``[0.25, 0.125]``), so treat discounting as a heuristic. Outputs of one V1 multi-output
+session share ``uid`` and are correlated, outside the argument.
 
 A minimal device tool, with the configuration that trains on its step rewards:
 
