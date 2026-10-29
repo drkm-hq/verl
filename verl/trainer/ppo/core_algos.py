@@ -20,6 +20,8 @@ implement PPO-like algorithms.
 
 __all__ = ["register_adv_est", "get_adv_estimator_fn", "AdvantageEstimator"]
 
+import inspect
+import operator
 from collections import defaultdict
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -148,6 +150,26 @@ def get_adv_estimator_fn(name_or_enum):
     if name not in ADV_ESTIMATOR_REGISTRY:
         raise ValueError(f"Unknown advantage estimator simply: {name}")
     return ADV_ESTIMATOR_REGISTRY[name]
+
+
+def adv_estimator_takes_turn_spans(adv_estimator) -> bool:
+    """Whether an advantage estimator takes a ``turn_spans`` keyword.
+
+    ``adv_estimator`` is a registry name / enum or the callable itself. The tool agent loop's
+    ``generated_turn_spans`` (``rollout.multi_turn.turn_level_rewards``) reach only estimators that opt in, so
+    by-name estimators keep working unchanged and the trainers skip the span bookkeeping for every other
+    estimator. The outermost callable's own signature decides: an explicit ``turn_spans`` parameter opts in;
+    ``**kwargs`` alone does not; a wrapper carrying ``__wrapped__`` (``functools.wraps``) opts in only when it
+    takes ``**kwargs`` and the wrapped chain declares ``turn_spans``, i.e. a wrapper must expose what it forwards.
+    """
+    fn = adv_estimator if callable(adv_estimator) else get_adv_estimator_fn(adv_estimator)
+    own = inspect.signature(fn, follow_wrapped=False).parameters
+    if "turn_spans" in own:
+        return True
+    forwards_kwargs = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in own.values())
+    if not forwards_kwargs or not hasattr(fn, "__wrapped__"):
+        return False
+    return "turn_spans" in inspect.signature(fn).parameters
 
 
 class AdaptiveKLController:
@@ -634,6 +656,169 @@ def compute_rloo_outcome_advantage(
         scores = scores.unsqueeze(-1) * response_mask
 
     return scores, scores
+
+
+def _span_offset(row: int, span, value) -> int:
+    """An integral span offset (Python, numpy or 0-d torch integers); floats and bools are rejected by name."""
+    is_bool = isinstance(value, bool | np.bool_) or (isinstance(value, torch.Tensor) and value.dtype == torch.bool)
+    if not is_bool:
+        try:
+            return operator.index(value)
+        except TypeError:
+            pass
+    name = f"{type(value).__name__}[{value.dtype}]" if isinstance(value, torch.Tensor) else type(value).__name__
+    raise ValueError(f"turn_spans[{row}]: span {span!r} has a {name} offset; offsets must be integral ints")
+
+
+def _validated_turn_spans(row: int, spans, length: int) -> list[tuple[int, int]]:
+    """The ``[start, end)`` pairs of one row, checked to be ordered, non-empty, non-overlapping and within the row.
+
+    The tool agent loop clips its spans to the response it exports, so a violation means an external producer
+    handed over malformed spans, which would silently distort the turn grouping; raise instead, naming the row.
+    ``None`` or an empty list is one turn covering the whole row.
+    """
+    if spans is None:
+        return [(0, length)]
+    result: list[tuple[int, int]] = []
+    previous_end = 0
+    for span in spans:
+        try:
+            first, second = span
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"turn_spans[{row}]: span {span!r} is not an (int, int) pair") from e
+        start, end = _span_offset(row, span, first), _span_offset(row, span, second)
+        if start < previous_end or start >= end or end > length:
+            raise ValueError(
+                f"turn_spans[{row}]: span ({start}, {end}) must satisfy {previous_end} <= start < end <= {length} "
+                "(ordered, non-negative, non-empty, non-overlapping, within the row)"
+            )
+        result.append((start, end))
+        previous_end = end
+    return result or [(0, length)]
+
+
+@register_adv_est("turn_rloo")
+def compute_turn_rloo_advantage(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    turn_spans: Optional[Any] = None,
+    config: Optional[AlgoConfig] = None,
+    norm_adv_by_std: bool = False,
+    epsilon: float = 1e-6,
+    **kwargs,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Turn-level RLOO: a leave-one-out return-to-go baseline per turn index (RFC #7244).
+
+    For sample ``i`` of a group sharing a prompt, the reward of turn ``t`` is the sum of
+    ``token_level_rewards`` over its segment ``[s_t, s_{t+1})`` (segment 0 starts at token 0 and the
+    last one runs to the end of the row, so a reward placed on an observation token still counts),
+    the return-to-go is ``G[i, t] = sum_{t' >= t} gamma^(t' - t) R[i, t']`` with ``gamma = config.gamma``
+    and the advantage of every generated token of turn ``t`` is ``G[i, t] - mean_{j != i, m_j > t} G[j, t]``:
+    the baseline averages the other group members that reached turn ``t`` and is 0 when none did
+    (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
+    Tokens outside a span (tool observations) get 0. Spans must be ordered, non-empty, non-overlapping,
+    within the row and made of integral ints (``ValueError`` naming the row otherwise). A row without
+    spans is one turn ``[0, L)``, so without ``turn_spans`` the estimator gives the same policy advantages
+    as ``rloo`` (``returns`` differ: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its
+    advantages). The tool agent loop exports spans only under ``rollout.multi_turn.turn_level_rewards``;
+    with that flag off ``turn_rloo`` behaves like ``rloo`` on multi-turn data too.
+
+    Normalising each turn by the group mean of the *same turn's reward* (the MT-GRPO shape) is biased
+    whenever the policy decides whether a later turn happens at all; the leave-one-out return-to-go
+    baseline is not. tests/trainer/ppo/test_turn_rloo_on_cpu.py checks both against the exact gradient.
+
+    The unbiasedness argument holds for independent trajectories with ``gamma = 1`` and
+    ``norm_adv_by_std=False`` (the defaults). ``norm_adv_by_std=True`` divides by a standard deviation
+    that includes the sample's own return, so the baseline is no longer action-independent: a
+    variance-reduction heuristic, not an unbiased estimator. With ``gamma < 1`` the advantage is the
+    discounted return-to-go without an outer ``gamma ** t`` weight (the ``reinforce_plus_plus``
+    convention); it is not the gradient of ``E[sum_t gamma ** t * r_t]``, so treat discounting as a
+    heuristic. Outputs of one V1 multi-output session share ``uid`` and are correlated, outside the
+    argument.
+
+    Args:
+        token_level_rewards: `(torch.Tensor)`
+            shape: (bs, response_length); dense, each turn's reward on a token of its segment
+            (``rollout.multi_turn.turn_level_rewards`` writes it on the turn's last generated token)
+        response_mask: `(torch.Tensor)`
+            shape: (bs, response_length), 1 for generated tokens
+        index: `(np.ndarray)`
+            shape: (bs,), group id of each sample (``uid``)
+        turn_spans: per sample, the ``[start, end)`` offsets of its generated turns
+            (``extra_fields["generated_turn_spans"]``) or None
+        config: (AlgoConfig) algorithm config; ``gamma`` discounts per turn (1.0 is the RFC's form)
+        norm_adv_by_std: divide each (group, turn) advantage by the std of the members' returns
+        epsilon: std floor for ``norm_adv_by_std``
+
+    Returns:
+        advantages: `(torch.Tensor)`
+            shape: (bs, response_length)
+        Returns: `(torch.Tensor)`
+            shape: (bs, response_length); ``G[i, t]`` on the generated tokens of turn ``t``
+    """
+    bs, length = token_level_rewards.shape
+    gamma = config.gamma if config is not None else 1.0
+    if turn_spans is None:
+        rows = [None] * bs
+    else:
+        try:
+            rows = list(turn_spans)
+        except TypeError as e:
+            raise ValueError(
+                f"turn_spans must hold one entry per row ({bs} rows), got a {type(turn_spans).__name__}"
+            ) from e
+    if len(rows) != bs:
+        raise ValueError(f"turn_spans has {len(rows)} rows for a batch of {bs}")
+    spans_per_row = [_validated_turn_spans(i, spans, length) for i, spans in enumerate(rows)]
+    max_turns = max(len(spans) for spans in spans_per_row)
+
+    with torch.no_grad():
+        # segment_id: the turn whose reward segment holds each token; span_id: the turn whose
+        # generated tokens it belongs to (-1 outside every span)
+        segment_id = torch.zeros(bs, length, dtype=torch.long, device=token_level_rewards.device)
+        span_id = torch.full_like(segment_id, -1)
+        reached = torch.zeros(bs, max_turns, dtype=torch.bool, device=token_level_rewards.device)
+        for i, spans in enumerate(spans_per_row):
+            reached[i, : len(spans)] = True
+            for t, (start, end) in enumerate(spans):
+                next_start = spans[t + 1][0] if t + 1 < len(spans) else length
+                segment_id[i, (start if t else 0) : next_start] = t
+                span_id[i, start:end] = t
+
+        turn_rewards = torch.zeros(bs, max_turns, dtype=token_level_rewards.dtype, device=token_level_rewards.device)
+        turn_rewards.scatter_add_(1, segment_id, token_level_rewards)
+        returns = torch.zeros_like(turn_rewards)
+        running = torch.zeros(bs, dtype=turn_rewards.dtype, device=turn_rewards.device)
+        for t in reversed(range(max_turns)):
+            running = turn_rewards[:, t] + gamma * running
+            returns[:, t] = running
+        returns = returns * reached
+
+        # leave-one-out mean (and optionally std) over the group members that reached each turn
+        _, group_ids = np.unique(index, return_inverse=True)
+        group_ids = torch.as_tensor(group_ids, dtype=torch.long, device=returns.device)
+        num_groups = int(group_ids.max().item()) + 1 if bs else 0
+        counts = torch.zeros(num_groups, max_turns, dtype=returns.dtype, device=returns.device)
+        counts.index_add_(0, group_ids, reached.to(returns.dtype))
+        sums = torch.zeros_like(counts).index_add_(0, group_ids, returns)
+        others = counts[group_ids] - reached.to(returns.dtype)
+        baseline = torch.where(others > 0, (sums[group_ids] - returns) / others.clamp(min=1), torch.zeros_like(returns))
+        advantages = (returns - baseline) * reached
+        if norm_adv_by_std:
+            sums_sq = torch.zeros_like(counts).index_add_(0, group_ids, returns * returns)
+            group_counts = counts[group_ids]
+            denominator = (group_counts - 1).clamp(min=1)
+            var = (sums_sq[group_ids] - sums[group_ids] ** 2 / group_counts.clamp(min=1)) / denominator
+            std = torch.where(group_counts > 1, var.clamp(min=0).sqrt(), torch.zeros_like(var))
+            advantages = torch.where(group_counts > 1, advantages / (std + epsilon), advantages)
+
+        in_span = (span_id >= 0).to(returns.dtype) * response_mask
+        token_index = span_id.clamp(min=0)
+        advantages = torch.gather(advantages, 1, token_index) * in_span
+        returns = torch.gather(returns, 1, token_index) * in_span
+
+    return advantages, returns
 
 
 @register_adv_est(AdvantageEstimator.OPO)  # or simply: @register_adv_est("opo")

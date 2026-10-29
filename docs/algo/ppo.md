@@ -1,6 +1,6 @@
 # Proximal Policy Optimization (PPO)
 
-Last updated: 06/19/2025.
+Last updated: 10/28/2026.
 
 Proximal Policy Optimization (PPO) is a family of policy gradient methods for reinforcement learning, proposed by OpenAI in 2017. PPO strikes a balance between simplicity, stability, and performance, making it one of the most widely used algorithms in modern RL applications, including large-scale language model fine-tuning.
 
@@ -45,7 +45,7 @@ Most critic configs are similar to those of actors. Note that the critic model i
 
 - `algorithm.lam`: The lambda term that trades off between bias and variance in the GAE estimator
 
-- `algorithm.adv_estimator`: Support gae, grpo, reinforce_plus_plus, reinforce_plus_plus_baseline, rloo
+- `algorithm.adv_estimator`: Support gae, grpo, reinforce_plus_plus, reinforce_plus_plus_baseline, rloo, turn_rloo (per-turn leave-one-out baseline for multi-turn agent loops, see the Agent Loop page)
 
 ## Advanced Extensions
 
