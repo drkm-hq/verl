@@ -21,24 +21,36 @@ mixed precision (fp32 master weights, bf16 compute). Compared after an fp32 upca
 
 (a) response log-probs, (b) entropy and (c) ``sum_pi_squared`` from a forward-only pass and from
 the training forward, (d) every parameter gradient after one backward of the real PPO policy
-loss with ``entropy_coeff > 0`` (the entropy is in the loss), (e) every parameter after one AdamW
-step. Variants: plain, gradient checkpointing, LoRA (PEFT, rank 8), each on ``fsdp`` (FSDP1, the
-default strategy) and ``fsdp2``. A third engine with the
-flag off is the determinism baseline: it must reproduce the first one bitwise (flash-attn runs
-with ``FLASH_ATTENTION_DETERMINISTIC=1``), so every flag-on delta is the feature's.
+loss with ``entropy_coeff > 0`` (the entropy is in the loss), (e) every parameter after one
+optimizer step. Variants: plain, gradient checkpointing, LoRA (PEFT, rank 8), each on ``fsdp``
+(FSDP1, the default strategy) and ``fsdp2``. A third engine with the flag off is the determinism
+baseline: it must reproduce the first one bitwise (flash-attn runs with
+``FLASH_ATTENTION_DETERMINISTIC=1``), so every flag-on delta is the feature's.
 
 Tolerances. The transformer trunk is untouched; what changes is the LM-head GEMM and the
-log-softmax running over the K kept rows instead of all T packed rows: the same reduction over
-the hidden dimension, possibly under a different kernel tiling, so bf16 logits may round
-differently at the ulp level. The O(1) quantities (log-probs, entropy, ``sum_pi_squared``, the
-loss) get ``rtol=1e-2, atol=1e-2``; gradients and updated parameters get a relative
-Frobenius-norm difference below 1e-2 and an element-wise ``assert_close`` with ``rtol=1e-2``
-and ``atol`` of 1e-2 of the tensor's largest magnitude (their absolute scale is far below 1).
-The measured deltas are printed so the run log keeps them; the tolerances are to be tightened
-to a few times the measured values once a run exists.
+log-softmax running over the K kept rows instead of all T packed rows (the same reduction over
+the hidden dimension under a possibly different kernel tiling) and the head's backward GEMMs (a
+different split of the reduction over the vocabulary), so bf16 logits and the head's input
+gradient may round differently by one ulp. One ulp of a top logit (0.125 at logit 20) moves a
+row's entropy by ~0.03 and its Σπ² by ~0.02, hence per response row ``rtol=2e-2, atol=5e-2`` on
+log-probs, entropy and Σπ² (the labels are random tokens, so the rtol term also covers a one-ulp
+flip of the label's own logit), while the batch means must agree within that row tolerance
+divided by sqrt(rows): full-row deltas on at most sqrt(rows) rows. The PPO loss, a mean, gets
+``rtol=1e-2, atol=5e-3``. Gradients and the parameter update get a relative Frobenius-norm
+difference below 1e-2 and an element-wise ``assert_close`` with ``rtol=1e-2`` and ``atol`` of
+1e-2 of the tensor's largest magnitude; the update also needs 99 % sign agreement over its
+non-zero elements. The step uses plain SGD (lr 1e-3, no momentum, no weight decay, clipping
+disabled) so the update is exactly ``-lr * grad`` and the gradient tolerance carries over;
+AdamW's first step is ~``lr * sign(grad)``, which turns a sign flip on a gradient element at
+the noise floor into a ``2 * lr`` delta that no identity tolerance can judge. The parameters
+themselves are bounded by two such first-step updates plus 1e-2 relative. verl's GPU job runs
+pytest with ``-x``, so the tolerances stay conservative; the measured deltas are printed for the
+follow-up that tightens them.
 
-Run: ``pytest -s tests/workers/test_response_only_lm_head_on_gpu.py`` on one CUDA device with
-``~/models/Qwen/Qwen2.5-0.5B`` (override the path with ``VERL_RESPONSE_ONLY_LM_HEAD_MODEL``).
+Run: ``pytest -s -rs tests/workers/test_response_only_lm_head_on_gpu.py`` on one CUDA device with
+Qwen2.5-0.5B at ``~/models/Qwen/Qwen2.5-0.5B`` or ``/root/models/Qwen/Qwen2.5-0.5B`` (or set
+``VERL_RESPONSE_ONLY_LM_HEAD_MODEL``). Without a device or a model the six cases skip and the
+skip reason names the paths tried.
 """
 
 import os
@@ -63,7 +75,16 @@ from verl.workers.config import ActorConfig, FSDPEngineConfig, FSDPOptimizerConf
 from verl.workers.utils.losses import ppo_loss
 from verl.workers.utils.padding import no_padding_2_padding
 
-MODEL_PATH = os.path.expanduser(os.environ.get("VERL_RESPONSE_ONLY_LM_HEAD_MODEL", "~/models/Qwen/Qwen2.5-0.5B"))
+MODEL_CANDIDATES = [
+    os.path.expanduser(path)
+    for path in (
+        os.environ.get("VERL_RESPONSE_ONLY_LM_HEAD_MODEL"),
+        "~/models/Qwen/Qwen2.5-0.5B",
+        "/root/models/Qwen/Qwen2.5-0.5B",
+    )
+    if path
+]
+MODEL_PATH = next((path for path in MODEL_CANDIDATES if os.path.isdir(path)), "")
 PROMPT_LENS = [1, 300, 77, 520, 33, 160]  # a one-token prompt is the shortest the guard allows
 RESPONSE_LENS = [40, 128, 9, 64, 1, 256]
 VARIANTS = {
@@ -72,8 +93,8 @@ VARIANTS = {
     "lora": {"lora_rank": 8, "lora_alpha": 16},
 }
 STRATEGIES = ["fsdp", "fsdp2"]
-O1_TOL = {"rtol": 1e-2, "atol": 1e-2}  # log-probs, entropy, sum_pi_squared, loss
-REL_FRO_TOL = 1e-2  # gradients, updated parameters
+LR = 1e-3  # plain SGD: the update is exactly -LR * grad
+REL_FRO_TOL = 1e-2  # gradients and updates
 
 
 def _nested(rows, dtype=torch.long):
@@ -149,7 +170,7 @@ def _build_engine(flag: bool, variant: dict, strategy: str):
         backend=strategy,
         model_config=model_config,
         engine_config=engine_config,
-        optimizer_config=FSDPOptimizerConfig(lr=1e-3, lr_scheduler_type="constant"),
+        optimizer_config=FSDPOptimizerConfig(optimizer="SGD", lr=LR, weight_decay=0.0, clip_grad=1e9),
         checkpoint_config=CheckpointConfig(),
     )
     engine.initialize()
@@ -217,33 +238,47 @@ def _run_arm(
 def _check(variant: str, enabled: dict, reference: dict) -> None:
     """Print the measured deltas (the run log keeps them) and assert the tolerances of the module docstring."""
     assert enabled.keys() == reference.keys()
-    groups: dict[str, list] = {}  # group -> [max_abs, worst rel_fro, its key, sum |delta|^2, sum |reference|^2]
+    groups: dict[
+        str, list
+    ] = {}  # group -> [max_abs, worst rel_fro, its key, sum |delta|^2, sum |ref|^2, min sign agreement]
     for key in sorted(reference):
         on, off = enabled[key], reference[key]
         delta = (on - off).abs()
         max_abs, rel_fro = delta.max().item(), (delta.norm() / off.norm().clamp_min(1e-30)).item()
-        group = key.split("/", 1)[0]
+        group, tag = key.split("/", 1)[0], f"{variant} {key}"
         if group in ("forward", "train", "loss"):
-            max_rel = (delta / off.abs().clamp_min(1e-2)).max().item()
-            print(f"[response_only_lm_head][{variant}] {key}: max_abs={max_abs:.3e} max_rel={max_rel:.3e}")
-            torch.testing.assert_close(on, off, **O1_TOL, msg=lambda m, k=key: f"{variant} {k}: {m}")
+            valid = (on != 0) | (off != 0)  # padded positions are zero in both arms
+            rows = max(int(valid.sum().item()), 1)
+            mean_delta = (on - off)[valid].mean().abs().item() if valid.any() else 0.0
+            rtol, atol = (1e-2, 5e-3) if group == "loss" else (2e-2, 5e-2)
+            mean_tol = (atol + rtol * off[valid].abs().mean().item()) / rows**0.5 if valid.any() else atol
+            print(f"[response_only_lm_head][{tag}]: max_abs={max_abs:.3e} mean_delta={mean_delta:.3e} rows={rows}")
+            torch.testing.assert_close(on, off, rtol=rtol, atol=atol, msg=lambda m, t=tag: f"{t}: {m}")
+            assert mean_delta <= mean_tol, f"{tag}: batch mean differs by {mean_delta:.3e} > {mean_tol:.3e}"
             continue
-        stats = groups.setdefault(group, [0.0, -1.0, "", 0.0, 0.0])
+        stats = groups.setdefault(group, [0.0, -1.0, "", 0.0, 0.0, 1.0])
         stats[0] = max(stats[0], max_abs)
         if rel_fro > stats[1]:
             stats[1], stats[2] = rel_fro, key
         stats[3] += delta.pow(2).sum().item()
         stats[4] += off.pow(2).sum().item()
-        if group in ("grad", "param"):  # "update" is reported only: AdamW's first step is ~lr * sign(grad),
-            # so a sign flip on a gradient element at the noise floor is a 2 * lr delta, not an identity failure
-            assert rel_fro < REL_FRO_TOL, f"{variant} {key}: relative Frobenius difference {rel_fro:.3e}"
+        if group in ("grad", "update"):  # the update is -LR * grad: the gradient tolerance carries over
+            assert rel_fro < REL_FRO_TOL, f"{tag}: relative Frobenius difference {rel_fro:.3e}"
             atol = 1e-2 * max(off.abs().max().item(), 1e-30)
-            torch.testing.assert_close(on, off, rtol=1e-2, atol=atol, msg=lambda m, k=key: f"{variant} {k}: {m}")
-    for group, (max_abs, worst, key, num, den) in groups.items():
+            torch.testing.assert_close(on, off, rtol=1e-2, atol=atol, msg=lambda m, t=tag: f"{t}: {m}")
+            if group == "update":
+                nonzero = off != 0
+                agree = (on.sign() == off.sign())[nonzero].float().mean().item() if nonzero.any() else 1.0
+                stats[5] = min(stats[5], agree)
+                assert agree >= 0.99, f"{tag}: update sign agreement {agree:.4f} < 0.99"
+        elif group == "param":  # two opposite first-step updates (|update| <= LR each) plus 1e-2 relative
+            bound = 2 * LR * 1.01 + 1e-2 * off.abs()
+            assert bool((delta <= bound).all()), f"{tag}: |delta| {max_abs:.3e} exceeds 2 * lr + 1e-2 * |ref|"
+    for group, (max_abs, worst, key, num, den, agree) in groups.items():
         pooled = (num / max(den, 1e-30)) ** 0.5
         print(
             f"[response_only_lm_head][{variant}] {group}: pooled rel_fro={pooled:.3e} max_abs={max_abs:.3e} "
-            f"worst {key} rel_fro={worst:.3e}"
+            f"worst {key} rel_fro={worst:.3e}" + (f" min sign agreement={agree:.4f}" if group == "update" else "")
         )
 
 
@@ -270,9 +305,13 @@ def _worker(rank: int, world_size: int, rendezvous_file: str, variant_name: str,
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
-@pytest.mark.skipif(not os.path.isdir(MODEL_PATH), reason=f"no model at {MODEL_PATH}")
+@pytest.mark.skipif(
+    not MODEL_PATH,
+    reason=f"no model directory among {MODEL_CANDIDATES}; link it or set VERL_RESPONSE_ONLY_LM_HEAD_MODEL",
+)
 @pytest.mark.parametrize("strategy", STRATEGIES)
 @pytest.mark.parametrize("variant", list(VARIANTS))
 def test_flag_on_matches_flag_off(variant, strategy, tmp_path):
+    print(f"[response_only_lm_head] model {MODEL_PATH}, strategy {strategy}, variant {variant}")
     rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}")
     mp.spawn(fn=_worker, args=(1, rendezvous_file, variant, strategy), nprocs=1, join=True)
