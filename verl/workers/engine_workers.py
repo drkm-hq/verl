@@ -777,9 +777,11 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
         """``actor.skip_old_log_prob_when_on_policy`` stores the update pass's train-mode log-probs as the old
         log-probs, so the actor's forward must not depend on the train/eval mode. The config-level check
         (``verl.utils.config._validate_skip_old_log_prob_config``) inspects the effective HF config and the
-        adapter config; this walk over the built module is the guarantee, on every rank and before any update:
-        dropout modules (LoRA dropout included), DropPath / StochasticDepth modules and functional dropout /
-        MoE router jitter / layer-drop rates > 0 refuse the flag, naming the module paths."""
+        adapter config; this walk over the built module runs on every rank before any update and rejects every
+        train-mode-dependent module or rate that is visible structurally (dropout modules and rates, LoRA / LoHa
+        dropout, DropPath / StochasticDepth, router jitter, layerdrop, BatchNorm), naming the module paths.
+        Behaviour hidden in forward code is not detectable, so for custom models the skip remains the user's
+        assertion."""
         if not self.config.actor.get("skip_old_log_prob_when_on_policy", False):
             return
         module = getattr(self.actor.engine, "module", None)

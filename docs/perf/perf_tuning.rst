@@ -169,12 +169,18 @@ old-log-prob pass runs in eval mode). For the dropout-free models verl trains th
 An actor whose forward depends on the mode is rejected twice: at config validation from the *effective*
 model, i.e. the HF config after ``override_config`` (every nested sub-config included) scanned for
 dropout, MoE router jitter (Mixtral's ``router_jitter_noise``, DBRX's ``moe_jitter_eps``), layer drop and
-drop path, plus the ``lora_dropout`` of a ``lora_adapter_path`` adapter (``lora_rank > 0``; verl's own
-``LoraConfig`` sets none); and again on every rank when the actor is built, by walking the module for
-``nn.Dropout`` modules with ``p > 0`` (peft's ``lora_dropout`` included), DropPath / StochasticDepth
-modules and modules carrying a dropout / jitter / layerdrop rate > 0, which lists the offending module
-paths. When the config cannot be loaded at validation time a warning says so and the module walk in the
-worker is the guarantee. With ``use_fused_kernels=True`` the fused kernel's entropy stays attached to the
+drop path, plus a ``lora_adapter_path`` adapter's train-mode settings (``lora_rank > 0``: only
+``peft_type=LORA`` adapters are accepted, LoHa / LoKr ``rank_dropout`` / ``module_dropout`` being train-mode
+rates, and ``lora_dropout`` must be 0; verl's own ``LoraConfig`` sets none); and again on every rank when the
+actor is built, by walking the module for ``nn.Dropout`` modules with ``p > 0`` (peft's ``lora_dropout``
+included), BatchNorm / InstanceNorm with running statistics, DropPath / StochasticDepth modules and modules
+carrying a dropout / jitter / layerdrop rate > 0 (dict-valued rates included), which lists the offending
+module paths. When the config cannot be loaded at validation time a warning says so. The walk rejects every
+train-mode-dependent module or rate that is visible structurally (dropout modules and rates, DropPath /
+StochasticDepth, router jitter, layerdrop, BatchNorm); behaviour hidden in forward code (a hard-coded
+``F.dropout(p)``, a rate read from the config inside ``forward``) is not detectable, so for custom
+(``trust_remote_code``) models the skip remains the user's assertion.
+With ``use_fused_kernels=True`` the fused kernel's entropy stays attached to the
 graph, so that path saves no memory (it saves the forward only).
 
 The flag is rejected at config validation (and again when the trainer is built), naming every
