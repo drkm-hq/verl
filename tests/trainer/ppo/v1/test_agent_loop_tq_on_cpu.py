@@ -143,3 +143,25 @@ async def test_agent_loop_tq_postprocess_skips_rollout_topk_on_validate(monkeypa
 
     assert "rollout_topk_ids" not in fields.keys()
     assert "rollout_topk_log_probs" not in fields.keys()
+
+
+@pytest.mark.asyncio
+async def test_agent_loop_tq_postprocess_stores_dense_turn_level_rewards(monkeypatch):
+    output = AgentLoopOutput(
+        prompt_ids=[101, 102, 103],
+        response_ids=[11, 12, 13, 14, 15],
+        response_mask=[1, 1, 0, 1, 0],
+        reward_score=1.0,
+        turn_rewards=[0.5, 0.25],
+        num_turns=4,
+        metrics=AgentLoopMetrics(),
+        extra_fields={"generated_turn_spans": [(0, 2), (3, 4)], "turn_rewards": [0.5, 0.25], "episode_done": True},
+    )
+
+    fields = await _postprocess(monkeypatch, _DummyWorker(topk_log_probs=0), output, validate=False)
+
+    # each turn's reward on its last generated token, the outcome on the last generated token of the response
+    assert fields["rm_scores"][0].tolist() == pytest.approx([0.0, 0.5, 0.0, 1.25, 0.0])
+    assert "turn_rewards" not in fields
+    assert fields["extra_fields"][0]["generated_turn_spans"] == [(0, 2), (3, 4)]
+    assert fields["extra_fields"][0]["episode_done"] is True

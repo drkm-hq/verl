@@ -119,6 +119,26 @@ def _validate_score_centering_config(config: DictConfig) -> None:
         raise ValueError("score centering cannot be combined with distillation.")
 
 
+def _validate_turn_level_rewards_config(config: DictConfig) -> None:
+    """``rollout.multi_turn.turn_level_rewards`` needs the reward computed inside the agent loop.
+
+    The agent loop writes the dense per-turn ``rm_scores`` row together with the episode score it
+    receives from the reward loop. A colocated reward model (``reward.reward_model.enable`` without
+    ``enable_resource_pool``) scores the batch after rollout and replaces that row with its own
+    scalar, which would drop the turn rewards silently.
+    """
+    multi_turn = config.actor_rollout_ref.rollout.get("multi_turn", None)
+    if multi_turn is None or not multi_turn.get("turn_level_rewards", False):
+        return
+    reward_model = config.reward.reward_model
+    if reward_model.enable and not reward_model.enable_resource_pool:
+        raise ValueError(
+            "actor_rollout_ref.rollout.multi_turn.turn_level_rewards=True needs the reward computed in the agent "
+            "loop: use a rule-based reward or set reward.reward_model.enable_resource_pool=True. A colocated "
+            "reward model scores trajectories after rollout and would overwrite the per-turn rm_scores row."
+        )
+
+
 def validate_config(
     config: DictConfig,
     use_reference_policy: bool,
@@ -199,6 +219,7 @@ def validate_config(
     actor_config.validate(n_gpus, config.data.train_batch_size, config.actor_rollout_ref.model)
     _validate_router_replay_config(actor_config, config.algorithm.get("rollout_correction", None))
     _validate_score_centering_config(config)
+    _validate_turn_level_rewards_config(config)
 
     if not config.actor_rollout_ref.actor.use_dynamic_bsz:
         if use_reference_policy:

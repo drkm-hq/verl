@@ -31,6 +31,7 @@ import asyncio
 import logging
 import os
 import random
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 from uuid import uuid4
@@ -85,6 +86,55 @@ class AgentLoopMetrics(BaseModel):
     num_preempted: int = -1  # -1 means not available
 
 
+def _last_generated_token(response_mask: torch.Tensor, start: int, end: int) -> Optional[int]:
+    """Index of the last ``response_mask == 1`` token in ``[start, end)``, or None if there is none."""
+    generated = torch.nonzero(response_mask[start:end]).flatten()
+    return start + int(generated[-1]) if generated.numel() else None
+
+
+def write_turn_level_rewards(
+    rm_scores: torch.Tensor,
+    response_mask: torch.Tensor,
+    turn_spans: list[tuple[int, int]],
+    turn_rewards: list[float],
+    reward_score: Optional[float] = None,
+    fallback: int = -1,
+) -> torch.Tensor:
+    """Write per-turn rewards and the outcome score into one dense ``rm_scores`` row, in place.
+
+    Each turn's reward lands on the last generated (``response_mask == 1``) token of its span and the
+    outcome score on the last generated token of the response, never on an observation or padding
+    token: GAE and REINFORCE++ carry returns across ``response_mask == 0`` spans but drop a reward
+    that sits on one. A turn whose span holds no generated token cannot keep its reward (a warning is
+    issued when it is non-zero); a response without any generated token takes the outcome score at
+    ``fallback`` (the row's last position by default; the V0 padded path passes its last valid token).
+
+    Args:
+        rm_scores: (response_length,) float row to fill.
+        response_mask: (response_length,) 1 for generated tokens.
+        turn_spans: ``[start, end)`` offsets of the generated turns within the response.
+        turn_rewards: one reward per span.
+        reward_score: the episode outcome, if any.
+        fallback: index that takes the outcome when the response has no generated token.
+    """
+    if len(turn_spans) != len(turn_rewards):
+        raise ValueError(f"turn_rewards has {len(turn_rewards)} entries for {len(turn_spans)} generated turns")
+    for turn, ((start, end), reward) in enumerate(zip(turn_spans, turn_rewards, strict=True)):
+        pos = _last_generated_token(response_mask, int(start), int(end))
+        if pos is not None:
+            rm_scores[pos] += reward
+        elif reward:
+            warnings.warn(
+                f"turn {turn} has no generated token in its span [{start}, {end}); its reward {reward} is dropped",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+    if reward_score is not None:
+        pos = _last_generated_token(response_mask, 0, len(response_mask))
+        rm_scores[pos if pos is not None else fallback] += reward_score
+    return rm_scores
+
+
 class AgentLoopOutput(BaseModel):
     """Agent loop output."""
 
@@ -102,6 +152,10 @@ class AgentLoopOutput(BaseModel):
     """Multi-modal data for multi-modal tools."""
     reward_score: Optional[float] = None
     """Reward score for the trajectory."""
+    turn_rewards: Optional[list[float]] = None
+    """Per-turn rewards aligned with ``extra_fields["generated_turn_spans"]``. ``ToolAgentLoop`` sets them
+    (tool step rewards summed per assistant turn) when ``rollout.multi_turn.turn_level_rewards`` is on;
+    ``as_dict`` then writes a dense ``rm_scores`` row (see ``write_turn_level_rewards``)."""
     num_turns: int = 0
     """Number of chat turns, including user, assistant, tool."""
     metrics: AgentLoopMetrics
@@ -142,7 +196,18 @@ class AgentLoopOutput(BaseModel):
 
         # rm_scores: reward score for each token
         reward_score = output.pop("reward_score", None)
-        if reward_score is not None:
+        turn_rewards = output.pop("turn_rewards", None)
+        if turn_rewards is not None:
+            rm_scores = torch.zeros_like(output["response_mask"], dtype=torch.float32)
+            write_turn_level_rewards(
+                rm_scores,
+                output["response_mask"],
+                self.extra_fields.get("generated_turn_spans") or [],
+                turn_rewards,
+                reward_score,
+            )
+            output["rm_scores"] = rm_scores
+        elif reward_score is not None:
             rm_scores = torch.zeros_like(output["response_mask"], dtype=torch.float32)
             rm_scores[-1] = reward_score
             output["rm_scores"] = rm_scores
@@ -891,6 +956,7 @@ class AgentLoopWorker:
             teacher_logprobs=teacher_logprobs,
             teacher_ids=teacher_ids,
             reward_score=output.reward_score,
+            turn_rewards=output.turn_rewards,
             num_turns=output.num_turns,
             metrics=output.metrics,
             extra_fields=output.extra_fields,
@@ -1127,6 +1193,17 @@ class AgentLoopWorker:
             response_length = attention_mask[:, prompt_length:].sum(dim=1) - 1
             rm_scores = torch.zeros_like(response_mask, dtype=torch.float32)
             rm_scores[torch.arange(response_mask.size(0)), response_length] = torch.tensor(scores, dtype=torch.float32)
+            for i, input in enumerate(inputs):
+                if input.turn_rewards is not None:
+                    rm_scores[i].zero_()
+                    write_turn_level_rewards(
+                        rm_scores[i],
+                        response_mask[i],
+                        input.extra_fields.get("generated_turn_spans") or [],
+                        input.turn_rewards,
+                        input.reward_score,
+                        fallback=int(response_length[i]),
+                    )
             batch["rm_scores"] = rm_scores
 
         non_tensor_batch = {
@@ -1157,6 +1234,11 @@ class AgentLoopWorker:
             "max_global_steps",
             "extras",
         }
+        # ToolAgentLoop exports these only under rollout.multi_turn.turn_level_rewards; keep the batch
+        # schema stable across agent loops in that mode and untouched otherwise.
+        multi_turn = getattr(getattr(self, "rollout_config", None), "multi_turn", None)
+        if getattr(multi_turn, "turn_level_rewards", False):
+            default_extra_keys |= {"turn_rewards", "generated_turn_spans", "episode_done"}
         all_keys = set(key for input_item in inputs for key in input_item.extra_fields) | default_extra_keys
         for key in all_keys:
             temp_arr = np.empty(len(inputs), dtype=object)
