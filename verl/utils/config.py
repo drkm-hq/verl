@@ -96,14 +96,24 @@ def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
     so that fallback horizon would differ between micro-batches and the accumulated gradient would depend on how
     the mini-batch was split. Resolving the factor here keeps the documented constant
     (``actor_rollout_ref.rollout.response_length``, the padded width the legacy trainer always had) for every
-    micro-batch, for the actor and the critic alike. A factor set explicitly by the user is left untouched.
+    micro-batch, for the actor and the critic alike. A factor set explicitly by the user is left untouched (it must
+    be positive). The resolution happens here, in the hook every in-tree launcher runs before building the worker
+    dataclasses; a launcher that bypasses ``validate_config`` has to set ``loss_scale_factor`` itself.
     """
     response_length = config.actor_rollout_ref.rollout.get("response_length", None)
     sections = [("actor_rollout_ref.actor", config.actor_rollout_ref.actor)]
     if use_critic and config.get("critic") is not None:
         sections.append(("critic", config.critic))
     for name, section in sections:
-        if section.get("loss_agg_mode") != "seq-mean-token-sum-norm" or section.get("loss_scale_factor") is not None:
+        if section.get("loss_agg_mode") != "seq-mean-token-sum-norm":
+            continue
+        factor = section.get("loss_scale_factor")
+        if factor is not None:
+            if factor <= 0:
+                raise ValueError(
+                    f"{name}.loss_scale_factor must be > 0 for loss_agg_mode=seq-mean-token-sum-norm (it divides the "
+                    f"loss), got {factor}. Leave it null to use actor_rollout_ref.rollout.response_length."
+                )
             continue
         if response_length is None:
             logger.warning(
