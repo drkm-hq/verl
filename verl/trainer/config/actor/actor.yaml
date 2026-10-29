@@ -85,8 +85,9 @@ clip_ratio_c: 3.0
 # Loss aggregation mode: "token-mean", "token-sum", "seq-mean-token-sum", "seq-mean-token-mean", or "seq-mean-token-sum-norm"
 loss_agg_mode: token-mean
 
-# Scale factor for "seq-mean-token-sum-norm" loss aggregation mode.
-# If null, uses response_length. Set to a constant to ensure consistent normalization.
+# Scale factor for "seq-mean-token-sum-norm" loss aggregation mode (the Dr. GRPO constant normalizer).
+# If null, validate_config resolves it to actor_rollout_ref.rollout.response_length, so every micro-batch
+# is normalized by the same constant. Set it explicitly to normalize by another constant.
 loss_scale_factor: null
 
 # Entropy regularization coefficient in PPO loss
