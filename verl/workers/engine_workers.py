@@ -302,6 +302,16 @@ class TrainingWorker(Worker, DistProfilerExtension):
             )
             mini_batch_size_per_gpu = mini_batch_size // self.engine.get_data_parallel_size()
 
+        if tu.get(data, key="on_policy_skip_old_log_prob", default=False):
+            # The update pass stands in for the old-log-prob pass (actor.skip_old_log_prob_when_on_policy):
+            # every row must be trained at the sampling weights, i.e. in the single optimizer step of ONE
+            # mini-batch; a second mini-batch would be trained after that step with ratio 1 and no clipping.
+            assert batch_size_per_dp == mini_batch_size_per_gpu and epochs == 1, (
+                "on_policy_skip_old_log_prob needs exactly one mini-batch and one epoch per update (one optimizer "
+                f"step), got {batch_size_per_dp} rows on this rank for a mini-batch of {mini_batch_size_per_gpu} "
+                f"rows and {epochs=}"
+            )
+
         # make iterator
         dataloader = tu.make_iterator(
             data,

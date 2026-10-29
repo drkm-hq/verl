@@ -20,6 +20,7 @@ part of those outputs as ``old_log_probs``/``entropy`` exactly as the old-log-pr
 in-memory stand-in and the worker group by a mock, so no ray or GPU is needed.
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -76,10 +77,12 @@ def _store():
     )
 
 
-def _trainer(skip: bool, entropy_coeff: float = 0.0, rollout_correction=None):
+def _trainer(skip: bool, entropy_coeff: float = 0.0, rollout_correction=None, critic_warmup: int = 0):
     trainer = _StubTrainer.__new__(_StubTrainer)
+    trainer.global_steps = 1
     trainer.config = OmegaConf.create(
         {
+            "trainer": {"critic_warmup": critic_warmup},
             "actor_rollout_ref": {
                 "actor": {
                     "ppo_mini_batch_size": 2,
@@ -102,8 +105,10 @@ def _trainer(skip: bool, entropy_coeff: float = 0.0, rollout_correction=None):
     return trainer
 
 
-def _batch():
-    return KVBatchMeta(keys=["s0", "s1"], tags=[{}, {}], partition_id="train")
+def _batch(num_rows: int = 2, num_padding: int = 0):
+    keys = [f"s{i}" for i in range(num_rows)]
+    tags = [{"is_padding": i >= num_rows - num_padding} for i in range(num_rows)]
+    return KVBatchMeta(keys=keys, tags=tags, partition_id="train")
 
 
 def _update_output(batch):
@@ -166,11 +171,16 @@ def test_update_actor_requests_and_stores_the_update_pass_outputs(monkeypatch, e
     monkeypatch.setattr(trainer_base, "tq", fake)
     trainer = _trainer(skip=True, entropy_coeff=entropy_coeff)
     batch, metrics = _batch(), {}
-    trainer.actor_rollout_wg.update_actor.return_value = _update_output(batch)
+    extra = {}
+
+    def update_actor(meta):
+        extra.update(meta.extra_info)  # what the worker saw (the skip keys are removed after the call)
+        return _update_output(meta)
+
+    trainer.actor_rollout_wg.update_actor.side_effect = update_actor
 
     assert trainer._update_actor(batch, metrics) is batch
 
-    extra = batch.extra_info
     assert extra["calculate_entropy"] is True
     assert extra["entropy_requires_grad"] is (entropy_coeff != 0.0)
     assert extra["return_model_output"] is True
@@ -194,6 +204,78 @@ def test_update_actor_without_the_flag_is_unchanged(monkeypatch):
     assert batch.extra_info["calculate_entropy"] is False
     assert metrics["actor/pg_loss"] == 2.0 and metrics["perf/mfu/actor"] == 0.5
     assert fake.puts == []
+
+
+def test_skip_keys_do_not_linger_in_extra_info_after_the_update(monkeypatch):
+    fake = _FakeTransferQueue(_store())
+    monkeypatch.setattr(trainer_base, "tq", fake)
+    trainer = _trainer(skip=True)
+    batch = _batch()
+    trainer.actor_rollout_wg.update_actor.return_value = _update_output(batch)
+
+    trainer._update_actor(batch, {})
+
+    sent = trainer.actor_rollout_wg.update_actor.call_args.args[0]
+    assert sent is batch  # the keys travelled with the call ...
+    for key in ("return_model_output", "on_policy_skip_old_log_prob", "entropy_requires_grad"):
+        assert key not in batch.extra_info  # ... and are gone afterwards
+
+
+@pytest.mark.parametrize(("num_rows", "num_padding"), [(4, 2), (4, 0), (3, 1)])
+def test_a_batch_that_is_not_exactly_one_mini_batch_is_refused(monkeypatch, num_rows, num_padding):
+    """ppo_mini_batch_size x n = 2 rows: a padded batch of 4 rows would be two optimizer steps, the second
+    one after the weights moved; the skip must refuse before any forward, naming the row counts."""
+    fake = _FakeTransferQueue(_store())
+    monkeypatch.setattr(trainer_base, "tq", fake)
+    trainer = _trainer(skip=True)
+    batch = _batch(num_rows, num_padding)
+
+    with pytest.raises(ValueError, match="exactly one mini-batch") as excinfo:
+        trainer._compute_old_log_prob(batch, {})
+    assert f"{num_rows} rows ({num_rows - num_padding} sampled + {num_padding} padding)" in str(excinfo.value)
+    trainer.actor_rollout_wg.compute_log_prob.assert_not_called()
+
+    with pytest.raises(ValueError, match="exactly one mini-batch"):
+        trainer._update_actor(batch, {})
+    trainer.actor_rollout_wg.update_actor.assert_not_called()
+    assert fake.puts == []
+
+
+def test_critic_warmup_steps_run_the_old_log_prob_pass(monkeypatch):
+    """No actor update during critic warmup, so there is no update pass to take the log-probs from: the
+    old pass runs as before and actor/entropy, training/rollout_* keep being logged."""
+    fake = _FakeTransferQueue(_store())
+    monkeypatch.setattr(trainer_base, "tq", fake)
+    trainer = _trainer(skip=True, critic_warmup=5)
+    batch, metrics = _batch(), {}
+    trainer.actor_rollout_wg.compute_log_prob.return_value = _batch()
+
+    trainer._compute_old_log_prob(batch, metrics)
+
+    trainer.actor_rollout_wg.compute_log_prob.assert_called_once()
+    _check_stored(fake, metrics)
+
+
+def test_trainer_init_validates_the_flag_itself(monkeypatch):
+    """A trainer built outside main_ppo (recipes, custom mains) must still refuse an inexact configuration."""
+    from hydra import compose, initialize_config_dir
+
+    config_dir = Path(__file__).resolve().parents[4] / "verl" / "trainer" / "config"
+    with initialize_config_dir(version_base=None, config_dir=str(config_dir)):
+        config = compose(
+            config_name="ppo_trainer",
+            overrides=[
+                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
+                "actor_rollout_ref.actor.ppo_epochs=2",
+                "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
+            ],
+        )
+    monkeypatch.setattr(trainer_base, "build_checkpoint_callback", lambda config: None)
+    monkeypatch.setattr(trainer_base, "RolloutMoELoadBalanceMetricsAccumulator", lambda **kwargs: None)
+    monkeypatch.setattr(_StubTrainer, "_build_replay_buffer", lambda self: None)
+
+    with pytest.raises(ValueError, match="actor.ppo_epochs=2"):
+        _StubTrainer(config)
 
 
 def test_metrics_only_rollout_correction_is_logged_after_the_update(monkeypatch):
