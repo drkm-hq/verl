@@ -22,7 +22,8 @@ mixed precision (fp32 master weights, bf16 compute). Compared after an fp32 upca
 (a) response log-probs, (b) entropy and (c) ``sum_pi_squared`` from a forward-only pass and from
 the training forward, (d) every parameter gradient after one backward of the real PPO policy
 loss with ``entropy_coeff > 0`` (the entropy is in the loss), (e) every parameter after one AdamW
-step. Variants: plain, gradient checkpointing, LoRA (PEFT, rank 8). A third engine with the
+step. Variants: plain, gradient checkpointing, LoRA (PEFT, rank 8), each on ``fsdp`` (FSDP1, the
+default strategy) and ``fsdp2``. A third engine with the
 flag off is the determinism baseline: it must reproduce the first one bitwise (flash-attn runs
 with ``FLASH_ATTENTION_DETERMINISTIC=1``), so every flag-on delta is the feature's.
 
@@ -70,6 +71,7 @@ VARIANTS = {
     "gradient-checkpointing": {"enable_gradient_checkpointing": True},
     "lora": {"lora_rank": 8, "lora_alpha": 16},
 }
+STRATEGIES = ["fsdp", "fsdp2"]
 O1_TOL = {"rtol": 1e-2, "atol": 1e-2}  # log-probs, entropy, sum_pi_squared, loss
 REL_FRO_TOL = 1e-2  # gradients, updated parameters
 
@@ -123,7 +125,7 @@ def _make_batch(vocab_size: int) -> TensorDict:
     return batch
 
 
-def _build_engine(flag: bool, variant: dict):
+def _build_engine(flag: bool, variant: dict, strategy: str):
     from verl.workers.engine import EngineRegistry
 
     torch.manual_seed(0)  # the LoRA init; the base weights come from the checkpoint
@@ -135,7 +137,7 @@ def _build_engine(flag: bool, variant: dict):
     )
     engine_config = FSDPEngineConfig(
         forward_only=False,
-        strategy="fsdp2",
+        strategy=strategy,
         fsdp_size=1,
         use_remove_padding=True,
         use_dynamic_bsz=False,
@@ -144,7 +146,7 @@ def _build_engine(flag: bool, variant: dict):
     )
     engine = EngineRegistry.new(
         model_type="language_model",
-        backend="fsdp2",
+        backend=strategy,
         model_config=model_config,
         engine_config=engine_config,
         optimizer_config=FSDPOptimizerConfig(lr=1e-3, lr_scheduler_type="constant"),
@@ -175,9 +177,11 @@ def _consumer_view(model_output, batch: TensorDict) -> dict[str, torch.Tensor]:
     return {key: no_padding_2_padding(model_output[key], batch.to(model_output[key].device)).float() for key in keys}
 
 
-def _run_arm(flag: bool, variant: dict, batch: TensorDict, freeze_old_log_probs: bool) -> dict[str, torch.Tensor]:
+def _run_arm(
+    flag: bool, variant: dict, strategy: str, batch: TensorDict, freeze_old_log_probs: bool
+) -> dict[str, torch.Tensor]:
     """A forward-only pass, one PPO backward and one AdamW step on a fresh engine; returns what to compare."""
-    engine = _build_engine(flag, variant)
+    engine = _build_engine(flag, variant, strategy)
     out: dict[str, torch.Tensor] = {}
     with engine.eval_mode():
         forward = engine.forward_backward_batch(batch, loss_function=None, forward_only=True)
@@ -187,7 +191,7 @@ def _run_arm(flag: bool, variant: dict, batch: TensorDict, freeze_old_log_probs:
         rows = [log_probs[i, :length] for i, length in enumerate(RESPONSE_LENS)]
         batch["old_log_probs"] = torch.nested.as_nested_tensor(rows, layout=torch.jagged)
     actor_config = ActorConfig(
-        strategy="fsdp2",
+        strategy=strategy,
         rollout_n=1,
         ppo_micro_batch_size_per_gpu=-1,
         entropy_coeff=0.01,
@@ -243,30 +247,32 @@ def _check(variant: str, enabled: dict, reference: dict) -> None:
         )
 
 
-def _worker(rank: int, world_size: int, rendezvous_file: str, variant_name: str) -> None:
+def _worker(rank: int, world_size: int, rendezvous_file: str, variant_name: str, strategy: str) -> None:
     get_torch_device().set_device(rank)
     dist.init_process_group(
         backend=get_nccl_backend(), init_method=f"file://{rendezvous_file}", rank=rank, world_size=world_size
     )
     from transformers import AutoConfig
 
-    variant = VARIANTS[variant_name]
+    variant, label = VARIANTS[variant_name], f"{strategy}/{variant_name}"
     batch = _make_batch(AutoConfig.from_pretrained(MODEL_PATH).vocab_size)
-    reference = _run_arm(False, variant, batch, freeze_old_log_probs=True)
-    baseline = _run_arm(False, variant, batch, freeze_old_log_probs=False)
+    reference = _run_arm(False, variant, strategy, batch, freeze_old_log_probs=True)
+    baseline = _run_arm(False, variant, strategy, batch, freeze_old_log_probs=False)
     for key in sorted(reference):  # determinism: a second flag-off engine reproduces the first bitwise
         max_abs = (baseline[key] - reference[key]).abs().max().item()
-        assert torch.equal(baseline[key], reference[key]), f"{variant_name} flag-off twice: {key} max_abs={max_abs:.3e}"
+        assert torch.equal(baseline[key], reference[key]), f"{label} flag-off twice: {key} max_abs={max_abs:.3e}"
     del baseline
-    print(f"[response_only_lm_head][{variant_name}] flag-off twice: bitwise identical ({len(reference)} tensors)")
-    enabled = _run_arm(True, variant, batch, freeze_old_log_probs=False)
-    _check(variant_name, enabled, reference)
+    print(f"[response_only_lm_head][{label}] flag-off twice: bitwise identical ({len(reference)} tensors)")
+    enabled = _run_arm(True, variant, strategy, batch, freeze_old_log_probs=False)
+    _check(label, enabled, reference)
     dist.barrier()
     dist.destroy_process_group()
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
 @pytest.mark.skipif(not os.path.isdir(MODEL_PATH), reason=f"no model at {MODEL_PATH}")
+@pytest.mark.parametrize("strategy", STRATEGIES)
 @pytest.mark.parametrize("variant", list(VARIANTS))
-def test_flag_on_matches_flag_off(variant, tmp_path):
-    mp.spawn(fn=_worker, args=(1, str(tmp_path / f"rdzv_{variant}"), variant), nprocs=1, join=True)
+def test_flag_on_matches_flag_off(variant, strategy, tmp_path):
+    rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}")
+    mp.spawn(fn=_worker, args=(1, rendezvous_file, variant, strategy), nprocs=1, join=True)
