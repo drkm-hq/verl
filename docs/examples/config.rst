@@ -316,9 +316,10 @@ Actor/Rollout/Reference Policy
 - ``actor_rollout_ref.actor.skip_old_log_prob_when_on_policy``: Skip the
   separate old-log-prob forward pass when the actor update is strictly
   on-policy (``ppo_epochs=1``, ``ppo_mini_batch_size`` equal to the sampled
-  batch, no shuffle, nothing reading ``old_log_probs`` before the update):
-  the update pass then computes the old log-probs itself. Rejected at config
-  validation otherwise; see the Performance Tuning Guide. Default ``False``.
+  batch, no shuffle, nothing reading ``old_log_probs`` before the update,
+  FSDP engines only): the update pass then computes the old log-probs itself.
+  Rejected at config validation otherwise; see the Performance Tuning Guide.
+  Default ``False``.
 
 - ``actor_rollout_ref.actor.optim``: Actor's optimizer parameters
 

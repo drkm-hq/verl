@@ -1,7 +1,7 @@
 Performance Tuning Guide
 ==============================
 
-Last updated: 10/28/2026.
+Last updated: 10/29/2026.
 
 Author: `Guangming Sheng <https://github.com/PeterSH6>`_, `Jiali Zheng <https://github.com/CurryRice233>`_
 
@@ -160,18 +160,35 @@ pass:
   the kernel noise between the two passes' micro-batch shapes).
 - The update pass returns its per-token log-probs and entropy through TransferQueue, so
   ``actor/entropy``, the ``training/rollout_*`` and the ``rollout_corr/*`` diagnostics keep their
-  definitions; they are logged after the update instead of before it.
+  definitions; they are logged after the update instead of before it. Without an entropy bonus
+  (``entropy_coeff=0``) ``actor/entropy_loss`` is not reported (the entropy is a metric, not a loss term).
+  Critic-warmup steps have no actor update and run the old-log-prob pass as before.
 
-The flag is rejected at config validation, naming every violated condition, whenever the skip would
-not be exact: ``ppo_epochs != 1``; ``ppo_mini_batch_size != train_batch_size / parameter_sync_step``
-(only the first mini-batch runs at the sampling weights, so multi-mini-batch configurations gain
-nothing); ``actor.shuffle=True``; ``algorithm.use_kl_in_reward=True``; a ``rollout_correction`` with
-``bypass_mode``, ``rollout_is`` or ``rollout_rs`` set (they read ``old_log_probs`` before the update;
-``bypass_mode`` already avoids the pass by using the rollout engine's log-probs, a different
-estimator); the ``optimal_token_baseline`` estimators; ``calculate_sum_pi_squared``; distillation;
-router replay ``R2``; the ``separate_async`` trainer mode (it restores the old policy from a CPU
-snapshot); and the legacy trainer (``trainer.use_v1=False``). Megatron and the other engines compute
-the entropy metric with grad as before.
+What changes semantically: the stored old log-probs are the update pass's **train-mode** values (the
+old-log-prob pass runs in eval mode). For the dropout-free models verl trains this is the same number;
+a model whose HF config enables dropout is rejected (when the config cannot be loaded at validation
+time a warning is printed instead). With ``use_fused_kernels=True`` the fused kernel's entropy stays
+attached to the graph, so that path saves no memory (it saves the forward only).
+
+The flag is rejected at config validation (and again when the trainer is built), naming every
+violated condition, whenever the skip would not be exact: ``ppo_epochs != 1``;
+``ppo_mini_batch_size != train_batch_size / parameter_sync_step`` (only the first mini-batch runs at
+the sampling weights, so multi-mini-batch configurations gain nothing); ``actor.shuffle=True``;
+``algorithm.use_kl_in_reward=True``; a ``rollout_correction`` with ``bypass_mode``, ``rollout_is`` or
+``rollout_rs`` set (they read ``old_log_probs`` before the update; ``bypass_mode`` already avoids the
+pass by using the rollout engine's log-probs, a different estimator); the ``optimal_token_baseline``
+estimators; ``calculate_sum_pi_squared``; distillation; router replay ``R2``; the ``separate_async``
+trainer mode (it restores the old policy from a CPU snapshot); the legacy trainer
+(``trainer.use_v1=False``); dropout in the model config; and every engine other than FSDP/FSDP2
+(``actor.strategy`` megatron, veomni, torchtitan, automodel: the update-pass output path exists but is
+unverified, and Megatron's update-pass entropy would add a (T, V) logits copy).
+
+The one-mini-batch condition is also enforced per step on the rows the worker trains: after
+``_balance_batch`` pads the batch to a multiple of ``ppo_mini_batch_size * rollout.n``, the batch must be
+exactly that many rows (padding rows included). Agent loops that return a varying number of
+trajectories per session change the row count and pad to a second mini-batch, which would be trained
+after the optimizer step; the trainer (before any forward) and the worker (before any optimizer step)
+refuse such a step with an error naming the row counts instead of training it silently.
 
 Tuning for Dynamic Batch Size
 -----------------------------
