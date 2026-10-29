@@ -135,6 +135,16 @@ def write_turn_level_rewards(
     return rm_scores
 
 
+def _turn_level_rewards_enabled(rollout_config: Any) -> bool:
+    """Whether ``rollout.multi_turn.turn_level_rewards`` is on in ``rollout_config``.
+
+    A worker without a rollout config, or with one that predates the flag, counts as off: no
+    turn-level schema columns, exactly the default batch.
+    """
+    multi_turn = getattr(rollout_config, "multi_turn", None)
+    return bool(getattr(multi_turn, "turn_level_rewards", False))
+
+
 class AgentLoopOutput(BaseModel):
     """Agent loop output."""
 
@@ -1236,8 +1246,7 @@ class AgentLoopWorker:
         }
         # ToolAgentLoop exports these only under rollout.multi_turn.turn_level_rewards; keep the batch
         # schema stable across agent loops in that mode and untouched otherwise.
-        multi_turn = getattr(getattr(self, "rollout_config", None), "multi_turn", None)
-        if getattr(multi_turn, "turn_level_rewards", False):
+        if _turn_level_rewards_enabled(getattr(self, "rollout_config", None)):
             default_extra_keys |= {"turn_rewards", "generated_turn_spans", "episode_done"}
         all_keys = set(key for input_item in inputs for key in input_item.extra_fields) | default_extra_keys
         for key in all_keys:

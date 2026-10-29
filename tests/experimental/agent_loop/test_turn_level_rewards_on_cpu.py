@@ -328,3 +328,39 @@ def test_alignment_warns_when_a_merge_removes_a_rewarded_turn():
             agent_data, MergeResult(token_ids=[], appended_token_count=0, kind="context", removed_prefix_token_count=3)
         )
     assert agent_data.generated_turn_spans == [(0, 3)] and agent_data.turn_rewards == [0.5]
+
+
+@pytest.mark.parametrize(
+    "worker",
+    [
+        SimpleNamespace(reward_loop_worker_handles=None),  # no rollout_config at all (custom subclass, tests)
+        SimpleNamespace(reward_loop_worker_handles=None, rollout_config=SimpleNamespace()),  # no multi_turn section
+        SimpleNamespace(reward_loop_worker_handles=None, rollout_config=SimpleNamespace(multi_turn=SimpleNamespace())),
+    ],
+    ids=["no-rollout-config", "no-multi-turn", "config-without-the-flag"],
+)
+def test_v0_postprocess_without_a_rollout_config_behaves_as_if_the_flag_were_off(worker):
+    from verl.experimental.agent_loop.agent_loop import AgentLoopMetrics, AgentLoopWorker, _InternalAgentLoopOutput
+
+    row = _InternalAgentLoopOutput(
+        prompt_ids=torch.tensor([[7, 8]]),
+        response_ids=torch.tensor([[11, 12, 0]]),
+        input_ids=torch.tensor([[7, 8, 11, 12, 0]]),
+        position_ids=torch.arange(5).unsqueeze(0),
+        response_mask=torch.tensor([[1, 1, 0]]),
+        attention_mask=torch.tensor([[1, 1, 1, 1, 0]]),
+        reward_score=1.0,
+        num_turns=2,
+        metrics=AgentLoopMetrics(),
+        extra_fields={"turn_scores": [], "tool_rewards": []},
+    )
+    batch = AgentLoopWorker._postprocess(worker, [row])
+    assert set(batch.non_tensor_batch) == {
+        "__num_turns__",
+        "turn_scores",
+        "tool_rewards",
+        "min_global_steps",
+        "max_global_steps",
+        "extras",
+    }
+    assert batch.batch["rm_scores"][0].tolist() == [0.0, 1.0, 0.0]
