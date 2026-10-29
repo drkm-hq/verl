@@ -42,7 +42,7 @@ class GDPORewardManager(RewardManagerBase):
 
         data_source = data_item.non_tensor_batch["data_source"]
         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
-        extra_info = data_item.non_tensor_batch.get("extra_info", {})
+        extra_info = self.extra_info_for_reward_fn(data_item)
         extra_info["experiment_name"] = self.config.trainer.experiment_name
 
         response_str = await self.loop.run_in_executor(

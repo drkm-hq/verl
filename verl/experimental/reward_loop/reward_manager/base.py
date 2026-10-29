@@ -58,6 +58,24 @@ class RewardManagerBase(ABC):
     async def run_single(self, data: DataProto):
         raise NotImplementedError
 
+    @staticmethod
+    def extra_info_for_reward_fn(data_item) -> dict[str, Any]:
+        """Build the ``extra_info`` handed to the reward function for one sample.
+
+        A copy of the dataset's ``extra_info`` (the batch's own dict is never mutated) merged with the
+        agent loop's ``tool_extra_fields`` (``turn_scores``, ``tool_rewards`` and, under
+        ``rollout.multi_turn.turn_level_rewards``, ``generated_turn_spans`` / ``turn_rewards`` /
+        ``episode_done``), plus ``num_turns`` and ``rollout_reward_scores``. Every reward manager builds
+        its ``extra_info`` here, so a custom reward function sees the same keys whichever manager runs it.
+        """
+        extra_info = dict(data_item.non_tensor_batch.get("extra_info", None) or {})
+        tool_extra_fields = data_item.non_tensor_batch.get("tool_extra_fields", None)
+        if tool_extra_fields is not None:
+            extra_info.update(tool_extra_fields.items())
+        extra_info["num_turns"] = data_item.non_tensor_batch.get("__num_turns__", None)
+        extra_info["rollout_reward_scores"] = data_item.non_tensor_batch.get("reward_scores", {})
+        return extra_info
+
     @classmethod
     def assemble_rm_scores(cls, data: DataProto, scores: list[float]) -> torch.Tensor:
         """Assemble per-sample reward scores into the ``rm_scores`` tensor for a batch.
