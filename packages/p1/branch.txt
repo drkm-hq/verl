@@ -1,0 +1,4 @@
+branch: contrib/p1-lmhead-rows
+worktree: <repo>/wt/p1
+base: main @ 2ab35292 (verl-project/verl)
+head: 8c340e47

@@ -1,0 +1,60 @@
+{
+  "image": "verlai/verl:uv.cu130.dev5",
+  "gpu": "H200:8",
+  "src_git": "main@2ab35292039a",
+  "started": "2026-10-29T02:23:35Z",
+  "tests": "tests/",
+  "pytest_extra": "",
+  "tree": {
+    "manifest": true,
+    "shipped": 1296,
+    "present": 1296,
+    "removed_files": 12,
+    "removed_dirs": 3
+  },
+  "uv_sync_s": 38.69877219200134,
+  "pytest": {
+    "returncode": 1,
+    "wall_s": 541.0,
+    "tests": 529,
+    "failures": 24,
+    "errors": 0,
+    "skipped": 8,
+    "failed": [
+      "tests.checkpoint_engine.test_correctness_on_gpu::test_nccl_checkpoint_engine[2-6-False-False]",
+      "tests.checkpoint_engine.test_correctness_on_gpu::test_nccl_checkpoint_engine[2-6-False-True]",
+      "tests.checkpoint_engine.test_correctness_on_gpu::test_nccl_checkpoint_engine[2-6-True-False]",
+      "tests.checkpoint_engine.test_correctness_on_gpu::test_nccl_checkpoint_engine[2-6-True-True]",
+      "tests.single_controller.test_colocated_workers::test_colocated_workers",
+      "tests.single_controller.test_colocated_workers_fused::test_colocated_workers_fused",
+      "tests.single_controller.test_data_transfer::test_data_transfer",
+      "tests.single_controller.test_device_mesh_register::test_dist_global_info_wg",
+      "tests.single_controller.test_driverfunc_to_worker::test",
+      "tests.single_controller.test_high_level_scheduling_api::test",
+      "tests.single_controller.test_nested_worker::test_nested_worker",
+      "tests.single_controller.test_ray_collectives::test_ray_collective_group",
+      "tests.single_controller.test_rvdz::test_rvdz",
+      "tests.single_controller.test_split_resource_pool::test_split_resource_pool_with_split_size",
+      "tests.single_controller.test_split_resource_pool::test_split_resource_pool_with_split_size_list",
+      "tests.single_controller.test_split_resource_pool::test_split_resource_pool_with_split_size_list_cross_nodes",
+      "tests.single_controller.test_split_resource_pool::test_split_resource_pool_with_split_twice",
+      "tests.single_controller.test_worker_group_basics::test_basics",
+      "tests.single_controller.test_worker_group_torch::test_all_gather_torch",
+      "tests.single_controller.test_worker_group_torch::test_all_gather_torch_v2",
+      "tests.utils.test_activation_offload::test_activation_offloading[fsdp-2]",
+      "tests.utils.test_activation_offload::test_activation_offloading[fsdp-4]",
+      "tests.utils.test_activation_offload::test_activation_offloading[fsdp2-2]",
+      "tests.utils.test_activation_offload::test_activation_offloading[fsdp2-4]"
+    ],
+    "passed": 497
+  },
+  "torchrun_linear_cross_entropy_tp": {
+    "returncode": 0,
+    "wall_s": 39.7
+  },
+  "torchrun_megatron_kl_loss_tp": {
+    "returncode": 0,
+    "wall_s": 33.8
+  },
+  "finished": "2026-10-29T02:34:37Z"
+}

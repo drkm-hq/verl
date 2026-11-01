@@ -1,0 +1,2043 @@
+diff --git a/docs/advance/v1_async_trainer.md b/docs/advance/v1_async_trainer.md
+index e6fb40a0..28a39b59 100644
+--- a/docs/advance/v1_async_trainer.md
++++ b/docs/advance/v1_async_trainer.md
+@@ -274,24 +274,26 @@ Validation shares the same AgentLoop and rollout server pool with unfinished tra
+ 
+ In `separate_async` with `enable_switch=True`, validation makes hybrid replicas available for rollout if they are currently in trainer mode. Without it there are no hybrid replicas and validation is served by the standalone pool.
+ 
+-## Self-healing: in-flight prompt TTL
++## Self-healing: in-flight TTL and worker relaunch
+ 
+-Only the agent loop worker that runs a prompt group writes its terminal status (`finished` / `failure`). If that worker's Ray actor dies (node loss, OOM kill, crash) or its generation silently never returns (an engine RPC that hangs, a tool that never answers), the group stays `running` forever: sync `sample` and async `wait_for_sampleable` poll until a terminal status appears, so the step never completes. Two opt-in sampler keys turn that into a bounded recovery; they default off and leave the default paths unchanged.
++Only the agent loop worker that runs a prompt group writes its terminal status (`finished` / `failure`). If that worker's Ray actor dies (node loss, OOM kill, crash) or its generation silently never returns (an engine RPC that hangs, a tool that never answers), the group stays `running` forever: sync `sample` and async `wait_for_sampleable` poll until a terminal status appears, so the step never completes, and the next dispatch to the dead worker raises `RayActorError`. Two opt-in knobs turn that into a bounded recovery; both default off and leave the default paths unchanged.
+ 
+ ```bash
+ trainer.v1.sampler.inflight_ttl_s=1800 \
+-trainer.v1.sampler.max_inflight_reissues=3
++trainer.v1.sampler.max_inflight_reissues=3 \
++actor_rollout_ref.rollout.agent.relaunch_dead_workers=True
+ ```
+ 
+-- `trainer.v1.sampler.inflight_ttl_s` (every trainer mode, training partition): each prompt is stamped with `dispatched_at` when it is registered in the TransferQueue. A `pending` / `running` training prompt older than the TTL is re-issued: its partial trajectories are discarded, the prompt is retired and re-dispatched under a fresh uid (with `attempt + 1`) from the prompt rows persisted at submit time (sync trainers persist them only when the TTL is set), and the sampler keeps polling. The trainer never trains on partial rows, and a retired attempt that wakes up later cannot write into the new group: whatever it still writes is swept. **The TTL measures dispatch-to-terminal time, engine queueing included**: in sync mode every prompt of a batch is dispatched at once and the last groups finish at the end of the generation phase, so set the TTL above the largest `timing_s/gen` of a healthy run (not above a single generation). A warning names the prompt whenever it is re-issued a second time, and `training/inflight_reissued` must stay at 0 on healthy steps.
++- `trainer.v1.sampler.inflight_ttl_s` (every trainer mode, training partition): each prompt is stamped with `dispatched_at` when it is registered in the TransferQueue. A `pending` / `running` training prompt older than the TTL is re-issued: its partial trajectories are discarded, the prompt is retired and re-dispatched under a fresh uid (with `attempt + 1`) from the prompt rows persisted at submit time (sync trainers persist them only when one of the two knobs is on), and the sampler keeps polling. The trainer never trains on partial rows, and a retired attempt that wakes up later cannot write into the new group: whatever it still writes is swept. **The TTL measures dispatch-to-terminal time, engine queueing included**: in sync mode every prompt of a batch is dispatched at once and the last groups finish at the end of the generation phase, so set the TTL above the largest `timing_s/gen` of a healthy run (not above a single generation). A warning names the prompt whenever it is re-issued a second time, and `training/inflight_reissued` must stay at 0 on healthy steps.
+ - `trainer.v1.sampler.max_inflight_reissues` (default 3): after that many re-issues a prompt is not regenerated again but marked `failure` under a fresh uid, so the existing failure paths finish the step (padding in sync mode, or replacement through `sync_refill_failed_groups` / the async failure refill); a capped prompt is not trained in this epoch (its group is padded or replaced by a different prompt). This cap alone does not bound a step: the refill that replaces an exhausted prompt starts at attempt 1, so a TTL below the honest generation time would keep regenerating; the next key bounds that. A retired attempt is not aborted: its engine requests run to completion and their rows are swept (a worker-side cancel is a follow-up).
+-- `trainer.v1.sampler.max_inflight_reissues_per_step` (default `null` = `(max_inflight_reissues + 1)` x `data.train_batch_size`): TTL-induced discards the sampler may perform within one training step, counted across the sampling calls that share a `global_steps` (the `parameter_sync_step` mini-batches, the `separate_async` switch wait): re-issues and the failures that end exhausted prompts (each of which makes the refill path start another generation at attempt 1, so the per-prompt cap alone bounds nothing). Once spent, the TTL retires nothing more in that step and the sampler waits for the in-flight generations exactly as without a TTL (`training/inflight_ttl_suspended` = 1 in the sampling call that held one back, one warning per step), so pending healthy work completes and the step returns; the sync DAPO drain's discard of surplus in-flight groups is not charged (it never regenerates). `max_inflight_reissues=0` means never re-issue: an expired prompt is failed on its first expiry, bounded by the same budget. Without `sync_refill_failed_groups` (sync mode's default) a failed group is padded, never replaced, so the sampler never lets the TTL fail its last finishable groups: when an exhaustion failure would leave no finished group and nothing else in flight, the groups are held back for that poll (same metric, one warning per step) and their generations are waited for; the check is repeated every poll and charges nothing, so once another group is finished or in flight an exhausted prompt is failed under the normal budget (a dead writer beside a healthy slow group is padded as soon as the healthy group finishes), and healthy generations slower than the TTL are trained on, not lost. `max_inflight_reissues_per_step` must be a positive integer or `null`. What is proven (CPU: the real sampling loops with a virtual clock, and the real buffer): TTL-induced discards per step are bounded by the budget, and a step never loses its last finishable group to the TTL; after that the sampler waits for the in-flight generations. A generation that truly never returns still blocks the step once the budget is spent, as on `main`; an explicit wait-vs-abort policy at that point is a follow-up.
++- `trainer.v1.sampler.max_inflight_reissues_per_step` (default `null` = `(max_inflight_reissues + 1)` x `data.train_batch_size`): TTL-induced discards the sampler may perform within one training step, counted across the sampling calls that share a `global_steps` (the `parameter_sync_step` mini-batches, the `separate_async` switch wait): re-issues and the failures that end exhausted prompts (each of which makes the refill path start another generation at attempt 1, so the per-prompt cap alone bounds nothing). Once spent, the TTL retires nothing more in that step and the sampler waits for the in-flight generations exactly as without a TTL (`training/inflight_ttl_suspended` = 1 in the sampling call that held one back, one warning per step), so pending healthy work completes and the step returns; the sync DAPO drain's discard of surplus in-flight groups is not charged (it never regenerates). `max_inflight_reissues=0` means never re-issue: an expired prompt is failed on its first expiry, bounded by the same budget. Without `sync_refill_failed_groups` (sync mode's default) a failed group is padded, never replaced, so the sampler never lets the TTL fail its last finishable groups: when an exhaustion failure would leave no finished group and nothing else in flight, the groups are held back for that poll (same metric, one warning per step) and their generations are waited for; the check is repeated every poll and charges nothing, so once another group is finished or in flight an exhausted prompt is failed under the normal budget (a dead writer beside a healthy slow group is padded as soon as the healthy group finishes), and healthy generations slower than the TTL are trained on, not lost. `max_inflight_reissues_per_step` must be a positive integer or `null`. The budget counts the TTL's own discards only: prompts a dead worker owned are re-issued (or failed) by the liveness probe regardless, bounded separately (next key). What is proven (CPU: the real sampling loops with a virtual clock, and the real buffer): TTL-induced discards per step are bounded by the budget, and a step never loses its last finishable group to the TTL; after that the sampler waits for the in-flight generations. A generation that truly never returns still blocks the step once the budget is spent, as on `main`; an explicit wait-vs-abort policy at that point is a follow-up.
++- `actor_rollout_ref.rollout.agent.relaunch_dead_workers` (V1 TransferQueue trainers): `AgentLoopManagerTQ` catches `RayActorError` on dispatch and never sends that chunk again (Ray cannot say whether the call executed, and a re-send could start a second live attempt of the same prompts): the chunk's prompts are parked for the replay buffer to re-issue under fresh uids, a dead worker is re-created with the same construction arguments and node placement rule, and a merely unavailable one is marked suspect after a second-opinion `ping`. The replay buffer also probes the workers every `VERL_WORKER_LIVENESS_PERIOD_SECONDS` (default 10) with a short `ping` and re-issues the in-flight training prompts a dead worker owned without waiting for the TTL; during validation the same probe marks the dead worker's validation groups `failure` in place (validation prompts are never regenerated) so `_validate` completes; a batch in which every group lost its worker is scored without rows (nothing is fetched or decoded for it; its sessions count as `acc = 0` wherever another session of the same data source reported `acc`, and a data source whose every session failed reports no accuracy for that validation, only the failed count). A dead worker hit by a validation dispatch is handled the same way: its chunk is never re-sent, the chunk's validation groups are failed in place by the probe during `sample("val")` and count as `acc = 0` for that validation step, and the worker is re-created as on any dispatch. Only an actor death counts; a probe that times out is a busy worker, and an `ActorUnavailableError` (transient by Ray's definition) must repeat on `VERL_WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD` (default 3) consecutive probes. A worker index re-created more than `VERL_MAX_WORKER_RELAUNCHES` (default 5) times without serving a dispatch, or that many times within one training step regardless of service (a worker that dies after every served dispatch), raises instead of looping; and the liveness probes of a step that report dead workers (death events; one death orphaning many prompts is one event) are bounded by the same allowance as the TTL's discards (`(max_inflight_reissues + 1)` x `data.train_batch_size`): beyond it the sampler raises ("agent-loop workers keep dying", naming the events and the prompts) rather than regenerating forever, which also bounds a chunk parked on `ActorUnavailableError` whose worker never answers its pings. With the flag off, a dead worker still raises the original `RayActorError`; the error log names the worker and the prompts it could not take.
+ 
+-Dispatch is rotated: `AgentLoopManagerTQ.generate_sequences` starts each batch at a rotating worker index, so re-issue and refill batches smaller than the worker count do not always land on worker 0 (a wedged worker would otherwise get its own prompt back every TTL). A re-issue dispatched to a worker whose actor died still raises `RayActorError`, as on `main`: loud instead of a hang. Dead-worker detection and relaunch are a separate change.
++Dispatch is rotated: `AgentLoopManagerTQ.generate_sequences` starts each batch at a rotating worker index, so re-issue and refill batches smaller than the worker count do not always land on worker 0 (a wedged worker would otherwise get its own prompt back every TTL).
+ 
+-Metrics (totals per step, summed across `parameter_sync_step` iterations): `training/inflight_reissued`, `training/inflight_reissue_exhausted`, `training/inflight_discarded_while_draining`, `training/inflight_ttl_suspended` (a per-step 0/1 flag, aggregated as a max: 1 when an expired prompt was held back), plus `training/inflight_expired_age_max` (a max). Validation prompts are never regenerated: the TTL does not apply to the `val` partition.
++Metrics (totals per step, summed across `parameter_sync_step` iterations): `training/inflight_reissued`, `training/inflight_dead_worker_reissued`, `training/inflight_reissue_exhausted`, `training/inflight_discarded_while_draining`, `training/inflight_ttl_suspended` (1 when the step budget held an expired prompt back), `validation/inflight_dead_worker_failed`, plus `training/inflight_expired_age_max` (a max) from the replay buffer; `rollout/dead_workers_relaunched`, `rollout/prompts_orphaned_at_dispatch` and `rollout/prompts_orphaned_by_dead_workers` from the manager, logged once per training step; the same counters are logged as `validation/dead_workers_relaunched`, `validation/prompts_orphaned_at_dispatch` and `validation/prompts_orphaned_by_dead_workers` when they occur during a validation (drained by `_validate` together with `validation/inflight_dead_worker_failed`, summed over its batches, so a relaunch during the final validation is logged with it); `validation/prompts_expected` and `validation/prompts_without_rows` whenever row-less prompts came from a live worker (beyond the dead-worker failures) or the validation produced no other metric.
+ 
+-Scope and boundary: this covers prompts that lost their writer, in every trainer mode. Rollout replica health, `update_weights` fencing and load-balancer membership belong to the fault-tolerance line of PR #8168 and RFC #8380 and are not touched here.
++Scope and boundary: this covers agent loop workers (CPU actors) and prompts that lost their writer, in every trainer mode. Rollout replica health, `update_weights` fencing and load-balancer membership belong to the fault-tolerance line of PR #8168 and RFC #8380 and are not touched here.
+ 
+ ## Benchmark
+ 
+diff --git a/tests/trainer/ppo/v1/test_dead_worker_recovery_on_cpu.py b/tests/trainer/ppo/v1/test_dead_worker_recovery_on_cpu.py
+new file mode 100644
+index 00000000..13e2a75c
+--- /dev/null
++++ b/tests/trainer/ppo/v1/test_dead_worker_recovery_on_cpu.py
+@@ -0,0 +1,619 @@
++# Copyright 2024 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Dead or stuck agent loop workers, end to end on Ray local mode.
++
++Real ``AgentLoopManagerTQ`` (with stub worker actors that write TransferQueue statuses the way
++``AgentLoopWorkerTQ`` does), real ``ReplayBuffer`` and the real ``PPOTrainer`` submit / re-issue / reap
++methods bound to a stub trainer. A worker is killed with ``ray.kill`` (actor death) or told to stay silent
++(the engine-RPC-hang class), and each test bounds its wait so a regression shows as a failure, not a hang.
++"""
++
++import asyncio
++import threading
++import time
++import uuid
++
++import pytest
++import ray
++import torch
++import transfer_queue as tq
++from omegaconf import OmegaConf
++
++from verl.trainer.ppo.v1 import agent_loop_tq as agent_loop_tq_module
++from verl.trainer.ppo.v1 import replay_buffer as replay_buffer_module
++from verl.trainer.ppo.v1 import trainer_base
++from verl.trainer.ppo.v1.agent_loop_tq import (
++    MAX_WORKER_RELAUNCHES,
++    WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD,
++    AgentLoopManagerTQ,
++)
++from verl.trainer.ppo.v1.replay_buffer import ReplayBuffer
++from verl.trainer.ppo.v1.trainer_base import PPOTrainer
++from verl.utils import tensordict_utils as tu
++
++POLL_INTERVAL = 0.05
++# _submit_batch_to_rollout registers prompts in "train"; every test clears the partition it used.
++PARTITION = "train"
++
++
++@pytest.fixture(scope="module")
++def ray_tq():
++    if not ray.is_initialized():
++        ray.init(num_cpus=4, include_dashboard=False, ignore_reinit_error=True, logging_level="ERROR")
++    tq.init()
++    yield
++    tq.close()
++    ray.shutdown()
++
++
++@ray.remote
++class StubWorkerTQ:
++    """Stands in for ``AgentLoopWorkerTQ``: marks each prompt ``running``, then (unless stuck) writes one
++    trajectory row and the terminal ``finished`` status. Takes the manager's construction arguments."""
++
++    def __init__(self, config, llm_client, teacher_client=None, reward_loop_worker_handles=None):
++        tq.init()
++        self.mode = "finish"
++        self.delay = 0.0
++        self.seen: list[str] = []
++        self.background: set = set()
++
++    def set_mode(self, mode: str, delay: float = 0.0) -> None:
++        # "finish": normal; "stuck": never writes a terminal status; "stuck_once": only for the next batch;
++        # "slow": finishes ``delay`` seconds later in a background task, like a long generation.
++        self.mode, self.delay = mode, delay
++
++    def received(self) -> list[str]:
++        return list(self.seen)
++
++    async def ping(self) -> bool:
++        return True
++
++    async def _finish(self, uid: str, partition: str, step: int) -> None:
++        await tq.async_kv_put(
++            key=f"{uid}_0_0",
++            partition_id=partition,
++            fields={"input_ids": torch.tensor([1, 2, 3])},
++            tag={"is_prompt": False, "seq_len": 3, "global_steps": step},
++        )
++        await tq.async_kv_put(key=uid, partition_id=partition, tag={"status": "finished"})
++
++    async def _finish_later(self, uid: str, partition: str, step: int) -> None:
++        await asyncio.sleep(self.delay)
++        await self._finish(uid, partition, step)
++
++    async def generate_sequences(self, batch) -> None:
++        validate = bool(batch["validate"]) if "validate" in batch.keys() else False
++        partition = "val" if validate else PARTITION
++        step = int(batch["global_steps"])
++        uids = [str(u) for u in batch["uid"]]
++        self.seen.extend(uids)
++        for uid in uids:
++            await tq.async_kv_put(key=uid, partition_id=partition, tag={"status": "running"})
++            if self.mode in ("stuck", "stuck_once"):
++                continue
++            if self.mode == "slow":
++                task = asyncio.create_task(self._finish_later(uid, partition, step))
++                self.background.add(task)
++                task.add_done_callback(self.background.discard)
++                continue
++            await self._finish(uid, partition, step)
++        if self.mode == "stuck_once":
++            self.mode = "finish"
++
++
++class StubManagerTQ(AgentLoopManagerTQ):
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.agent_loop_workers_class = StubWorkerTQ
++
++
++def _make_manager(num_workers: int = 2, relaunch: bool = False) -> StubManagerTQ:
++    config = OmegaConf.create(
++        {
++            "actor_rollout_ref": {
++                "rollout": {"agent": {"num_workers": num_workers, "relaunch_dead_workers": relaunch}},
++                "model": {},
++            }
++        }
++    )
++    return StubManagerTQ.create(config, None)
++
++
++def _make_trainer(manager, global_steps: int = 1):
++    """Bind the real submit / re-issue / reap methods to a stub exposing only what they use."""
++    stub = type("Stub", (), {})()
++    stub.trainer_mode = "sync"
++    stub.global_steps = global_steps
++    stub.inflight_recovery_enabled = True
++    stub.agent_loop_manager = manager
++    for name in ("_reissue_inflight_prompts", "_submit_batch_to_rollout", "_reap_dead_workers"):
++        setattr(stub, name, getattr(PPOTrainer, name).__get__(stub))
++    return stub
++
++
++def _make_rb(trainer, ttl: float | None = None, liveness: bool = False, **kwargs) -> ReplayBuffer:
++    return ReplayBuffer(
++        **{
++            **dict(
++                trainer_mode="sync",
++                trainer_config={},
++                max_off_policy_threshold=None,
++                max_off_policy_strategy="drop",
++                sampler_kwargs={},
++                poll_interval=POLL_INTERVAL,
++                inflight_ttl_s=ttl,
++                reissue_fn=trainer._reissue_inflight_prompts if (ttl is not None or liveness) else None,
++                liveness_fn=trainer._reap_dead_workers if liveness else None,
++                liveness_period_s=0.2 if liveness else None,
++            ),
++            **kwargs,
++        }
++    )
++
++
++def _batch(num_prompts: int, global_steps: int = 1):
++    uids = [uuid.uuid4().hex for _ in range(num_prompts)]
++    batch = tu.get_tensordict(
++        {"uid": uids, "raw_prompt": [f"prompt-{uid}" for uid in uids], "index": torch.arange(num_prompts)}
++    )
++    tu.assign_non_tensor_data(batch, "global_steps", global_steps)
++    return batch, uids
++
++
++def _prompt_statuses(partition: str = PARTITION) -> dict[str, str]:
++    items = tq.kv_list(partition_id=partition).get(partition, {})
++    return {key: tag["status"] for key, tag in items.items() if tag.get("is_prompt")}
++
++
++def _wait_until(predicate, timeout: float = 10.0, what: str = "condition") -> None:
++    deadline = time.time() + timeout
++    while time.time() < deadline:
++        if predicate():
++            return
++        time.sleep(POLL_INTERVAL)
++    raise AssertionError(f"timed out waiting for {what}")
++
++
++def _teardown(manager) -> None:
++    for partition in (PARTITION, "val"):
++        keys = list(tq.kv_list(partition_id=partition).get(partition, {}).keys())
++        if keys:
++            tq.kv_clear(keys=keys, partition_id=partition)
++    for worker in manager.agent_loop_workers:
++        ray.kill(worker, no_restart=True)
++
++
++class SampleThread(threading.Thread):
++    """Run the blocking ``ReplayBuffer.sample`` so the test can bound the wait."""
++
++    def __init__(self, rb: ReplayBuffer, batch_size: int, partition: str = PARTITION):
++        super().__init__(daemon=True)
++        self.rb = rb
++        self.batch_size = batch_size
++        self.partition = partition
++        self.result = None
++        self.error: Exception | None = None
++
++    def run(self) -> None:
++        try:
++            self.result = self.rb.sample(global_steps=1, partition_id=self.partition, batch_size=self.batch_size)
++        except Exception as e:  # surfaced through result_or_raise
++            self.error = e
++
++    def result_or_raise(self, timeout: float = 30.0):
++        if self.ident is None:
++            self.start()
++        self.join(timeout)
++        assert not self.is_alive(), "sample did not return in time"
++        if self.error is not None:
++            raise self.error
++        return self.result
++
++
++def _submit_half_stuck(manager, trainer, mode: str = "stuck"):
++    """Dispatch 4 prompts over 2 workers; worker 1 leaves its 2 prompts ``running`` forever."""
++    ray.get(manager.agent_loop_workers[1].set_mode.remote(mode))
++    batch, uids = _batch(4)
++    trainer._submit_batch_to_rollout(batch)
++    _wait_until(
++        lambda: sorted(_prompt_statuses().get(uid) for uid in uids) == ["finished", "finished", "running", "running"],
++        what="2 finished + 2 running prompts",
++    )
++    return uids
++
++
++def test_ttl_reissues_prompts_of_a_silently_stuck_worker(ray_tq):
++    """A worker that never writes a terminal status (engine RPC hang): with inflight_ttl_s the two stuck
++    prompts are re-issued under fresh uids and the step completes with 4 groups."""
++    manager = _make_manager(relaunch=False)
++    trainer = _make_trainer(manager)
++    try:
++        uids = _submit_half_stuck(manager, trainer, mode="stuck_once")
++        started = time.time()
++        batch, metrics = SampleThread(_make_rb(trainer, ttl=1.0), batch_size=4).result_or_raise()
++        elapsed = time.time() - started
++
++        assert len(batch.keys) == 4
++        sampled_uids = {key.split("_")[0] for key in batch.keys}
++        stuck_uids = {uid for uid in uids if uid not in sampled_uids}
++        assert len(stuck_uids) == 2, "the two stuck prompts were retired and replaced by fresh uids"
++        assert metrics["training/inflight_reissued"] == 2
++        assert metrics["training/inflight_dead_worker_reissued"] == 0
++        assert metrics["training/inflight_expired_age_max"] >= 1.0
++        assert elapsed < 15.0
++        assert not (set(_prompt_statuses()) & stuck_uids), "retired prompt keys are gone"
++    finally:
++        _teardown(manager)
++
++
++def test_ttl_off_stuck_worker_blocks_sampling(ray_tq):
++    """Pre-existing behaviour, kept when the TTL is null: sampling blocks until a terminal status is
++    written, which a stuck worker never does. The test unblocks it by hand instead of hanging."""
++    manager = _make_manager(relaunch=False)
++    trainer = _make_trainer(manager)
++    sampler = SampleThread(_make_rb(trainer, ttl=None), batch_size=4)
++    try:
++        uids = _submit_half_stuck(manager, trainer, mode="stuck")
++        sampler.start()
++        sampler.join(1.5)
++        assert sampler.is_alive(), "sample returned without the stuck prompts' terminal status"
++
++        for uid, status in _prompt_statuses().items():
++            if uid in uids and status == "running":
++                tq.kv_put(
++                    key=f"{uid}_0_0",
++                    partition_id=PARTITION,
++                    fields={"input_ids": torch.tensor([1, 2, 3])},
++                    tag={"is_prompt": False, "seq_len": 3, "global_steps": 1},
++                )
++                tq.kv_put(key=uid, partition_id=PARTITION, tag={"status": "finished"})
++        batch, metrics = sampler.result_or_raise()
++        assert {key.split("_")[0] for key in batch.keys} == set(uids)
++        assert "training/inflight_reissued" not in metrics
++    finally:
++        _teardown(manager)
++
++
++def test_killed_worker_is_relaunched_and_its_prompts_reissued_with_ttl_and_probe(ray_tq):
++    """Actor death mid-generation with both knobs on: the probe (or the TTL) hands the stuck prompts to the
++    fresh-uid re-issue path, the worker is re-created, and the step completes with every group regenerated
++    at most once per attempt (no chunk is ever sent twice)."""
++    manager = _make_manager(relaunch=True)
++    trainer = _make_trainer(manager)
++    try:
++        uids = _submit_half_stuck(manager, trainer)
++        dead = manager.agent_loop_workers[1]
++        ray.kill(dead, no_restart=True)
++
++        batch, metrics = SampleThread(_make_rb(trainer, ttl=1.0, liveness=True), batch_size=4).result_or_raise()
++
++        assert len(batch.keys) == 4
++        assert metrics["training/inflight_reissued"] >= 2
++        assert manager.agent_loop_workers[1] is not dead
++        assert ray.get(manager.agent_loop_workers[1].ping.remote()) is True
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
++        received = [ray.get(worker.received.remote()) for worker in manager.agent_loop_workers]
++        assert all(sum(r.count(uid) for r in received) <= 1 for uid in uids), "an old uid was never re-sent"
++    finally:
++        _teardown(manager)
++
++
++def test_killed_worker_with_relaunch_off_raises_instead_of_hanging(ray_tq, caplog):
++    manager = _make_manager(relaunch=False)
++    trainer = _make_trainer(manager)
++    try:
++        _submit_half_stuck(manager, trainer)
++        ray.kill(manager.agent_loop_workers[1], no_restart=True)
++
++        with pytest.raises(ray.exceptions.RayActorError):
++            SampleThread(_make_rb(trainer, ttl=1.0), batch_size=4).result_or_raise()
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 0
++        assert any(
++            "worker 1 failed a dispatch" in record.message and "relaunch_dead_workers" in record.message
++            for record in caplog.records
++        )
++    finally:
++        _teardown(manager)
++
++
++def test_liveness_probe_reissues_dead_worker_prompts_without_ttl(ray_tq, monkeypatch):
++    """relaunch_dead_workers alone: the probe finds the dead worker within one period, its in-flight
++    prompts are re-issued immediately (no TTL needed) and the worker is re-created."""
++    monkeypatch.setattr(replay_buffer_module, "WORKER_LIVENESS_PERIOD_SECONDS", 0.2)
++    manager = _make_manager(relaunch=True)
++    trainer = _make_trainer(manager)
++    try:
++        _submit_half_stuck(manager, trainer)
++        dead = manager.agent_loop_workers[1]
++        ray.kill(dead, no_restart=True)
++
++        batch, metrics = SampleThread(_make_rb(trainer, ttl=None, liveness=True), batch_size=4).result_or_raise()
++
++        assert len(batch.keys) == 4
++        assert metrics["training/inflight_reissued"] == 2
++        assert metrics["training/inflight_dead_worker_reissued"] == 2
++        assert "training/inflight_expired_age_max" not in metrics
++        assert manager.agent_loop_workers[1] is not dead
++        assert manager.recovery_metrics["rollout/prompts_orphaned_by_dead_workers"] == 2
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
++    finally:
++        _teardown(manager)
++
++
++def test_dispatch_to_dead_worker_parks_its_chunk_and_the_buffer_reissues_it(ray_tq):
++    """A dead worker at dispatch time: the worker is re-created, its chunk is parked (never re-sent as is),
++    and the replay buffer re-issues the parked prompts under fresh uids; the old uids are never dispatched
++    twice."""
++    manager = _make_manager(relaunch=True)
++    trainer = _make_trainer(manager)
++    try:
++        dead = manager.agent_loop_workers[1]
++        ray.kill(dead, no_restart=True)
++        batch, uids = _batch(4)
++        trainer._submit_batch_to_rollout(batch)  # on main: RayActorError here
++
++        assert manager.agent_loop_workers[1] is not dead
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
++        assert manager.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] == 2
++        assert manager._orphaned_uids == set(uids[2:]), "the dead chunk is parked, not re-sent"
++        assert {manager._prompt_owner[uid] for uid in uids[:2]} == {0} and not set(uids[2:]) & set(
++            manager._prompt_owner
++        )
++        _wait_until(lambda: all(_prompt_statuses().get(uid) == "finished" for uid in uids[:2]), what="2 finished")
++        assert all(_prompt_statuses().get(uid) == "pending" for uid in uids[2:]), "parked prompts stay pending"
++
++        out, metrics = SampleThread(_make_rb(trainer, liveness=True), batch_size=4).result_or_raise()
++        assert len({key.split("_")[0] for key in out.keys}) == 4
++        assert metrics["training/inflight_dead_worker_reissued"] == 2
++        received = [ray.get(worker.received.remote()) for worker in manager.agent_loop_workers]
++        assert all(sum(r.count(uid) for r in received) == 0 for uid in uids[2:]), "old uids never dispatched again"
++        assert manager.reap_dead_workers(inflight_uids=set()) == set()
++        assert manager._prompt_owner == {} and manager._orphaned_uids == set()
++    finally:
++        _teardown(manager)
++
++
++def test_dispatch_to_dead_worker_with_relaunch_off_names_worker_and_prompts(ray_tq, caplog):
++    manager = _make_manager(relaunch=False)
++    trainer = _make_trainer(manager)
++    try:
++        ray.kill(manager.agent_loop_workers[1], no_restart=True)
++        batch, uids = _batch(4)
++        with pytest.raises(ray.exceptions.RayActorError):  # the default path keeps the original exception type
++            trainer._submit_batch_to_rollout(batch)
++        logged = [
++            record.message for record in caplog.records if "worker 1 failed a dispatch of 2 prompts" in record.message
++        ]
++        assert logged and any(uid in logged[0] for uid in uids[2:])
++    finally:
++        _teardown(manager)
++
++
++def test_reissue_rotates_away_from_a_wedged_worker(ray_tq):
++    """A re-issue batch smaller than the worker count is dispatched from a rotating start index, so a prompt
++    stuck on an alive-but-silent worker 0 reaches worker 1 within a couple of TTLs instead of looping."""
++    manager = _make_manager(relaunch=False)
++    trainer = _make_trainer(manager)
++    try:
++        ray.get(manager.agent_loop_workers[0].set_mode.remote("stuck"))
++        batch, uids = _batch(2)
++        trainer._submit_batch_to_rollout(batch)
++        _wait_until(lambda: sorted(_prompt_statuses().get(u) for u in uids) == ["finished", "running"], what="1 stuck")
++
++        out, metrics = SampleThread(_make_rb(trainer, ttl=0.5), batch_size=2).result_or_raise()
++        assert len(out.keys) == 2
++        assert 1 <= metrics["training/inflight_reissued"] <= 2
++        received_by_1 = ray.get(manager.agent_loop_workers[1].received.remote())
++        assert len(received_by_1) == 2, "the stuck prompt's re-issue reached worker 1"
++    finally:
++        _teardown(manager)
++
++
++def test_ttl_below_generation_time_fails_the_group_after_max_reissues_and_refill_replaces_it(ray_tq):
++    """A TTL shorter than a healthy generation does not livelock: after ``max_inflight_reissues`` the prompt
++    becomes a ``failure`` group and sync failure refill replaces it; the late rows of the retired attempts
++    are swept."""
++    manager = _make_manager(relaunch=False)
++    trainer = _make_trainer(manager)
++    refills: list[int] = []
++
++    def refill_fn(count: int) -> int:
++        refills.append(count)
++        for _ in range(count):
++            uid = uuid.uuid4().hex
++            tq.kv_put(key=uid, partition_id=PARTITION, tag={"is_prompt": True, "status": "running", "global_steps": 1})
++            tq.kv_put(
++                key=f"{uid}_0_0",
++                partition_id=PARTITION,
++                fields={"input_ids": torch.tensor([1, 2, 3])},
++                tag={"is_prompt": False, "seq_len": 3, "global_steps": 1},
++            )
++            tq.kv_put(key=uid, partition_id=PARTITION, tag={"status": "finished"})
++        return count
++
++    try:
++        for worker in manager.agent_loop_workers:
++            ray.get(worker.set_mode.remote("slow", 1.5))
++        batch, uids = _batch(2)
++        trainer._submit_batch_to_rollout(batch)
++        _wait_until(lambda: all(_prompt_statuses().get(u) == "running" for u in uids), what="2 running")
++
++        rb = _make_rb(
++            trainer,
++            ttl=0.4,
++            max_inflight_reissues=2,
++            max_inflight_reissues_per_step=8,  # above 2 x 2: the per-prompt cap must fire before the step budget
++            sync_refill_failed_groups=True,
++            gen_batch_size=1,
++            refill_fn=refill_fn,
++        )
++        out, metrics = SampleThread(rb, batch_size=2).result_or_raise()
++        assert len({key.split("_")[0] for key in out.keys}) == 2
++        assert metrics["training/inflight_reissued"] == 4, "2 prompts x 2 allowed re-issues"
++        assert metrics["training/inflight_reissue_exhausted"] == 2
++        assert refills == [2] or refills == [1, 1]
++        assert len(rb._retired_uids[PARTITION]) == 6
++        time.sleep(2.0)  # let the retired attempts finish and write late
++        rb._sync_metadata_from_transfer_queue()
++        rb._sweep_retired_attempts(PARTITION)
++        assert not any(
++            key.split("_")[0] in rb._retired_uids[PARTITION] for key in tq.kv_list(PARTITION).get(PARTITION, {})
++        )
++    finally:
++        _teardown(manager)
++
++
++def test_validation_dead_worker_is_relaunched_and_its_val_groups_fail(ray_tq):
++    """A worker that dies while a validation batch is in flight is found by the probe during ``sample("val")``,
++    relaunched, and its validation groups are marked ``failure`` in place so validation completes."""
++    manager = _make_manager(relaunch=True)
++    trainer = _make_trainer(manager)
++    try:
++        ray.get(manager.agent_loop_workers[1].set_mode.remote("stuck"))
++        batch, uids = _batch(2)
++        tu.assign_non_tensor_data(batch, "validate", True)
++        tq.kv_batch_put(keys=uids, partition_id="val", tags=[trainer_base._pending_prompt_tag(1) for _ in uids])
++        manager.generate_sequences(batch)
++        _wait_until(
++            lambda: sorted(_prompt_statuses("val").get(u) for u in uids) == ["finished", "running"], what="val stuck"
++        )
++        dead = manager.agent_loop_workers[1]
++        ray.kill(dead, no_restart=True)
++
++        rb = _make_rb(trainer, ttl=0.5, liveness=True)
++        out, metrics = SampleThread(rb, batch_size=2, partition="val").result_or_raise()
++        assert [key.split("_")[0] for key in out.keys] == [uids[0]], "the finished val group, as is"
++        assert metrics["validation/inflight_dead_worker_failed"] == 1
++        assert not any(tag.get("is_prompt") for tag in tq.kv_list("val").get("val", {}).values()), "nothing regenerated"
++        assert manager.agent_loop_workers[1] is not dead
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
++    finally:
++        _teardown(manager)
++
++
++def test_unavailable_probes_must_repeat_and_relaunches_are_capped(ray_tq):
++    """``ActorUnavailableError`` is transient: only consecutive probes mark a worker dead (a successful ping
++    resets the streak). Re-creating one index more than ``MAX_WORKER_RELAUNCHES`` times in a row raises."""
++    manager = _make_manager(relaunch=True)
++    try:
++        ray.get([worker.ping.remote() for worker in manager.agent_loop_workers])  # actors up before probing
++        unavailable = ray.exceptions.ActorUnavailableError("raylet hiccup", None)
++        for _ in range(WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD - 1):
++            assert manager._probe_marks_dead(1, unavailable) is False
++        assert manager._probe_marks_dead(1, unavailable) is True
++        assert manager._probe_marks_dead(1, unavailable) is False, "the streak restarts after a verdict"
++        manager.reap_dead_workers(inflight_uids=set())  # a successful ping resets the streak
++        assert manager._unavailable_streak[1] == 0
++        assert manager.reap_dead_workers(inflight_uids=set()) == set()
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 0
++
++        manager._relaunch_streak[1] = MAX_WORKER_RELAUNCHES
++        with pytest.raises(RuntimeError, match="giving up"):
++            manager._relaunch_worker(1, RuntimeError("replacement keeps dying"))
++        assert ray.get(manager.agent_loop_workers[1].ping.remote()) is True, "the live worker was not replaced"
++    finally:
++        _teardown(manager)
++
++
++def _lose_first_dispatch_reply(monkeypatch):
++    """Make the first ``ray.get`` issued from ``generate_sequences`` raise ``ActorUnavailableError`` after the
++    dispatch really executed on the worker (Ray: the task may or may not have run)."""
++    import sys
++
++    from verl.trainer.ppo.v1 import agent_loop_tq
++
++    real_get, state = ray.get, {"armed": True}
++
++    def get_then_lose_the_reply(ref, *args, **kwargs):
++        result = real_get(ref, *args, **kwargs)
++        caller = sys._getframe(1)
++        if state["armed"] and caller.f_code.co_name == "generate_sequences":
++            state["armed"] = False
++            raise ray.exceptions.ActorUnavailableError("simulated transient unavailability", None)
++        return result
++
++    monkeypatch.setattr(agent_loop_tq.ray, "get", get_then_lose_the_reply)
++    return lambda: monkeypatch.setattr(agent_loop_tq.ray, "get", real_get)
++
++
++def test_unavailable_dispatch_reply_parks_the_chunk_without_resending(ray_tq, monkeypatch):
++    """Reviewer N5: a dispatch that executed but whose reply came back as ``ActorUnavailableError`` must not
++    be sent again (two live attempts of one uid). The chunk is parked, the worker is suspect, nothing is
++    relaunched; the prompts finish on their own and leave the parked set at the next reap."""
++    manager = _make_manager(relaunch=True)
++    trainer = _make_trainer(manager)
++    restore = _lose_first_dispatch_reply(monkeypatch)
++    try:
++        batch, uids = _batch(2)
++        trainer._submit_batch_to_rollout(batch)
++        restore()
++        _wait_until(lambda: all(_prompt_statuses().get(u) == "finished" for u in uids), what="2 finished")
++        received = [ray.get(worker.received.remote()) for worker in manager.agent_loop_workers]
++        assert {u: sum(r.count(u) for r in received) for u in uids} == {u: 1 for u in uids}
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 0
++        assert manager.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] == 1
++        assert len(manager._orphaned_uids) == 1 and manager._orphaned_uids < set(uids)
++        assert manager.reap_dead_workers(inflight_uids=set()) == set(), "terminal prompts leave the parked set"
++    finally:
++        restore()
++        _teardown(manager)
++
++
++def test_a_chunk_is_never_dispatched_twice_under_any_recovery_path(ray_tq, monkeypatch):
++    """Across a lost reply (worker alive) and a dead worker at dispatch, every uid reaches a worker at most
++    once; recovery always goes through fresh uids."""
++    manager = _make_manager(num_workers=3, relaunch=True)
++    trainer = _make_trainer(manager)
++    restore = _lose_first_dispatch_reply(monkeypatch)
++    try:
++        ray.kill(manager.agent_loop_workers[2], no_restart=True)
++        batch, uids = _batch(6)  # chunks of 2: worker 0 (lost reply), worker 1, worker 2 (dead)
++        trainer._submit_batch_to_rollout(batch)
++        restore()
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 1
++        assert manager.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] == 4
++
++        out, _ = SampleThread(_make_rb(trainer, liveness=True), batch_size=6).result_or_raise()
++        assert len({key.split("_")[0] for key in out.keys}) == 6
++        received = [ray.get(worker.received.remote()) for worker in manager.agent_loop_workers]
++        counts = {u: sum(r.count(u) for r in received) for u in uids}
++        assert all(c <= 1 for c in counts.values()), f"a uid was dispatched twice: {counts}"
++        fresh = {u for r in received for u in r} - set(uids)
++        assert all(sum(r.count(u) for r in received) == 1 for u in fresh)
++    finally:
++        restore()
++        _teardown(manager)
++
++
++def test_relaunches_within_one_step_are_capped_regardless_of_service(ray_tq, monkeypatch):
++    """A worker that dies after every served dispatch resets the no-service streak, so only the per-step count
++    stops the relaunch -> re-issue -> relaunch cycle: ``MAX_WORKER_RELAUNCHES`` re-creations within one
++    ``global_steps`` raise, and the next step starts the count again."""
++    monkeypatch.setattr(agent_loop_tq_module, "MAX_WORKER_RELAUNCHES", 2)
++    manager = _make_manager(relaunch=True)
++    try:
++        for expected in (1, 2):
++            ray.kill(manager.agent_loop_workers[1], no_restart=True)
++            manager.reap_dead_workers(set(), global_steps=7)
++            manager._relaunch_streak[1] = 0  # what a served dispatch does in between
++            assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == expected
++        ray.kill(manager.agent_loop_workers[1], no_restart=True)
++        with pytest.raises(RuntimeError, match=r"worker 1 was re-created 2 times within training step 7"):
++            manager.reap_dead_workers(set(), global_steps=7)
++        ray.kill(manager.agent_loop_workers[1], no_restart=True)
++        manager.reap_dead_workers(set(), global_steps=8)  # a new step: counted afresh
++        assert manager.recovery_metrics["rollout/dead_workers_relaunched"] == 3, "the refused re-creation never ran"
++    finally:
++        _teardown(manager)
+diff --git a/tests/trainer/ppo/v1/test_inflight_recovery_on_cpu.py b/tests/trainer/ppo/v1/test_inflight_recovery_on_cpu.py
+index 0bbe6091..d8fac5e1 100644
+--- a/tests/trainer/ppo/v1/test_inflight_recovery_on_cpu.py
++++ b/tests/trainer/ppo/v1/test_inflight_recovery_on_cpu.py
+@@ -11,12 +11,12 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+-"""In-flight prompt recovery in the V1 replay buffer (TTL re-issue, re-issue cap, retired-attempt sweep).
++"""In-flight prompt recovery in the V1 replay buffer (TTL, dead-worker re-issue, retired-attempt sweep).
+ 
+ These run against a real (CPU-only) TransferQueue, mirroring ``test_replay_buffer_on_cpu.py`` and
+ ``test_reissue_inflight_on_cpu.py``. Only the agent loop worker that runs a prompt writes its terminal
+ status; if that worker dies or hangs, the prompt stays ``running`` forever and, on ``main``, ``sample``
+-never returns. With ``inflight_ttl_s`` the buffer re-issues such prompts mid-run
++never returns. With ``inflight_ttl_s`` (or a ``liveness_fn``) the buffer re-issues such prompts mid-run
+ through ``PPOTrainer._reissue_inflight_prompts(partition_id, uids)`` and keeps polling.
+ """
+ 
+@@ -31,6 +31,7 @@ import torch
+ import transfer_queue as tq
+ from tensordict import TensorDict
+ 
++from verl.trainer.ppo.v1 import replay_buffer as replay_buffer_module
+ from verl.trainer.ppo.v1 import trainer_base
+ from verl.trainer.ppo.v1.replay_buffer import ReplayBuffer, ReplayBufferAsync
+ from verl.trainer.ppo.v1.trainer_base import PPOTrainer
+@@ -315,6 +316,7 @@ def test_sync_sample_reissues_expired_prompt_and_reports_metrics(tq_init, partit
+         assert reissuer.calls == [[stuck]]
+         assert [key.split("_")[0] for key in batch.keys] == reissuer.replacements
+         assert metrics[f"{PREFIX}/inflight_reissued"] == 1
++        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 0
+         assert metrics[f"{PREFIX}/inflight_expired_age_max"] >= 100
+     finally:
+         _clear_partition(partition_id)
+@@ -380,6 +382,35 @@ def test_ttl_off_keeps_the_pre_existing_blocking_behaviour(tq_init, partition_id
+         _clear_partition(partition_id)
+ 
+ 
++def test_liveness_fn_is_polled_and_dead_owned_prompts_are_reissued(tq_init, partition_id, monkeypatch):
++    monkeypatch.setattr(replay_buffer_module, "WORKER_LIVENESS_PERIOD_SECONDS", 0.0)
++    dead_owned, alive = _uid(), _uid()
++    _submit_prompt(partition_id, dead_owned, "running", 1, dispatched_at=time.time())
++    _submit_prompt(partition_id, alive, "running", 1, dispatched_at=time.time())
++    reissuer = RecordingReissuer(partition_id)
++    probes: list[set[str]] = []
++
++    def liveness_fn(inflight_uids: set[str]) -> set[str]:
++        probes.append(set(inflight_uids))
++        # Report the dead worker's prompt once; a uid that is no longer in flight must be ignored.
++        return {dead_owned, "stale-uid"} if dead_owned in inflight_uids else set()
++
++    try:
++        rb = _make_rb(reissue_fn=reissuer, liveness_fn=liveness_fn)  # no TTL: the probe alone drives recovery
++        sampler = SampleThread(lambda: rb.sample(global_steps=1, partition_id=partition_id, batch_size=2))
++        sampler.start()
++        _finish(partition_id, alive)
++        batch, metrics = sampler.result_or_raise()
++        assert reissuer.calls == [[dead_owned]]
++        assert probes[0] == {dead_owned, alive}
++        assert {key.split("_")[0] for key in batch.keys} == {alive, *reissuer.replacements}
++        assert metrics[f"{PREFIX}/inflight_reissued"] == 1
++        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 1
++        assert f"{PREFIX}/inflight_expired_age_max" not in metrics
++    finally:
++        _clear_partition(partition_id)
++
++
+ # ----------------------------------------------------------------------------------------------------------
+ # Review fixes: the re-issue window race, the re-issue cap, validation, the DAPO drain, restart orphans
+ # ----------------------------------------------------------------------------------------------------------
+@@ -452,6 +483,32 @@ def test_exhausted_reissues_become_a_failure_group_that_the_refill_path_replaces
+         _clear_partition(partition_id)
+ 
+ 
++def test_validation_prompts_of_a_dead_worker_are_failed_in_place(tq_init):
++    """Validation groups are never regenerated: the probe runs for ``val`` too and a dead worker's groups
++    are marked ``failure`` under their own uid, so ``_validate``'s sample returns."""
++    finished, orphaned = _uid(), _uid()
++    tq.kv_batch_put(
++        keys=[finished, orphaned],
++        partition_id="val",
++        tags=[{"is_prompt": True, "status": "running", "global_steps": 1, "dispatched_at": time.time()}] * 2,
++    )
++    _finish("val", finished)
++    reissuer = RecordingReissuer("val")
++    try:
++        rb = _make_rb(reissue_fn=reissuer, liveness_fn=lambda inflight: {orphaned} & inflight, liveness_period_s=0.0)
++        batch, metrics = SampleThread(
++            lambda: rb.sample(global_steps=1, partition_id="val", batch_size=2)
++        ).result_or_raise()
++        assert reissuer.calls == []
++        assert [key.split("_")[0] for key in batch.keys] == [finished]
++        assert metrics["validation/inflight_dead_worker_failed"] == 1
++        # Both groups were selected (a failure group is sampleable) and their prompt keys cleared as usual;
++        # nothing was regenerated: no new prompt key exists.
++        assert not any(tag.get("is_prompt") for tag in _partition_items("val").values())
++    finally:
++        _clear_partition("val")
++
++
+ def test_draining_clears_expired_prompts_instead_of_regenerating(tq_init, partition_id):
+     """Sync DAPO drain: in-flight groups will be discarded as surplus, so an expired one is cleared, not re-issued."""
+     stuck = _uid()
+@@ -808,3 +865,70 @@ def test_hold_back_is_lifted_once_another_group_finished_so_a_dead_writer_is_pad
+         assert rb._ttl_discards_in_step[partition_id] == 1, "the failure is charged normally"
+     finally:
+         _clear_partition(partition_id)
++
++
++def test_dead_worker_prompts_are_reissued_even_when_the_ttl_budget_is_spent(tq_init, partition_id):
++    """The step budget bounds the TTL only: with the budget already spent an expired prompt waits (TTL
++    suspended), while a prompt whose worker the liveness probe reports dead is still re-issued, and that
++    re-issue does not count against the budget."""
++    expired, dead = _uid(), _uid()
++    _submit_prompt(partition_id, expired, "running", 1, dispatched_at=time.time() - 100)
++    _submit_prompt(partition_id, dead, "running", 1, dispatched_at=time.time())
++    reissuer = RecordingReissuer(partition_id)
++    try:
++        rb = _make_rb(
++            inflight_ttl_s=1,
++            max_inflight_reissues_per_step=1,
++            reissue_fn=reissuer,
++            liveness_fn=lambda inflight: {dead} & inflight,
++            liveness_period_s=0.0,
++        )
++        rb._begin_ttl_budget(partition_id, 1)
++        rb._ttl_discards_in_step[partition_id] = 1  # the step's budget is already spent
++        rb._sync_metadata_from_transfer_queue()
++        metrics: dict = {}
++        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is True
++        assert reissuer.calls == [[dead]]
++        assert metrics[f"{PREFIX}/inflight_reissued"] == 1
++        assert metrics[f"{PREFIX}/inflight_dead_worker_reissued"] == 1
++        assert metrics[f"{PREFIX}/inflight_ttl_suspended"] == 1
++        rb._sync_metadata_from_transfer_queue()
++        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is False
++        assert reissuer.calls == [[dead]] and expired in rb.running_keys[partition_id]
++    finally:
++        _clear_partition(partition_id)
++
++
++def test_dead_worker_death_events_are_bounded_per_step_and_fail_loudly(tq_init, partition_id):
++    """A liveness probe that keeps reporting every replacement's worker dead (a worker that dies after every
++    served dispatch, or a parked chunk whose worker never answers) must not re-issue and refill forever: the
++    probes of a step that report dead workers (death events) are bounded by the same allowance as the TTL's
++    discards, and beyond it the buffer raises instead of looping or hanging. One death that orphans many prompts
++    is a single event, so a large recoverable death never trips the bound."""
++    first, second, third = _uid(), _uid(), _uid()
++    for uid in (first, second):
++        _submit_prompt(partition_id, uid, "running", 1, dispatched_at=time.time())
++    reissuer = RecordingReissuer(partition_id)
++    try:
++        rb = _make_rb(
++            inflight_ttl_s=1,
++            max_inflight_reissues=0,
++            max_inflight_reissues_per_step=1,
++            reissue_fn=reissuer,
++            liveness_fn=lambda inflight: set(inflight),
++            liveness_period_s=0.0,
++        )
++        rb._begin_ttl_budget(partition_id, 1)
++        rb._sync_metadata_from_transfer_queue()
++        metrics: dict = {}
++        assert rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1) is True
++        assert metrics[f"{PREFIX}/inflight_reissue_exhausted"] == 2, "one death orphaning two prompts: one event"
++        assert rb._dead_worker_events_in_step[partition_id] == 1 and rb._dead_worker_discards_in_step[partition_id] == 2
++        assert rb._ttl_discards_in_step[partition_id] == 0, "dead-worker failures are not TTL discards"
++        _submit_prompt(partition_id, third, "running", 1, dispatched_at=time.time())  # the refill, dead again
++        rb._sync_metadata_from_transfer_queue()
++        with pytest.raises(RuntimeError, match="agent-loop workers keep dying: 2 liveness probes of step 1"):
++            rb._recover_stuck_inflight(partition_id, metrics, reissue_budget=1)
++        assert reissuer.calls == [] and rb._dead_worker_discards_in_step[partition_id] == 3
++    finally:
++        _clear_partition(partition_id)
+diff --git a/tests/trainer/ppo/v1/test_metrics_aggregator_on_cpu.py b/tests/trainer/ppo/v1/test_metrics_aggregator_on_cpu.py
+index 61fd5a1b..91eeac57 100644
+--- a/tests/trainer/ppo/v1/test_metrics_aggregator_on_cpu.py
++++ b/tests/trainer/ppo/v1/test_metrics_aggregator_on_cpu.py
+@@ -234,6 +234,7 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
+     agg.add_step_metrics(
+         {
+             "training/inflight_reissued": 4,
++            "training/inflight_dead_worker_reissued": 2,
+             "training/inflight_reissue_exhausted": 1,
+             "training/inflight_ttl_suspended": 1,
+             "training/inflight_expired_age_max": 30.0,
+@@ -243,6 +244,7 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
+     agg.add_step_metrics(
+         {
+             "training/inflight_reissued": 0,
++            "training/inflight_dead_worker_reissued": 0,
+             "training/inflight_reissue_exhausted": 0,
+             "training/inflight_ttl_suspended": 0,
+             "training/inflight_expired_age_max": 12.0,
+@@ -251,6 +253,7 @@ def test_inflight_recovery_counters_are_summed_across_iterations():
+     )
+     out = agg.get_aggregated_metrics()
+     assert out["training/inflight_reissued"] == 4
++    assert out["training/inflight_dead_worker_reissued"] == 2
+     assert out["training/inflight_reissue_exhausted"] == 1
+     assert out["training/inflight_ttl_suspended"] == 1
+     agg = MetricsAggregator()
+diff --git a/tests/trainer/ppo/v1/test_validate_recovery_on_cpu.py b/tests/trainer/ppo/v1/test_validate_recovery_on_cpu.py
+new file mode 100644
+index 00000000..2695c22b
+--- /dev/null
++++ b/tests/trainer/ppo/v1/test_validate_recovery_on_cpu.py
+@@ -0,0 +1,367 @@
++# Copyright 2024 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""``PPOTrainer._validate`` when agent loop workers die during validation (in-memory TransferQueue stand-in).
++
++Mirrors the AI review's reproduction: the real ``_validate`` / ``_val_metrics_update`` /
++``_consume_recovery_metrics`` and the real ``ReplayBuffer`` run against an in-memory transport whose
++``kv_batch_get`` keeps the installed client's guard (an empty key list raises ``ValueError``), so the trainer
++must never fetch, decode or clear for a validation batch without rows. A dead worker is simulated by a
++manager that never reports some (or all) prompts and a liveness probe that reports every in-flight prompt
++as orphaned.
++"""
++
++import logging
++from collections import Counter, defaultdict
++from copy import deepcopy
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++import torch
++from omegaconf import OmegaConf
++
++from verl.trainer.ppo.v1 import trainer_base
++from verl.trainer.ppo.v1.agent_loop_tq import _chunk_uids
++from verl.trainer.ppo.v1.replay_buffer import ReplayBuffer
++from verl.trainer.ppo.v1.trainer_base import PPOTrainer
++
++NESTED_FIELDS = ("prompts", "responses")
++TENSOR_FIELDS = ("rm_scores", "num_turns")
++
++
++class MemoryTQ:
++    """Just enough of the TransferQueue API for ``_validate`` and the replay buffer: tags and fields per key."""
++
++    def __init__(self):
++        self.tags: dict[str, dict[str, dict]] = defaultdict(dict)
++        self.fields: dict[str, dict[str, dict]] = defaultdict(dict)
++        self.batch_get_calls: list[list[str]] = []
++        self.clear_calls: list[list[str]] = []
++
++    def kv_put(self, key, partition_id, tag=None, fields=None, **kwargs):
++        if tag:
++            self.tags[partition_id].setdefault(str(key), {}).update(tag)
++        if fields:
++            self.fields[partition_id].setdefault(str(key), {}).update(fields)
++
++    def kv_batch_put(self, keys, partition_id, tags, fields=None, **kwargs):
++        for key, tag in zip(keys, tags, strict=True):
++            self.kv_put(key, partition_id, tag)
++
++    def kv_list(self, partition_id=None):
++        data = deepcopy(self.tags)
++        return data if partition_id is None else {partition_id: data.get(partition_id, {})}
++
++    def kv_clear(self, keys, partition_id):
++        self.clear_calls.append(list(keys))
++        for key in keys:
++            self.tags[partition_id].pop(key, None)
++            self.fields[partition_id].pop(key, None)
++
++    def kv_batch_get(self, keys, partition_id, select_fields=None):
++        if isinstance(keys, list) and len(keys) < 1:
++            raise ValueError("Received an empty list as keys.")  # the installed client's input guard
++        self.batch_get_calls.append(list(keys))
++        rows = [self.fields[partition_id][key] for key in keys]
++        out = {}
++        for name in select_fields:
++            values = [row[name] for row in rows]
++            if name in NESTED_FIELDS:
++                out[name] = torch.nested.as_nested_tensor(values, layout=torch.jagged)
++            elif name in TENSOR_FIELDS:
++                out[name] = torch.stack(values)
++            else:
++                out[name] = np.array(values, dtype=object)
++        return out
++
++    def install(self, monkeypatch) -> None:
++        for name in ("kv_put", "kv_batch_put", "kv_list", "kv_clear", "kv_batch_get"):
++            monkeypatch.setattr(trainer_base.tq, name, getattr(self, name))
++
++
++class Workers:
++    """Agent loop manager stand-in: the first ``healthy_per_batch`` prompts of every dispatched batch get one
++    finished session with a row; the others never report (their worker is dead)."""
++
++    def __init__(self, memory: MemoryTQ, healthy_per_batch: int = 0, score: float = 1.0):
++        self.memory = memory
++        self.healthy_per_batch = healthy_per_batch
++        self.score = score
++        self.dispatched: list[list[str]] = []
++        self.recovery_metrics: Counter = Counter()
++
++    def generate_sequences(self, batch) -> None:
++        uids = _chunk_uids(batch)
++        self.dispatched.append(uids)
++        for uid in uids[: self.healthy_per_batch]:
++            self.memory.kv_put(
++                f"{uid}_0_0",
++                "val",
++                tag={"is_prompt": False, "seq_len": 5, "global_steps": 1},
++                fields={
++                    "uid": uid,
++                    "prompts": torch.tensor([5, 6, 7]),
++                    "responses": torch.tensor([8, 9]),
++                    "rm_scores": torch.tensor([0.0, self.score]),
++                    "num_turns": torch.tensor(1),
++                    "reward_model": {"ground_truth": "42"},
++                    "data_source": "test",
++                    "extra_fields": {"reward_extra_info": {"acc": self.score}},
++                },
++            )
++            self.memory.kv_put(uid, "val", tag={"status": "finished"})
++
++
++class Recorder:
++    def __init__(self, result=None, raises: bool = False):
++        self.calls: list[tuple] = []
++        self.result = result
++        self.raises = raises
++
++    def __call__(self, *args, **kwargs):
++        self.calls.append((args, kwargs))
++        if self.raises:
++            raise AssertionError("must not be called for a validation batch without rows")
++        return args[0] if self.result == "first_arg" else self.result
++
++
++def _decode(ids, skip_special_tokens=True) -> str:
++    return " ".join(str(int(token)) for token in ids if int(token) != 0)
++
++
++def _make_trainer(workers: Workers, batches, n_val: int = 1, colocated: bool = False):
++    """Only what ``_validate`` touches, with the real ``_validate`` / ``_val_metrics_update`` /
++    ``_consume_recovery_metrics`` bound to it and the logging / dump sinks recorded."""
++    trainer = SimpleNamespace(
++        global_steps=1,
++        val_dataloader=[
++            {"raw_prompt": list(prompts), "index": list(range(len(prompts))), "data_source": ["test"] * len(prompts)}
++            for prompts in batches
++        ],
++        config=OmegaConf.create(
++            {
++                "actor_rollout_ref": {"rollout": {"val_kwargs": {"n": n_val}}},
++                "trainer": {"log_val_generations": 1, "validation_data_dir": "recorded"},
++            }
++        ),
++        agent_loop_manager=workers,
++        replay_buffer=ReplayBuffer(
++            trainer_mode="sync",
++            trainer_config={},
++            max_off_policy_threshold=None,
++            max_off_policy_strategy="drop",
++            sampler_kwargs={},
++            poll_interval=0.001,
++            reissue_fn=lambda *args: [],
++            liveness_fn=lambda uids: set(uids),  # every prompt still in flight at the probe lost its worker
++            liveness_period_s=0,
++        ),
++        reward_loop_manager=SimpleNamespace(reward_loop_worker_handles=None if colocated else [object()]),
++        checkpoint_manager=SimpleNamespace(sleep_replicas=Recorder(), update_weights=Recorder()),
++        tokenizer=SimpleNamespace(pad_token_id=0, decode=_decode),
++        _compute_reward_colocate=Recorder(raises=True),
++        _maybe_log_val_generations=Recorder(),
++        _dump_generations=Recorder(),
++    )
++    for name in ("_validate", "_val_metrics_update", "_consume_recovery_metrics"):
++        setattr(trainer, name, getattr(PPOTrainer, name).__get__(trainer))
++    return trainer
++
++
++def _setup(monkeypatch, batches, healthy_per_batch: int = 0, **trainer_kwargs):
++    memory = MemoryTQ()
++    memory.install(monkeypatch)
++    workers = Workers(memory, healthy_per_batch=healthy_per_batch)
++    return memory, workers, _make_trainer(workers, batches, **trainer_kwargs)
++
++
++def test_every_group_of_a_batch_loses_its_worker_with_a_remote_reward_loop(monkeypatch, caplog):
++    """The review's probe, now passing: both prompts of the batch are owned by a dead worker, the probe fails
++    them in place, ``sample`` returns no rows and ``_validate`` completes without fetching, decoding, dumping
++    or clearing an empty key list; the failed count comes back with the validation metrics. No session of the
++    data source materialised, so nothing defines ``acc`` and no accuracy is reported for it."""
++    caplog.set_level(logging.WARNING, logger=trainer_base.__name__)
++    memory, workers, trainer = _setup(monkeypatch, batches=(["a", "b"],))
++    metrics = trainer._validate()
++    assert metrics == {"validation/inflight_dead_worker_failed": 2}
++    assert memory.batch_get_calls == [] and [] not in memory.clear_calls and memory.tags["val"] == {}
++    assert trainer._compute_reward_colocate.calls == [] and trainer._dump_generations.calls == []
++    assert trainer._maybe_log_val_generations.calls == [((), {"inputs": [], "outputs": [], "scores": []})]
++    assert any("no rows to score" in record.message for record in caplog.records)
++
++
++def test_every_group_lost_with_a_colocated_reward_model_skips_the_reward_pass(monkeypatch):
++    memory, workers, trainer = _setup(monkeypatch, batches=(["a"],), colocated=True)
++    assert trainer._validate() == {"validation/inflight_dead_worker_failed": 1}
++    assert trainer._compute_reward_colocate.calls == [] and memory.batch_get_calls == []
++    assert trainer.checkpoint_manager.sleep_replicas.calls == []
++    assert trainer.checkpoint_manager.update_weights.calls == []
++
++
++@pytest.mark.parametrize("colocated", [False, True])
++def test_mixed_batch_decodes_the_healthy_row_and_scores_the_failed_session_zero(monkeypatch, colocated):
++    """One group finished, one lost its worker: the healthy row is fetched, decoded, logged and dumped with
++    aligned lists, and the failed session counts as ``acc = 0`` for its data source."""
++    memory, workers, trainer = _setup(monkeypatch, batches=(["a", "b"],), healthy_per_batch=1, colocated=colocated)
++    trainer._compute_reward_colocate = Recorder(result="first_arg")
++    metrics = trainer._validate()
++    row = f"{workers.dispatched[0][0]}_0_0"
++    assert metrics["validation/inflight_dead_worker_failed"] == 1
++    assert metrics["val-core/test/acc/mean@1"] == pytest.approx(0.5), "healthy 1.0 and the failed session 0.0"
++    assert metrics["val-aux/test/acc_success_only/mean@1"] == pytest.approx(1.0)
++    assert metrics["val-aux/test/reward/mean@1"] == pytest.approx(1.0)
++    assert metrics["val-aux/num_turns/mean"] == 1
++    assert memory.batch_get_calls == [[row], [row]] and [] not in memory.clear_calls and memory.tags["val"] == {}
++    assert len(trainer._compute_reward_colocate.calls) == (1 if colocated else 0)
++    assert len(trainer.checkpoint_manager.update_weights.calls) == (1 if colocated else 0)
++    assert trainer._maybe_log_val_generations.calls == [
++        ((), {"inputs": ["5 6 7"], "outputs": ["8 9"], "scores": [1.0]})
++    ]
++    ((), dump) = trainer._dump_generations.calls[0]
++    assert dump["inputs"] == ["5 6 7"] and dump["outputs"] == ["8 9"] and dump["gts"] == ["42"]
++    assert dump["scores"] == [1.0] and dump["reward_extra_infos_dict"] == {"reward": [1.0], "acc": [1.0], "uid": [row]}
++
++
++def test_single_dead_worker_owning_every_batch_counts_each_batch_and_drains_the_relaunch(monkeypatch):
++    """One worker owned every validation chunk: each batch comes back empty, the failed counts accumulate
++    across batches, and the manager's relaunch counters raised during validation are drained into the
++    validation metrics (re-keyed ``validation/``) instead of being lost or logged with the next step."""
++    memory, workers, trainer = _setup(monkeypatch, batches=(["a", "b"], ["c"]))
++    workers.recovery_metrics.update(
++        {"rollout/dead_workers_relaunched": 1, "rollout/prompts_orphaned_by_dead_workers": 3}
++    )
++    assert trainer._validate() == {
++        "validation/inflight_dead_worker_failed": 3,
++        "validation/dead_workers_relaunched": 1,
++        "validation/prompts_orphaned_by_dead_workers": 3,
++    }
++    assert workers.recovery_metrics == Counter(), "drained by the validation, not double-counted by the step"
++    workers.recovery_metrics["rollout/dead_workers_relaunched"] = 2
++    assert trainer._consume_recovery_metrics() == {"rollout/dead_workers_relaunched": 2}
++
++
++class ScheduledWorkers(Workers):
++    """``healthy_per_batch`` taken per dispatch from ``schedule`` (0 = the chunk's worker is dead)."""
++
++    def __init__(self, memory: MemoryTQ, schedule, score: float = 1.0):
++        super().__init__(memory, healthy_per_batch=0, score=score)
++        self.schedule = list(schedule)
++
++    def generate_sequences(self, batch) -> None:
++        self.healthy_per_batch = self.schedule.pop(0) if self.schedule else 0
++        super().generate_sequences(batch)
++
++
++class LiveWorkersFailingEverySession(Workers):
++    """Upstream failure shape: the worker is alive and marks every group ``failure`` without a row."""
++
++    def generate_sequences(self, batch) -> None:
++        uids = _chunk_uids(batch)
++        self.dispatched.append(uids)
++        for uid in uids:
++            self.memory.kv_put(uid, "val", tag={"status": "failure"})
++
++
++def _with_real_wandb_logger(trainer, generations_to_log: int = 1):
++    """The real ``_maybe_log_val_generations`` and a real ``ValidationGenerationsLogger`` building real wandb
++    tables; ``wandb.run`` is None, so nothing is sent."""
++    import wandb
++
++    from verl.utils.tracking import ValidationGenerationsLogger
++
++    assert wandb.run is None
++    trainer.config.trainer.logger = ["wandb"]
++    trainer.config.trainer.log_val_generations = generations_to_log
++    trainer.validation_generations_logger = ValidationGenerationsLogger()
++    trainer._maybe_log_val_generations = PPOTrainer._maybe_log_val_generations.__get__(trainer)
++    return trainer
++
++
++@pytest.mark.parametrize("schedule", [[0, 1], [1, 0]])
++def test_generations_logger_survives_an_all_lost_validation_before_or_after_a_healthy_one(monkeypatch, schedule):
++    """Stock ``trainer.logger: [..., wandb]`` with ``log_val_generations > 0``: an all-lost validation logs no
++    generations (one warning) and leaves the wandb table as it was, so the healthy validation before or after
++    it keeps its column count."""
++    memory = MemoryTQ()
++    memory.install(monkeypatch)
++    workers = ScheduledWorkers(memory, schedule)
++    trainer = _with_real_wandb_logger(_make_trainer(workers, batches=(["a"],)))
++    results = [trainer._validate(), trainer._validate()]
++    lost, healthy = (results[0], results[1]) if schedule == [0, 1] else (results[1], results[0])
++    assert lost == {"validation/inflight_dead_worker_failed": 1}
++    assert healthy["val-core/test/acc/mean@1"] == pytest.approx(1.0)
++    table = trainer.validation_generations_logger.validation_table
++    assert len(table.data) == 1 and table.columns == ["step", "input_1", "output_1", "score_1"]
++
++
++def test_generations_logger_pads_a_partially_lost_validation_to_the_table_width(monkeypatch):
++    """Fewer samples than before (one of two groups lost) pad their row with None; more samples widen the
++    table and pad the earlier rows."""
++    memory = MemoryTQ()
++    memory.install(monkeypatch)
++    workers = ScheduledWorkers(memory, [2, 1, 2])
++    trainer = _with_real_wandb_logger(_make_trainer(workers, batches=(["a", "b"],)), generations_to_log=4)
++    trainer._validate()
++    partial = trainer._validate()
++    trainer._validate()
++    assert partial["validation/inflight_dead_worker_failed"] == 1
++    table = trainer.validation_generations_logger.validation_table
++    assert len(table.columns) == 1 + 3 * 2 and len(table.data) == 3
++    assert table.data[1][4:] == [None, None, None] and None not in table.data[0] and None not in table.data[2]
++
++
++def test_live_worker_failing_every_session_without_rows_reports_counts_not_a_dead_worker(monkeypatch, caplog):
++    """A live worker that marks every group ``failure`` without rows reaches the same guard: the warning is
++    neutral and ``_validate`` returns the counts instead of the empty dict ``fit()`` rejects."""
++    caplog.set_level(logging.WARNING, logger=trainer_base.__name__)
++    memory = MemoryTQ()
++    memory.install(monkeypatch)
++    workers = LiveWorkersFailingEverySession(memory)
++    trainer = _make_trainer(workers, batches=(["a", "b"], ["c"]))
++    trainer.replay_buffer.liveness_fn = lambda uids: set()  # every worker answers the probe
++    metrics = trainer._validate()
++    assert metrics == {"validation/prompts_expected": 3, "validation/prompts_without_rows": 3}
++    assert memory.batch_get_calls == [] and memory.tags["val"] == {}
++    assert not any("lost its agent loop worker" in record.message for record in caplog.records)
++    assert sum("has no rows to score" in record.message for record in caplog.records) == 2
++
++
++def test_live_worker_rowless_batch_is_counted_beside_a_dead_worker_batch(monkeypatch):
++    """A dead worker's batch and a live worker's row-less batch in one validation: the dead-worker counter and
++    the row-less counts are both reported (the live worker's prompts must not vanish)."""
++    memory = MemoryTQ()
++    memory.install(monkeypatch)
++
++    class Mixed(ScheduledWorkers):
++        def generate_sequences(self, batch) -> None:
++            if not self.schedule:
++                LiveWorkersFailingEverySession.generate_sequences(self, batch)
++                return
++            super().generate_sequences(batch)
++
++    workers = Mixed(memory, [0])
++    trainer = _make_trainer(workers, batches=(["a"], ["b", "c"]))
++    probes = {"n": 0}
++
++    def liveness(uids):
++        probes["n"] += 1
++        return set(uids) if probes["n"] == 1 else set()
++
++    trainer.replay_buffer.liveness_fn = liveness
++    metrics = trainer._validate()
++    assert metrics == {
++        "validation/inflight_dead_worker_failed": 1,
++        "validation/prompts_expected": 3,
++        "validation/prompts_without_rows": 3,
++    }
+diff --git a/verl/trainer/config/_generated_ppo_megatron_trainer.yaml b/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
+index 6ba1342f..46137243 100644
+--- a/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
+@@ -374,6 +374,7 @@ actor_rollout_ref:
+     agent:
+       _target_: verl.workers.config.AgentLoopConfig
+       num_workers: 8
++      relaunch_dead_workers: false
+       default_agent_loop: single_turn_agent
+       agent_loop_config_path: null
+       custom_async_server:
+diff --git a/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml b/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
+index aec2b339..0e4528b8 100644
+--- a/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
+@@ -325,6 +325,7 @@ actor_rollout_ref:
+     agent:
+       _target_: verl.workers.config.AgentLoopConfig
+       num_workers: 8
++      relaunch_dead_workers: false
+       default_agent_loop: single_turn_agent
+       agent_loop_config_path: null
+       custom_async_server:
+diff --git a/verl/trainer/config/_generated_ppo_trainer.yaml b/verl/trainer/config/_generated_ppo_trainer.yaml
+index f8075bc0..f7a000f5 100644
+--- a/verl/trainer/config/_generated_ppo_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_trainer.yaml
+@@ -362,6 +362,7 @@ actor_rollout_ref:
+     agent:
+       _target_: verl.workers.config.AgentLoopConfig
+       num_workers: 8
++      relaunch_dead_workers: false
+       default_agent_loop: single_turn_agent
+       agent_loop_config_path: null
+       custom_async_server:
+diff --git a/verl/trainer/config/_generated_ppo_veomni_trainer.yaml b/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
+index a36b2245..86b6fea8 100644
+--- a/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
+@@ -349,6 +349,7 @@ actor_rollout_ref:
+     agent:
+       _target_: verl.workers.config.AgentLoopConfig
+       num_workers: 8
++      relaunch_dead_workers: false
+       default_agent_loop: single_turn_agent
+       agent_loop_config_path: null
+       custom_async_server:
+diff --git a/verl/trainer/config/rollout/rollout.yaml b/verl/trainer/config/rollout/rollout.yaml
+index d503665c..6b5ca219 100644
+--- a/verl/trainer/config/rollout/rollout.yaml
++++ b/verl/trainer/config/rollout/rollout.yaml
+@@ -257,6 +257,10 @@ agent:
+   # Number of agent loop workers
+   num_workers: 8
+ 
++  # V1 TransferQueue trainers only: re-create an agent loop worker whose Ray actor died
++  # (node loss, OOM kill, crash) and re-dispatch the prompts it owned instead of raising.
++  relaunch_dead_workers: false
++
+   # default agent loop to use if `agent_name` not set in RL dataset
+   default_agent_loop: single_turn_agent
+ 
+diff --git a/verl/trainer/ppo/v1/agent_loop_tq.py b/verl/trainer/ppo/v1/agent_loop_tq.py
+index b8db3c35..e83871f4 100644
+--- a/verl/trainer/ppo/v1/agent_loop_tq.py
++++ b/verl/trainer/ppo/v1/agent_loop_tq.py
+@@ -18,7 +18,9 @@
+ import asyncio
+ import logging
+ import os
++from collections import Counter
+ from typing import Any
++from uuid import uuid4
+ 
+ import ray
+ import torch
+@@ -37,6 +39,19 @@ from verl.utils.tensordict_utils import list_of_dict_to_tensordict
+ logger = logging.getLogger(__name__)
+ logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
+ 
++# How long a liveness probe may wait for a busy worker before it is assumed alive (only an actor error is "dead").
++WORKER_LIVENESS_PROBE_TIMEOUT_SECONDS = float(os.getenv("VERL_WORKER_LIVENESS_PROBE_TIMEOUT_SECONDS", "2"))
++# Consecutive ActorUnavailableError results (transient by Ray's definition) before a worker counts as dead.
++WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD = int(os.getenv("VERL_WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD", "3"))
++# How long the second-opinion ping after an unavailable dispatch reply may wait before the worker counts as busy.
++DISPATCH_RETRY_INTERVAL_SECONDS = float(os.getenv("VERL_DISPATCH_RETRY_INTERVAL_SECONDS", "1"))
++# Re-creations of one worker index without a served dispatch in between before the manager gives up.
++MAX_WORKER_RELAUNCHES = int(os.getenv("VERL_MAX_WORKER_RELAUNCHES", "5"))
++
++
++def _chunk_uids(chunk: TensorDict) -> list[str]:
++    return [str(uid) for uid in chunk["uid"]] if "uid" in chunk.keys() else []
++
+ 
+ def apply_greedy_sampling_params(params: dict[str, Any]) -> None:
+     # Greedy REMAX baselines are used for their rewards, not score-centering training heads.
+@@ -58,6 +73,10 @@ class AgentLoopWorkerTQ(AgentLoopWorker):
+         tq.init()
+         self.background_tasks = set()
+ 
++    async def ping(self) -> bool:
++        """Liveness probe used by :meth:`AgentLoopManagerTQ.reap_dead_workers`."""
++        return True
++
+     async def generate_sequences(self, batch: TensorDict) -> None:
+         """Spawn agent loop for each sample in the batch without waiting for the results."""
+         validate = batch["validate"] if "validate" in batch else False
+@@ -236,8 +255,24 @@ class AgentLoopManagerTQ(AgentLoopManager):
+     def __init__(self, *args, **kwargs):
+         self.agent_loop_workers_class = AgentLoopWorkerTQ
+         super().__init__(*args, **kwargs)
++        self.relaunch_dead_workers = bool(self.rollout_config.agent.get("relaunch_dead_workers", False))
+         # Rotating start index: small refill / re-issue batches must not always land on worker 0.
+         self._dispatch_cursor = 0
++        # uid -> index of the worker that received its latest dispatch. Kept only with relaunch_dead_workers on;
++        # pruned to the in-flight set on every reap, so it is bounded by the number of prompts in flight.
++        self._prompt_owner: dict[str, int] = {}
++        # uids a dead worker left in flight, handed to the replay buffer by partition as it polls.
++        self._orphaned_uids: set[str] = set()
++        # index -> re-creations since the worker last served a dispatch / consecutive unavailable probes.
++        self._relaunch_streak: Counter = Counter()
++        self._unavailable_streak: Counter = Counter()
++        # index -> re-creations within the current training step (never reset by a served dispatch); counted
++        # once the trainer's liveness probe has told the manager the step (reap_dead_workers(global_steps=...)).
++        self._relaunches_in_step: Counter = Counter()
++        self._relaunch_step: int | None = None
++        # Recovery counters (``rollout/...``), drained by the trainer once per training step and, re-keyed as
++        # ``validation/...``, by ``_validate`` (see PPOTrainer._consume_recovery_metrics).
++        self.recovery_metrics: Counter = Counter()
+ 
+     @classmethod
+     @auto_await
+@@ -247,13 +282,45 @@ class AgentLoopManagerTQ(AgentLoopManager):
+         await instance._init_agent_loop_workers()
+         return instance
+ 
++    async def _init_agent_loop_workers(self):
++        num_workers = self.rollout_config.agent.num_workers
++        node_ids = self._alive_cpu_node_ids()
++        self.agent_loop_workers = [self._launch_worker(i, node_ids) for i in range(num_workers)]
++
++    @staticmethod
++    def _alive_cpu_node_ids() -> list[str]:
++        return [node["NodeID"] for node in ray.nodes() if node["Alive"] and node["Resources"].get("CPU", 0) > 0]
++
++    def _launch_worker(self, index: int, node_ids: list[str] | None = None) -> ray.actor.ActorHandle:
++        """Create agent loop worker ``index`` with the manager's construction arguments.
++
++        Same placement rule as ``AgentLoopManager``: round-robin over the alive CPU nodes with soft affinity.
++        Re-creating a dead worker goes through the same path, so one whose node vanished lands elsewhere.
++        """
++        if node_ids is None:
++            node_ids = self._alive_cpu_node_ids()
++        return self.agent_loop_workers_class.options(
++            name=f"agent_loop_worker_{index}" + f"_{uuid4().hex[:8]}",
++            scheduling_strategy=ray.util.scheduling_strategies.NodeAffinitySchedulingStrategy(
++                node_id=node_ids[index % len(node_ids)], soft=True
++            ),
++        ).remote(
++            self.config,
++            self.llm_client,
++            self.teacher_client,
++            self.reward_loop_worker_handles,
++        )
++
+     def generate_sequences(self, prompts: TensorDict) -> None:
+         """
+         Dispatch input batch to agent loop workers without blocking. Workers should put agent loop outputs
+         into TransferQueue once an agent loop finished.
+ 
+         Chunks are assigned from a rotating start index so that a batch smaller than the worker count (refill,
+-        re-issue) spreads over the workers instead of always hitting the lowest indices.
++        re-issue) spreads over the workers instead of always hitting the lowest indices. A dispatch whose reply
++        is a ``RayActorError`` is never sent again (the call may have executed): with
++        ``rollout.agent.relaunch_dead_workers`` the chunk's prompts are parked for the replay buffer to re-issue
++        under fresh uids and a dead worker is re-created, otherwise the error is logged and re-raised as is.
+ 
+         Args:
+             prompts (TensorDict): Input batch from train or validation dataset.
+@@ -262,9 +329,152 @@ class AgentLoopManagerTQ(AgentLoopManager):
+         chunks = prompts.chunk(num_workers)
+         start = self._dispatch_cursor
+         self._dispatch_cursor = (start + len(chunks)) % num_workers
+-        ray.get(
+-            [
+-                self.agent_loop_workers[(start + i) % num_workers].generate_sequences.remote(chunk)
+-                for i, chunk in enumerate(chunks)
+-            ]
++        dispatches = []
++        for i, chunk in enumerate(chunks):
++            index = (start + i) % num_workers
++            dispatches.append((index, chunk, self.agent_loop_workers[index].generate_sequences.remote(chunk)))
++        for index, chunk, ref in dispatches:
++            try:
++                ray.get(ref)
++            except ray.exceptions.RayActorError as error:
++                self._recover_dispatch(index, chunk, error)
++                continue
++            self._relaunch_streak[index] = 0
++            self._unavailable_streak[index] = 0
++            if self.relaunch_dead_workers:
++                for uid in _chunk_uids(chunk):
++                    self._prompt_owner[uid] = index
++
++    def _recover_dispatch(self, index: int, chunk: TensorDict, error: ray.exceptions.RayActorError) -> None:
++        """Handle a dispatch whose reply was an actor error. The chunk is never sent a second time.
++
++        Ray cannot say whether the call executed, so a re-send could start a second live attempt of the same
++        uids on the same keys. Instead the chunk's prompts stay ``pending``/``running`` in TransferQueue and are
++        parked in ``_orphaned_uids``: the replay buffer collects them through :meth:`reap_dead_workers` and
++        re-issues them under fresh uids (old rows cleared), or drops them from the parked set once they reach a
++        terminal status on their own. A dead worker is re-created; a merely unavailable one is marked suspect.
++        """
++        uids = _chunk_uids(chunk)
++        if not self.relaunch_dead_workers:
++            logger.error(
++                f"Agent loop worker {index} failed a dispatch of {len(uids)} prompts "
++                f"(uids {uids[:4]}{'...' if len(uids) > 4 else ''}, {type(error).__name__}); their TransferQueue "
++                "status stays non-terminal. Set actor_rollout_ref.rollout.agent.relaunch_dead_workers=True to "
++                "re-create dead workers and trainer.v1.sampler.inflight_ttl_s to re-issue the prompts they left."
++            )
++            raise error
++        if isinstance(error, ray.exceptions.ActorUnavailableError) and not self._confirm_dead_after_unavailable(index):
++            logger.warning(
++                f"Agent loop worker {index} was unavailable for a dispatch of {len(uids)} prompts; they are parked "
++                "for re-issue and the worker is suspect"
++            )
++        else:
++            self._orphan_worker(index, error)
++        self._orphaned_uids.update(uids)
++        self.recovery_metrics["rollout/prompts_orphaned_at_dispatch"] += len(uids)
++
++    def _confirm_dead_after_unavailable(self, index: int) -> bool:
++        """Second opinion after an unavailable dispatch reply: one ping bounded by DISPATCH_RETRY_INTERVAL_SECONDS.
++
++        A ping that answers resets the unavailable streak; one that times out counts as busy; an actor error
++        goes through the same consecutive-failure rule as the periodic probe.
++        """
++        self._unavailable_streak[index] += 1
++        ref = self.agent_loop_workers[index].ping.remote()
++        ready, _ = ray.wait([ref], timeout=DISPATCH_RETRY_INTERVAL_SECONDS)
++        if not ready:
++            return False
++        try:
++            ray.get(ref)
++        except ray.exceptions.RayActorError as probe_error:
++            return self._probe_marks_dead(index, probe_error)
++        self._unavailable_streak[index] = 0
++        return False
++
++    def _orphan_worker(self, index: int, error: BaseException) -> None:
++        """Park every prompt worker ``index`` still owns and re-create it (when relaunching is enabled)."""
++        owned = {uid for uid, owner in self._prompt_owner.items() if owner == index}
++        for uid in owned:
++            del self._prompt_owner[uid]
++        self._orphaned_uids |= owned
++        self.recovery_metrics["rollout/prompts_orphaned_by_dead_workers"] += len(owned)
++        logger.warning(f"Agent loop worker {index} died with {len(owned)} prompts in flight: {sorted(owned)[:4]}")
++        if self.relaunch_dead_workers:
++            self._relaunch_worker(index, error)
++
++    def _relaunch_worker(self, index: int, error: BaseException) -> None:
++        """Replace worker ``index`` with a fresh actor; give up loudly after ``MAX_WORKER_RELAUNCHES`` re-creations
++        in a row without a served dispatch, or within one training step regardless of service (a worker that
++        dies after every served dispatch must not be re-created forever)."""
++        self._relaunch_streak[index] += 1
++        self._relaunches_in_step[index] += 1
++        if self._relaunch_streak[index] > MAX_WORKER_RELAUNCHES:
++            raise RuntimeError(
++                f"Agent loop worker {index} was re-created {MAX_WORKER_RELAUNCHES} times without serving a "
++                f"dispatch; giving up (last error: {error!r})"
++            ) from error
++        if self._relaunch_step is not None and self._relaunches_in_step[index] > MAX_WORKER_RELAUNCHES:
++            raise RuntimeError(
++                f"Agent loop worker {index} was re-created {MAX_WORKER_RELAUNCHES} times within training step "
++                f"{self._relaunch_step}; giving up (last error: {error!r})"
++            ) from error
++        old_worker = self.agent_loop_workers[index]
++        logger.warning(
++            f"Agent loop worker {index} is dead ({type(error).__name__}); re-creating it "
++            f"(attempt {self._relaunch_streak[index]}/{MAX_WORKER_RELAUNCHES}): {error}"
+         )
++        self.agent_loop_workers[index] = self._launch_worker(index)
++        try:
++            # Best effort: an "unavailable" actor must not come back and write statuses for retired attempts.
++            ray.kill(old_worker, no_restart=True)
++        except Exception:  # noqa: BLE001 - the handle may already be gone
++            pass
++        self.recovery_metrics["rollout/dead_workers_relaunched"] += 1
++
++    def _probe_marks_dead(self, index: int, error: ray.exceptions.RayActorError) -> bool:
++        """``ActorDiedError`` is final; ``ActorUnavailableError`` must repeat on consecutive probes to count."""
++        if isinstance(error, ray.exceptions.ActorUnavailableError):
++            self._unavailable_streak[index] += 1
++            if self._unavailable_streak[index] < WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD:
++                logger.warning(
++                    f"Agent loop worker {index} unavailable ({self._unavailable_streak[index]}/"
++                    f"{WORKER_UNAVAILABLE_PROBES_BEFORE_DEAD} consecutive probes): {error}"
++                )
++                return False
++        self._unavailable_streak[index] = 0
++        return True
++
++    def reap_dead_workers(self, inflight_uids: set[str], global_steps: int | None = None) -> set[str]:
++        """Probe every worker and return the in-flight uids whose owner died (accumulated until consumed).
++
++        A probe that merely times out is a busy, live worker. Dead workers are re-created when
++        ``relaunch_dead_workers`` is on. The caller (the replay buffer) re-issues or fails the returned uids
++        of the partition it is polling, since the dead worker can never write their terminal status. The set
++        also carries chunks parked by a failed dispatch; prompts that reached a terminal status on their own
++        leave it at the next call.
++
++        Args:
++            inflight_uids: prompt uids pending/running across every partition, used to prune bookkeeping.
++            global_steps: the training step of the caller; a new step resets the per-step relaunch counts.
++        """
++        if global_steps is not None and global_steps != self._relaunch_step:
++            self._relaunch_step = global_steps
++            self._relaunches_in_step.clear()
++        refs = [worker.ping.remote() for worker in self.agent_loop_workers]
++        ready, _ = ray.wait(refs, num_returns=len(refs), timeout=WORKER_LIVENESS_PROBE_TIMEOUT_SECONDS)
++        dead: list[tuple[int, BaseException]] = []
++        for index, ref in enumerate(refs):
++            if ref not in ready:
++                continue
++            try:
++                ray.get(ref)
++                self._unavailable_streak[index] = 0
++            except ray.exceptions.RayActorError as error:
++                if self._probe_marks_dead(index, error):
++                    dead.append((index, error))
++
++        self._prompt_owner = {uid: owner for uid, owner in self._prompt_owner.items() if uid in inflight_uids}
++        self._orphaned_uids &= inflight_uids
++        for index, error in dead:
++            self._orphan_worker(index, error)
++        return set(self._orphaned_uids)
+diff --git a/verl/trainer/ppo/v1/replay_buffer.py b/verl/trainer/ppo/v1/replay_buffer.py
+index c66adc4a..315fb483 100644
+--- a/verl/trainer/ppo/v1/replay_buffer.py
++++ b/verl/trainer/ppo/v1/replay_buffer.py
+@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
+ logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
+ 
+ VERL_REPLAY_BUFFER_DEBUG_INTERVAL_SECONDS = int(os.getenv("VERL_REPLAY_BUFFER_DEBUG_INTERVAL_SECONDS", "60"))
++# How often the sampling loops probe agent loop workers for liveness when ``liveness_fn`` is wired.
++WORKER_LIVENESS_PERIOD_SECONDS = float(os.getenv("VERL_WORKER_LIVENESS_PERIOD_SECONDS", "10"))
+ 
+ DAPO_FILTERED_REWARD_COUNTS_KEY = "_dapo_filtered_reward_counts"
+ FILTER_GROUPS_REWARD_METRIC = "reward"
+@@ -147,12 +149,17 @@ class ReplayBuffer:
+             ``max_inflight_reissues=0`` never re-issues: an expired prompt is failed on its first expiry.
+         reissue_fn (callable, optional): Trainer-injected ``(partition_id, uids) -> list[str]`` that discards
+             the partial rows of those in-flight prompts, re-dispatches them under fresh uids and returns the
+-            uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` is set.
++            uids it actually retired (see [In-flight recovery]). Required when ``inflight_ttl_s`` or
++            ``liveness_fn`` is set.
++        liveness_fn (callable, optional): Trainer-injected ``(inflight_uids) -> set[str]`` that probes the
++            agent loop workers and returns the in-flight uids whose worker died.
++        liveness_period_s (float, optional): Seconds between probes; defaults to
++            ``WORKER_LIVENESS_PERIOD_SECONDS`` (env ``VERL_WORKER_LIVENESS_PERIOD_SECONDS``).
+ 
+     ### [In-flight recovery]
+     Only the agent loop worker that runs a prompt writes its terminal status. If that worker dies or its
+     generation silently hangs, the prompt stays ``running`` forever and sampling never completes. With
+-    ``inflight_ttl_s`` the loops re-issue such prompts through ``reissue_fn`` and keep polling.
++    ``inflight_ttl_s``/``liveness_fn`` the loops re-issue such prompts through ``reissue_fn`` and keep polling.
+     A re-issued prompt gets a fresh uid, so late writes from the retired attempt (a slow-not-dead worker) can
+     never merge into the new group; the buffer sweeps any key the retired attempt still writes. The trainer
+     never sees partial rows: the old trajectories are cleared before the new attempt is dispatched. After
+@@ -167,7 +174,7 @@ class ReplayBuffer:
+     regenerates). The number of TTL-induced discards per step is therefore bounded by the budget; a generation
+     that never returns still blocks the step once it is spent, as without a TTL (an explicit wait-vs-abort
+     policy at that point is a follow-up). Validation prompts are never regenerated: the TTL does not apply to
+-    ``val``.
++    ``val``, and a dead worker's validation groups are marked ``failure`` in place.
+     """
+ 
+     def __init__(
+@@ -188,6 +195,8 @@ class ReplayBuffer:
+         max_inflight_reissues: int = 3,
+         max_inflight_reissues_per_step: int | None = None,
+         reissue_fn=None,
++        liveness_fn=None,
++        liveness_period_s: float | None = None,
+     ):
+         self.trainer_mode = trainer_mode
+         self.trainer_config = trainer_config
+@@ -205,6 +214,8 @@ class ReplayBuffer:
+         self.max_inflight_reissues = max_inflight_reissues
+         self.max_inflight_reissues_per_step = max_inflight_reissues_per_step
+         self.reissue_fn = reissue_fn
++        self.liveness_fn = liveness_fn
++        self.liveness_period_s = liveness_period_s
+ 
+         if self.inflight_ttl_s is not None:
+             assert (
+@@ -227,8 +238,8 @@ class ReplayBuffer:
+                 "positive integer or null (null = (max_inflight_reissues + 1) x train_batch_size; to disable the "
+                 "TTL set inflight_ttl_s to null)"
+             )
+-        if self.inflight_ttl_s is not None and self.reissue_fn is None:
+-            raise ValueError("inflight_ttl_s requires reissue_fn to re-issue expired in-flight prompts")
++        if (self.inflight_ttl_s is not None or self.liveness_fn is not None) and self.reissue_fn is None:
++            raise ValueError("inflight_ttl_s / liveness_fn require reissue_fn to re-issue stuck in-flight prompts")
+         if self.max_off_policy_threshold is not None:
+             assert isinstance(self.max_off_policy_threshold, int) and self.max_off_policy_threshold > 0, (
+                 f"Invalid max off policy threshold: {self.max_off_policy_threshold}, "
+@@ -266,7 +277,13 @@ class ReplayBuffer:
+         # partition_id => the global_steps whose TTL budget is open / discards spent in it / warned once.
+         self._ttl_budget_step: dict[str, int] = {}
+         self._ttl_discards_in_step: dict[str, int] = defaultdict(int)
++        # partition_id => prompts re-issued or failed in the step because the liveness probe reported their
++        # worker dead, and the probes that did so (death events): one death may orphan many prompts, so the
++        # events are what the allowance bounds (a worker that keeps dying must fail loudly, not loop).
++        self._dead_worker_discards_in_step: dict[str, int] = defaultdict(int)
++        self._dead_worker_events_in_step: dict[str, int] = defaultdict(int)
+         self._ttl_suspension_warned: set[str] = set()
++        self._liveness_last_probe = 0.0
+ 
+     def _validate_mode_config(self) -> None:
+         if self.filter_groups_metric is not None:
+@@ -380,10 +397,29 @@ class ReplayBuffer:
+                 status_keys[partition_id].difference_update(late_keys)
+         return len(late_keys)
+ 
+-    def _fail_exhausted(self, partition_id: str, uids: set[str]) -> None:
+-        """Turn groups whose re-issues are exhausted into ``failure`` under fresh uids, so the existing failure
+-        paths (padding, refill) finish the step; the old attempt is retired and its rows cleared, as for a
+-        re-issue."""
++    def _probe_dead_owned(self, partition_id: str, now: float) -> set[str]:
++        """In-flight prompts of ``partition_id`` whose worker the liveness probe reports dead (once per period)."""
++        if self.liveness_fn is None:
++            return set()
++        period = self.liveness_period_s if self.liveness_period_s is not None else WORKER_LIVENESS_PERIOD_SECONDS
++        if now - self._liveness_last_probe < period:
++            return set()
++        self._liveness_last_probe = now
++        # Hand over every partition's in-flight set: train prompts stay in flight during validation.
++        partitions = set(self.pending_keys) | set(self.running_keys)
++        inflight_all = set().union(*(self._inflight_uids(pid) for pid in partitions))
++        return set(self.liveness_fn(inflight_all)) & self._inflight_uids(partition_id)
++
++    def _fail_groups(self, partition_id: str, uids: set[str], fresh_uid: bool) -> None:
++        """Turn stuck groups into ``failure`` so the existing failure paths (padding, refill) finish the step.
++
++        With ``fresh_uid`` (re-issues exhausted) the old attempt is retired and its rows cleared, as for a
++        re-issue. Validation groups keep their uid (``_validate`` accounts per uid); their writer is dead.
++        """
++        if not fresh_uid:
++            for uid in sorted(uids):
++                tq.kv_put(key=uid, partition_id=partition_id, tag={"status": "failure"})
++            return
+         tags = [
+             {
+                 "is_prompt": True,
+@@ -411,6 +447,8 @@ class ReplayBuffer:
+         if self._ttl_budget_step.get(partition_id) != global_steps:
+             self._ttl_budget_step[partition_id] = global_steps
+             self._ttl_discards_in_step[partition_id] = 0
++            self._dead_worker_discards_in_step[partition_id] = 0
++            self._dead_worker_events_in_step[partition_id] = 0
+             self._ttl_suspension_warned.discard(partition_id)
+ 
+     def _within_reissue_budget(
+@@ -465,7 +503,7 @@ class ReplayBuffer:
+         reissue_budget: int | None = None,
+         keep_last_finishable: bool = False,
+     ) -> bool:
+-        """Re-issue or fail in-flight prompts that expired; True when the caller must re-poll.
++        """Re-issue or fail in-flight prompts that expired or whose worker died; True when the caller must re-poll.
+ 
+         Runs on a fresh ``_sync_metadata_from_transfer_queue`` snapshot and re-checks the TransferQueue right
+         before acting, so a group that reached a terminal status in the meantime is sampled, never retired.
+@@ -475,12 +513,14 @@ class ReplayBuffer:
+         padding-mode sampler, where a failure is not replaced) an exhaustion failure that would leave no finished
+         group and nothing else in flight is held back for this poll instead (see ``_hold_back_last_groups``).
+         """
+-        if self.reissue_fn is None:
++        if self.reissue_fn is None and self.liveness_fn is None:
+             return False
+         self._sweep_retired_attempts(partition_id)
+ 
+         now = time.time()
+-        stuck = expired = self._expired_inflight_keys(partition_id, now)
++        expired = self._expired_inflight_keys(partition_id, now)
++        dead_owned = self._probe_dead_owned(partition_id, now)
++        stuck = expired | dead_owned
+         if not stuck:
+             return False
+         prefix = self._metrics_prefix(partition_id)
+@@ -495,6 +535,11 @@ class ReplayBuffer:
+         stuck &= self._inflight_uids(partition_id)
+         if not stuck:
+             return True
++        if partition_id == "val":
++            logger.warning(f"[V1ReplayBuffer] marking {len(stuck)} validation prompts of dead workers as failure")
++            self._fail_groups(partition_id, stuck, fresh_uid=False)
++            count("inflight_dead_worker_failed", len(stuck))
++            return True
+         if draining:
+             # Sync DAPO drain: every in-flight group is discarded as surplus anyway, so do not regenerate.
+             self._clear_groups(partition_id, stuck)
+@@ -505,18 +550,21 @@ class ReplayBuffer:
+         attempts = self.prompt_attempt[partition_id]
+         exhausted = {uid for uid in stuck if attempts.get(uid, 1) > self.max_inflight_reissues}
+         to_reissue = stuck - exhausted
+-        if reissue_budget is not None and (to_reissue or exhausted):
++        if reissue_budget is not None and ((to_reissue | exhausted) - dead_owned):
+             # A re-issue and the failure that ends an exhausted prompt (the refill path then starts another
+-            # generation) are both TTL-induced discards: the step budget bounds their sum.
+-            allowed = self._within_reissue_budget(
+-                partition_id, to_reissue | exhausted, eviction_metrics, reissue_budget
++            # generation) are both TTL-induced discards: the step budget bounds their sum. A dead worker's
++            # prompts are retired regardless and never charged.
++            allowed = dead_owned | self._within_reissue_budget(
++                partition_id, (to_reissue | exhausted) - dead_owned, eviction_metrics, reissue_budget
+             )
+             to_reissue, exhausted = to_reissue & allowed, exhausted & allowed
+-        if exhausted and keep_last_finishable:
++        if exhausted - dead_owned and keep_last_finishable:
++            # Only the TTL's own failures are held back: a dead worker's groups are failed regardless, and when
++            # no live producer remains the sampler's all-failed RuntimeError is the honest outcome.
+             survivors = (self._inflight_uids(partition_id) - exhausted) | self.finished_keys[partition_id]
+             if not survivors:
+-                self._hold_back_last_groups(partition_id, exhausted, eviction_metrics, reissue_budget)
+-                exhausted = set()
++                self._hold_back_last_groups(partition_id, exhausted - dead_owned, eviction_metrics, reissue_budget)
++                exhausted &= dead_owned
+         if not to_reissue and not exhausted:
+             return False  # the step budget holds every expired prompt back: wait, as without a TTL
+         reissued: set[str] = set()
+@@ -529,7 +577,9 @@ class ReplayBuffer:
+                     "including engine queueing, or healthy generations are restarted from scratch"
+                 )
+             logger.warning(
+-                f"[V1ReplayBuffer] re-issuing {len(to_reissue)} expired in-flight prompts (oldest age: {age_max:.1f}s)"
++                f"[V1ReplayBuffer] re-issuing {len(to_reissue)} stuck in-flight prompts "
++                f"(ttl expired: {len(to_reissue & expired)}, dead worker: {len(to_reissue & dead_owned)}, "
++                f"oldest age: {age_max:.1f}s)"
+             )
+             result = self.reissue_fn(partition_id, sorted(to_reissue))
+             claimed = None if isinstance(result, int) else set(result)
+@@ -545,14 +595,30 @@ class ReplayBuffer:
+                 f"[V1ReplayBuffer] {len(exhausted)} prompts exceeded max_inflight_reissues="
+                 f"{self.max_inflight_reissues}; marking them failure: {sorted(exhausted)[:4]}"
+             )
+-            self._fail_exhausted(partition_id, exhausted)
+-        self._ttl_discards_in_step[partition_id] += len(reissued) + len(exhausted)
++            self._fail_groups(partition_id, exhausted, fresh_uid=True)
++        self._ttl_discards_in_step[partition_id] += len(reissued - dead_owned) + len(exhausted - dead_owned)
+ 
+         count("inflight_reissued", len(reissued))
++        count("inflight_dead_worker_reissued", len(reissued & dead_owned))
+         count("inflight_reissue_exhausted", len(exhausted))
+         if expired & (reissued | exhausted):
+             key = f"{prefix}/inflight_expired_age_max"
+             eviction_metrics[key] = max(eviction_metrics.get(key, 0.0), age_max)
++        dead_discards = len(reissued & dead_owned) + len(exhausted & dead_owned)
++        if dead_discards and reissue_budget is not None:
++            self._dead_worker_discards_in_step[partition_id] += dead_discards
++            self._dead_worker_events_in_step[partition_id] += 1
++            if self._dead_worker_events_in_step[partition_id] > reissue_budget:
++                raise RuntimeError(
++                    f"[V1ReplayBuffer] agent-loop workers keep dying: "
++                    f"{self._dead_worker_events_in_step[partition_id]} liveness probes of step "
++                    f"{self._ttl_budget_step.get(partition_id)} reported dead workers and "
++                    f"{self._dead_worker_discards_in_step[partition_id]} prompts of step "
++                    f"{self._ttl_budget_step.get(partition_id)} were re-issued or failed because of it, more than "
++                    f"the allowance of {reissue_budget} death events (= (max_inflight_reissues + 1) x prompts per "
++                    "step); the re-created workers are not serving, giving up instead of regenerating forever "
++                    "(see rollout/dead_workers_relaunched)"
++                )
+         return True
+ 
+     def _dapo_filtered_keys(self, partition_id: str) -> tuple[set[str], Counter]:
+diff --git a/verl/trainer/ppo/v1/trainer_base.py b/verl/trainer/ppo/v1/trainer_base.py
+index c4fc1868..b6e5a66e 100644
+--- a/verl/trainer/ppo/v1/trainer_base.py
++++ b/verl/trainer/ppo/v1/trainer_base.py
+@@ -179,10 +179,13 @@ class PPOTrainer(ABC):
+             sampler_kwargs=sampler_config.sampler_kwargs,
+             refill_fn=self._add_prompts_to_generate,
+         )
+-        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts that
+-        # re-issues stuck prompts mid-run. Opt-in.
++        # In-flight recovery (see ReplayBuffer [In-flight recovery]): a TTL on pending/running prompts and a
++        # liveness probe of the agent loop workers, both re-issuing stuck prompts mid-run. Opt-in.
+         inflight_ttl_s = sampler_config.get("inflight_ttl_s", None)
+-        self.inflight_recovery_enabled = inflight_ttl_s is not None
++        relaunch_dead_workers = bool(
++            OmegaConf.select(self.config, "actor_rollout_ref.rollout.agent.relaunch_dead_workers", default=False)
++        )
++        self.inflight_recovery_enabled = inflight_ttl_s is not None or relaunch_dead_workers
+         # Preserve the existing constructor contract for external samplers; custom implementations own
+         # their filtering semantics and can consume algorithm.filter_groups through their own config.
+         if not has_custom_sampler:
+@@ -200,6 +203,7 @@ class PPOTrainer(ABC):
+                     max_inflight_reissues_per_step=None if reissues_per_step is None else int(reissues_per_step),
+                     reissue_fn=self._reissue_inflight_prompts,
+                     train_batch_size=self.config.data.train_batch_size,  # the step's prompt count for the budget
++                    liveness_fn=self._reap_dead_workers if relaunch_dead_workers else None,
+                 )
+             if sampler_cls is ReplayBuffer:
+                 filter_groups = self.config.algorithm.get("filter_groups", None)
+@@ -518,6 +522,7 @@ class PPOTrainer(ABC):
+ 
+                 self.on_step_end()
+                 metrics.update(self._consume_sync_metrics())
++                metrics.update(self._consume_recovery_metrics())
+ 
+             # 4. validate
+             if self.config.trainer.test_freq > 0 and (
+@@ -710,6 +715,22 @@ class PPOTrainer(ABC):
+         self._pending_sync_metrics = {}
+         return metrics
+ 
++    def _consume_recovery_metrics(self, prefix: str = "rollout") -> dict:
++        """Dead-worker relaunch counters the agent loop manager accumulated since the last drain (its
++        ``rollout/...`` keys), re-keyed under ``prefix``: ``rollout/`` for a training step, ``validation/`` when
++        ``_validate`` drains them."""
++        counters = getattr(self.agent_loop_manager, "recovery_metrics", None)
++        if not counters:
++            return {}
++        metrics = {f"{prefix}/{name.removeprefix('rollout/')}": value for name, value in counters.items()}
++        counters.clear()
++        return metrics
++
++    def _reap_dead_workers(self, inflight_uids: set[str]) -> set[str]:
++        """Replay-buffer liveness hook: in-flight uids whose agent loop worker died (relaunched by the manager)."""
++        reap = getattr(self.agent_loop_manager, "reap_dead_workers", None)
++        return reap(inflight_uids, global_steps=self.global_steps) if reap is not None else set()
++
+     def on_sample_begin(self):
+         """Called at the beginning of sampling batch from replay buffer."""
+         return
+@@ -1110,6 +1131,9 @@ class PPOTrainer(ABC):
+         session_to_sample_idx: dict[str, int] = {}
+         # To avoid failure sessions
+         expected_acc_counts: dict[tuple[str, str], int] = {}
++        # Sampling-time recovery counters (dead-worker groups failed in place), summed over the batches.
++        recovery_metrics: dict[str, float] = {}
++        prompts_expected = prompts_without_rows = 0
+ 
+         for batch_dict in self.val_dataloader:
+             # 1. put batch to agent loop manager
+@@ -1126,6 +1150,7 @@ class PPOTrainer(ABC):
+             ):
+                 rollout_n = int(rollout_n)
+                 expected_acc_counts[(str(data_source), str(uid))] = rollout_n
++            prompts_expected += batch_size
+ 
+             batch = tu.get_tensordict(batch_dict)
+             tu.assign_non_tensor_data(batch, "global_steps", self.global_steps)
+@@ -1137,9 +1162,22 @@ class PPOTrainer(ABC):
+             self.agent_loop_manager.generate_sequences(batch)
+ 
+             # 2. sample batch from replay buffer: one prompt (GRPO group) per submitted row.
+-            batch, _ = self.replay_buffer.sample(
++            batch, sample_metrics = self.replay_buffer.sample(
+                 global_steps=self.global_steps, partition_id="val", batch_size=len(batch)
+             )
++            for key, value in sample_metrics.items():
++                recovery_metrics[key] = recovery_metrics.get(key, 0) + value
++            if not batch.keys:
++                # Every group of this batch ended without a trajectory (a dead worker's groups failed in place,
++                # or a live worker marked them failure): there is no row to score, fetch, decode, dump or clear
++                # (TransferQueue rejects an empty key list). The sessions stay in expected_acc_counts and count
++                # as acc = 0 wherever their data source reports acc.
++                prompts_without_rows += batch_size
++                logger.warning(
++                    f"[PPOTrainer] validation batch of {batch_size} prompts has no rows to score: every group "
++                    "ended without a trajectory; its sessions count as failures"
++                )
++                continue
+ 
+             # 3. [OPTIONAL] compute reward score with colocated reward model
+             if self.reward_loop_manager.reward_loop_worker_handles is None:
+@@ -1225,9 +1263,9 @@ class PPOTrainer(ABC):
+         # logger to wandb
+         self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
+ 
+-        # dump to local dir
++        # dump to local dir (nothing to write when every group lost its worker)
+         val_data_dir = self.config.trainer.get("validation_data_dir", None)
+-        if val_data_dir:
++        if val_data_dir and dump_all_keys:
+             # Sort according to uid (so that generations in the same rollout are together)
+             sort_keys = []
+             for key in dump_all_keys:
+@@ -1258,19 +1296,35 @@ class PPOTrainer(ABC):
+                 dump_path=val_data_dir,
+             )
+ 
+-        return self._val_metrics_update(
++        metrics = self._val_metrics_update(
+             data_sources,
+             sample_uids,
+             reward_extra_infos_dict,
+             sample_turns,
+             expected_acc_counts=expected_acc_counts,
+         )
++        # The validation's own recovery counters, and the manager's relaunch counters raised during it, drained
++        # here so a relaunch during the final validation is logged with it instead of lost.
++        metrics.update(recovery_metrics)
++        metrics.update(self._consume_recovery_metrics(prefix="validation"))
++        dead_worker_failed = recovery_metrics.get("validation/inflight_dead_worker_failed", 0)
++        if prompts_without_rows > dead_worker_failed or not metrics:
++            # Row-less prompts beyond the dead-worker failures (a live worker that failed its groups), or a
++            # validation without any other metric: report the counts (fit() rejects an empty dict).
++            metrics["validation/prompts_expected"] = prompts_expected
++            metrics["validation/prompts_without_rows"] = prompts_without_rows
++        return metrics
+ 
+     def _maybe_log_val_generations(self, inputs, outputs, scores):
+         """Log a table of validation samples to the configured logger (wandb or swanlab)"""
+         generations_to_log = self.config.trainer.log_val_generations
+         if generations_to_log == 0:
+             return
++        if not inputs:
++            # Every validation group ended without a row (its worker died, or it failed): nothing to show, and
++            # an empty table row would not match the columns the logger built on a healthy validation.
++            logger.warning("[PPOTrainer] no validation sample materialized at this step; generations not logged")
++            return
+ 
+         # Create tuples of (input, output, score) and sort by input text
+         samples = list(zip(inputs, outputs, scores, strict=True))
+diff --git a/verl/trainer/ppo/v1/utils.py b/verl/trainer/ppo/v1/utils.py
+index 662ae4ac..e1fd1f6f 100644
+--- a/verl/trainer/ppo/v1/utils.py
++++ b/verl/trainer/ppo/v1/utils.py
+@@ -49,8 +49,10 @@ class MetricsAggregator:
+                 "validation/rollout_failure/evicted_samples",
+                 "training/rollout_logprobs_mismatch_count",
+                 "training/inflight_reissued",
++                "training/inflight_dead_worker_reissued",
+                 "training/inflight_reissue_exhausted",
+                 "training/inflight_discarded_while_draining",
++                "validation/inflight_dead_worker_failed",
+             ],
+             "max": [
+                 "training/inflight_ttl_suspended",
+diff --git a/verl/utils/tracking.py b/verl/utils/tracking.py
+index 1c091895..99a0bb23 100644
+--- a/verl/utils/tracking.py
++++ b/verl/utils/tracking.py
+@@ -728,26 +728,32 @@ class ValidationGenerationsLogger:
+         self._log_generations_to_wandb(samples, step, wandb)
+ 
+     def _log_generations_to_wandb(self, samples, step, wandb):
+-        """Log samples to wandb as a table"""
++        """Log samples to wandb as a table.
++
++        One input/output/score column triple per sample. The sample count may change between validations
++        (a group whose agent loop worker died is failed without rows): a shorter row is padded with ``None``
++        to the table's width, a longer one widens the table and pads the earlier rows, so the column count
++        never mismatches. Nothing is logged for an empty sample list.
++        """
++        if not samples:
++            return
+ 
++        existing = getattr(self, "validation_table", None)
++        width = max(len(samples), (len(existing.columns) - 1) // 3 if existing is not None else 0)
+         # Create column names for all samples
+-        columns = ["step"] + sum(
+-            [[f"input_{i + 1}", f"output_{i + 1}", f"score_{i + 1}"] for i in range(len(samples))], []
+-        )
+-
+-        if not hasattr(self, "validation_table"):
+-            # Initialize the table on first call
+-            self.validation_table = wandb.Table(columns=columns)
++        columns = ["step"] + sum([[f"input_{i + 1}", f"output_{i + 1}", f"score_{i + 1}"] for i in range(width)], [])
+ 
+-        # Create a new table with same columns and existing data
++        # Create a new table with same columns and existing data (padded to the width)
+         # Workaround for https://github.com/wandb/wandb/issues/2981#issuecomment-1997445737
+-        new_table = wandb.Table(columns=columns, data=self.validation_table.data)
++        existing_rows = [list(row) + [None] * (len(columns) - len(row)) for row in existing.data] if existing else []
++        new_table = wandb.Table(columns=columns, data=existing_rows)
+ 
+         # Add new row with all data
+         row_data = []
+         row_data.append(step)
+         for sample in samples:
+             row_data.extend(sample)
++        row_data.extend([None] * (len(columns) - len(row_data)))
+ 
+         new_table.add_data(*row_data)
+ 
+diff --git a/verl/workers/config/rollout.py b/verl/workers/config/rollout.py
+index 4bfef74d..cd8a028f 100644
+--- a/verl/workers/config/rollout.py
++++ b/verl/workers/config/rollout.py
+@@ -72,6 +72,8 @@ class CustomAsyncServerConfig(BaseConfig):
+ @dataclass
+ class AgentLoopConfig(BaseConfig):
+     num_workers: int = 8
++    # V1 TransferQueue trainers: re-create dead agent loop worker actors and re-dispatch their prompts.
++    relaunch_dead_workers: bool = False
+     default_agent_loop: str = "single_turn_agent"
+     agent_loop_config_path: Optional[str] = None
+     custom_async_server: CustomAsyncServerConfig = field(default_factory=CustomAsyncServerConfig)

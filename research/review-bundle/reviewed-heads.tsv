@@ -1,0 +1,8 @@
+package	branch	reviewed_head	diff_base	source_worktree
+p0	contrib/p0-loss-horizon	0dab0eb58dc74057a6a636ab535d84fa608cc55a	main	<repo>/wt/p0
+p1	contrib/p1-lmhead-rows	a11ca00b8f169cf63b97d3656cde794ea4bd01bf	main	<repo>/wt/p1
+p2	contrib/p2-oldlogprob-skip	2b259b2dd1de70a36c4e83bddf67ec149ff21138	main	<repo>/wt/p2
+p3a	contrib/p3a-inflight-ttl	7f43e43e73cfd818dde9275017a74d405d43709f	main	<repo>/wt/p3a
+p3b	contrib/p3b-worker-relaunch	d0da57dea2db53db59613f4a28c5027f180ee82a	contrib/p3a-inflight-ttl	<repo>/wt/p3b
+p4a	contrib/p4a-turn-signals	f46518573b5c85627f81c9771575232a3d0a58f4	main	<repo>/wt/p4a
+p4b	contrib/p4b-turn-rloo	97a43c92383a246edef91ea329e141a21f942cec	contrib/p4a-turn-signals	<repo>/wt/p4b

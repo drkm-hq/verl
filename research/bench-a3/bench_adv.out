@@ -1,0 +1,40 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## N=1024 P=2048 L=8192
+GRPO loop vs vectorized max|diff| = 0.000e+00
+GRPO loop (core_algos.py:268)                                          median        5.1 ms   min        5.1 ms   (n=3)
+GRPO vectorized (core_algos.py:335)                                    median        1.5 ms   min        1.3 ms   (n=3)
+  .. rm_scores.sum(-1) over N x L                                      median        0.3 ms   min        0.2 ms   (n=3)
+  .. scalars.unsqueeze(-1) * response_mask (N x L)                     median        0.9 ms   min        0.8 ms   (n=3)
+RLOO loop vs vectorized max|diff| = 5.960e-08
+RLOO loop (core_algos.py:588)                                          median        7.8 ms   min        7.6 ms   (n=3)
+RLOO vectorized (core_algos.py:834)                                    median        1.3 ms   min        1.3 ms   (n=3)
+OPO loop (core_algos.py:640)                                           median        4.8 ms   min        4.3 ms   (n=3)
+GAE loop over L=8192 (core_algos.py:216)                               median      386.6 ms   min      382.0 ms   (n=2)
+REINFORCE++ loop over L=8192 (core_algos.py:694)                       median      250.3 ms   min      246.2 ms   (n=2)
+
+## N=4096 P=2048 L=8192
+GRPO loop vs vectorized max|diff| = 0.000e+00
+GRPO loop (core_algos.py:268)                                          median       19.0 ms   min       18.4 ms   (n=3)
+GRPO vectorized (core_algos.py:335)                                    median        4.8 ms   min        4.7 ms   (n=3)
+  .. rm_scores.sum(-1) over N x L                                      median        0.7 ms   min        0.7 ms   (n=3)
+  .. scalars.unsqueeze(-1) * response_mask (N x L)                     median        3.2 ms   min        2.9 ms   (n=3)
+RLOO loop vs vectorized max|diff| = 5.960e-08
+RLOO loop (core_algos.py:588)                                          median       29.7 ms   min       28.2 ms   (n=3)
+RLOO vectorized (core_algos.py:834)                                    median        4.7 ms   min        4.5 ms   (n=3)
+OPO loop (core_algos.py:640)                                           median       21.5 ms   min       20.0 ms   (n=3)
+GAE loop over L=8192 (core_algos.py:216)                               median     1302.2 ms   min     1302.2 ms   (n=1)
+REINFORCE++ loop over L=8192 (core_algos.py:694)                       median      814.6 ms   min      814.6 ms   (n=1)
+
+## N=4096 P=2048 L=32768
+GRPO loop vs vectorized max|diff| = 0.000e+00
+GRPO loop (core_algos.py:268)                                          median       27.2 ms   min       26.9 ms   (n=3)
+GRPO vectorized (core_algos.py:335)                                    median       13.2 ms   min       13.1 ms   (n=3)
+  .. rm_scores.sum(-1) over N x L                                      median        2.8 ms   min        2.3 ms   (n=3)
+  .. scalars.unsqueeze(-1) * response_mask (N x L)                     median        9.7 ms   min        9.6 ms   (n=3)
+RLOO loop vs vectorized max|diff| = 5.960e-08
+RLOO loop (core_algos.py:588)                                          median       37.5 ms   min       36.0 ms   (n=3)
+RLOO vectorized (core_algos.py:834)                                    median       13.0 ms   min       12.6 ms   (n=3)
+OPO loop (core_algos.py:640)                                           median       29.4 ms   min       28.7 ms   (n=3)
+GAE loop over L=32768 (core_algos.py:216)                              median     5218.2 ms   min     5218.2 ms   (n=1)
+REINFORCE++ loop over L=32768 (core_algos.py:694)                      median     3455.5 ms   min     3455.5 ms   (n=1)

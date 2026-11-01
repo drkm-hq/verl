@@ -1,0 +1,1 @@
+[1/2] [tool, rollout, cfg] feat: ToolResponse.done, generated turn spans and a dense per-turn reward row

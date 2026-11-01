@@ -1,0 +1,30 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## parity vs the loops (float32 inputs; diff measured on valid positions and on returns everywhere)
+N=  64 L=  300 gamma=1.0 lam=1.0: GAE adv max|diff|=1.67e-06 returns max|diff|=1.14e-05 (max|ret|=33.0) | RF++ returns max|diff|=1.53e-05 adv max|diff|=1.91e-06
+N=  64 L=  300 gamma=1.0 lam=0.95: GAE adv max|diff|=9.54e-07 returns max|diff|=2.86e-06 (max|ret|=11.8) | RF++ returns max|diff|=9.54e-06 adv max|diff|=1.19e-06
+N=  64 L=  300 gamma=0.99 lam=0.95: GAE adv max|diff|=1.16e-06 returns max|diff|=3.81e-06 (max|ret|=11.0) | RF++ returns max|diff|=1.62e-05 adv max|diff|=2.38e-06
+N=  64 L=  300 gamma=0.9 lam=0.9: GAE adv max|diff|=3.58e-07 returns max|diff|=9.54e-07 (max|ret|=6.5) | RF++ returns max|diff|=2.38e-06 adv max|diff|=9.54e-07
+N=  64 L=  300 gamma=0.5 lam=0.5: GAE adv max|diff|=4.77e-07 returns max|diff|=4.77e-07 (max|ret|=4.5) | RF++ returns max|diff|=4.77e-07 adv max|diff|=4.77e-07
+N= 256 L= 2048 gamma=1.0 lam=1.0: GAE adv max|diff|=5.96e-06 returns max|diff|=1.53e-04 (max|ret|=113.9) | RF++ returns max|diff|=1.22e-04 adv max|diff|=4.77e-06
+N= 256 L= 2048 gamma=1.0 lam=0.95: GAE adv max|diff|=1.31e-06 returns max|diff|=5.72e-06 (max|ret|=16.0) | RF++ returns max|diff|=9.92e-05 adv max|diff|=3.81e-06
+N= 256 L= 2048 gamma=0.99 lam=0.95: GAE adv max|diff|=1.43e-06 returns max|diff|=5.25e-06 (max|ret|=14.1) | RF++ returns max|diff|=3.43e-05 adv max|diff|=4.35e-06
+N= 256 L= 2048 gamma=0.9 lam=0.9: GAE adv max|diff|=9.54e-07 returns max|diff|=9.54e-07 (max|ret|=8.4) | RF++ returns max|diff|=2.86e-06 adv max|diff|=1.19e-06
+N= 256 L= 2048 gamma=0.5 lam=0.5: GAE adv max|diff|=4.77e-07 returns max|diff|=4.77e-07 (max|ret|=5.6) | RF++ returns max|diff|=4.77e-07 adv max|diff|=4.77e-07
+N= 512 L= 8192 gamma=1.0 lam=1.0: GAE adv max|diff|=1.10e-05 returns max|diff|=5.65e-04 (max|ret|=254.1) | RF++ returns max|diff|=5.65e-04 adv max|diff|=1.10e-05
+N= 512 L= 8192 gamma=1.0 lam=0.95: GAE adv max|diff|=1.91e-06 returns max|diff|=5.72e-06 (max|ret|=15.3) | RF++ returns max|diff|=5.80e-04 adv max|diff|=1.10e-05
+N= 512 L= 8192 gamma=0.99 lam=0.95: GAE adv max|diff|=1.67e-06 returns max|diff|=5.72e-06 (max|ret|=14.4) | RF++ returns max|diff|=3.24e-05 adv max|diff|=3.81e-06
+N= 512 L= 8192 gamma=0.9 lam=0.9: GAE adv max|diff|=7.15e-07 returns max|diff|=9.54e-07 (max|ret|=8.8) | RF++ returns max|diff|=4.29e-06 adv max|diff|=1.43e-06
+N= 512 L= 8192 gamma=0.5 lam=0.5: GAE adv max|diff|=4.77e-07 returns max|diff|=4.77e-07 (max|ret|=5.4) | RF++ returns max|diff|=4.77e-07 adv max|diff|=4.77e-07
+
+## timings
+GAE blockwise scan N=4096 L=8192 (gamma*lam=0.95)                      median      514.8 ms   min      504.1 ms   (n=3)
+GAE scan N=4096 L=8192 (gamma*lam=1: reverse cumsum)                   median      131.7 ms   min      131.5 ms   (n=3)
+RF++ scan N=4096 L=8192 (gamma=1)                                      median      116.0 ms   min      114.4 ms   (n=3)
+RF++ scan N=4096 L=8192 (gamma=0.99)                                   median      658.4 ms   min      537.9 ms   (n=3)
+GAE loop N=4096 L=8192                                                 median     3537.6 ms   min     3537.6 ms   (n=1)
+RF++ loop N=4096 L=8192                                                median     2092.3 ms   min     2092.3 ms   (n=1)
+GAE blockwise scan N=4096 L=32768 (gamma*lam=0.95)                     median     2123.0 ms   min     2038.6 ms   (n=3)
+GAE scan N=4096 L=32768 (gamma*lam=1: reverse cumsum)                  median     1051.9 ms   min      996.4 ms   (n=3)
+RF++ scan N=4096 L=32768 (gamma=1)                                     median      377.2 ms   min      367.3 ms   (n=3)
+RF++ scan N=4096 L=32768 (gamma=0.99)                                  median     1902.4 ms   min     1643.3 ms   (n=3)

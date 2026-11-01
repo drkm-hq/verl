@@ -1,0 +1,7 @@
+seed=0: loss whole=+0.00756 split=+0.01904 max rel grad err=5.789e-01
+seed=1: loss whole=+0.04129 split=+0.02185 max rel grad err=1.000e+00
+seed=2: loss whole=+0.03360 split=+0.03135 max rel grad err=5.362e-01
+seed=3: loss whole=-0.03295 split=-0.02815 max rel grad err=9.545e-01
+seed=4: loss whole=-0.05271 split=-0.04236 max rel grad err=5.315e-01
+seed=5: loss whole=+0.06085 split=+0.05896 max rel grad err=7.011e-01
+worst rel grad err: 1.0

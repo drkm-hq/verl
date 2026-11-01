@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="10" time="323.614" timestamp="2026-10-29T17:39:46.611573+00:00" hostname="modal"><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[plain-fsdp-1rank]" time="36.553" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[plain-fsdp2-1rank]" time="29.656" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[gradient-checkpointing-fsdp-1rank]" time="23.964" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[gradient-checkpointing-fsdp2-1rank]" time="29.132" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[lora-fsdp-1rank]" time="30.470" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[lora-fsdp2-1rank]" time="31.486" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[lora-ckpt-fsdp-1rank]" time="33.605" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[lora-ckpt-fsdp2-1rank]" time="34.715" /><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[plain-fsdp-2rank]" time="27.253"><failure message="torch.multiprocessing.spawn.ProcessRaisedException: &#10;&#10;-- Process 0 terminated with the following error:&#10;Traceback (most recent call last):&#10;  File &quot;/workspace/verl/.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py&quot;, line 87, in _wrap&#10;    fn(i, *args)&#10;  File &quot;/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py&quot;, line 498, in _worker&#10;    reference = run(precision=&quot;bf16&quot;, freeze=True, label=f&quot;{label}/bf16&quot;, flag=False)&#10;                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py&quot;, line 305, in _run_arm&#10;    train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))&#10;            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py&quot;, line 833, in forward_backward_batch&#10;    loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only)&#10;                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py&quot;, line 1715, in forward_step&#10;    loss, metrics = loss_function(&#10;                    ^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/workers/utils/losses.py&quot;, line 117, in ppo_loss&#10;    pg_loss, pg_metrics = policy_loss_fn(&#10;                          ^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/trainer/ppo/core_algos.py&quot;, line 1336, in compute_policy_loss_vanilla&#10;    negative_approx_kl = log_prob - old_log_prob&#10;                         ~~~~~~~~~^~~~~~~~~~~~~~&#10;RuntimeError: The size of tensor a (256) must match the size of tensor b (40) at non-singleton dimension 1">variant = 'plain', strategy = 'fsdp', world_size = 2
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_flag_on_matches_flag_off_8')
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
+    @pytest.mark.skipif(
+        not MODEL_PATH,
+        reason=f"no model directory among {MODEL_CANDIDATES}; link it or set VERL_RESPONSE_ONLY_LM_HEAD_MODEL",
+    )
+    @pytest.mark.parametrize("variant, strategy, world_size", CASES, ids=[f"{v}-{s}-{w}rank" for v, s, w in CASES])
+    def test_flag_on_matches_flag_off(variant, strategy, world_size, tmp_path):
+        if torch.cuda.device_count() &lt; world_size:
+            pytest.skip(f"needs {world_size} CUDA devices")
+        print(f"[response_only_lm_head] model {MODEL_PATH}, strategy {strategy}, variant {variant}, ranks {world_size}")
+        rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}_{world_size}")
+&gt;       mp.spawn(fn=_worker, args=(world_size, rendezvous_file, variant, strategy), nprocs=world_size, join=True)
+
+tests/workers/test_response_only_lm_head_on_gpu.py:538: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:340: in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:296: in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;torch.multiprocessing.spawn.ProcessContext object at 0x2ac1855f4290&gt;
+timeout = None, grace_period = None
+
+    def join(self, timeout: float | None = None, grace_period: float | None = None):
+        r"""Join one or more processes within spawn context.
+    
+        Attempt to join one or more processes in this spawn context.
+        If one of them exited with a non-zero exit status, this function
+        kills the remaining processes (optionally with a grace period)
+        and raises an exception with the cause of the first process exiting.
+    
+        Returns ``True`` if all processes have been joined successfully,
+        ``False`` if there are more processes that need to be joined.
+    
+        Args:
+            timeout (float): Wait this long (in seconds) before giving up on waiting.
+            grace_period (float): When any processes fail, wait this long (in seconds)
+                for others to shutdown gracefully before terminating them. If they
+                still don't exit, wait another grace period before killing them.
+        """
+        # Ensure this function can be called even when we're done.
+        if len(self.sentinels) == 0:
+            return True
+    
+        # Wait for any process to fail or all of them to succeed.
+        ready = multiprocessing.connection.wait(
+            self.sentinels.keys(),
+            timeout=timeout,
+        )
+    
+        error_index = None
+        for sentinel in ready:
+            index = self.sentinels.pop(sentinel)
+            process = self.processes[index]
+            process.join()
+            if process.exitcode != 0:
+                error_index = index
+                break
+    
+        # Return if there was no error.
+        if error_index is None:
+            # Return whether or not all processes have been joined.
+            return len(self.sentinels) == 0
+        # An error occurred. Clean-up all processes before returning.
+        # First, allow a grace period for processes to shutdown themselves.
+        if grace_period is not None:
+            self._join_procs_with_timeout(grace_period)
+        # Then, terminate processes that are still alive. Try SIGTERM first.
+        for process in self.processes:
+            if process.is_alive():
+                log.warning("Terminating process %s via signal SIGTERM", process.pid)
+                process.terminate()
+    
+        # Try SIGKILL if the process isn't going down after another grace_period.
+        # The reason is related to python signal handling is limited
+        # to main thread and if that is in c/c++ land and stuck it won't
+        # to handle it. We have seen processes getting stuck not handling
+        # SIGTERM for the above reason.
+        self._join_procs_with_timeout(30 if grace_period is None else grace_period)
+        for process in self.processes:
+            if process.is_alive():
+                log.warning(
+                    "Unable to shutdown process %s via SIGTERM , forcefully exiting via SIGKILL",
+                    process.pid,
+                )
+                process.kill()
+            process.join()
+    
+        # The file will only be created if the process crashed.
+        failed_process = self.processes[error_index]
+        if not os.access(self.error_files[error_index], os.R_OK):
+            exitcode = self.processes[error_index].exitcode
+            if exitcode &lt; 0:
+                try:
+                    name = signal.Signals(-exitcode).name
+                except ValueError:
+                    name = f"&lt;Unknown signal {-exitcode}&gt;"
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with signal {name}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                    signal_name=name,
+                )
+            else:
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with exit code {exitcode:d}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                )
+    
+        with open(self.error_files[error_index], "rb") as fh:
+            original_trace = pickle.load(fh)
+        msg = f"\n\n-- Process {error_index:d} terminated with the following error:\n"
+        msg += original_trace
+&gt;       raise ProcessRaisedException(msg, error_index, failed_process.pid)
+E       torch.multiprocessing.spawn.ProcessRaisedException: 
+E       
+E       -- Process 0 terminated with the following error:
+E       Traceback (most recent call last):
+E         File "/workspace/verl/.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+E           fn(i, *args)
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 498, in _worker
+E           reference = run(precision="bf16", freeze=True, label=f"{label}/bf16", flag=False)
+E                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 305, in _run_arm
+E           train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 833, in forward_backward_batch
+E           loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only)
+E                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 1715, in forward_step
+E           loss, metrics = loss_function(
+E                           ^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/utils/losses.py", line 117, in ppo_loss
+E           pg_loss, pg_metrics = policy_loss_fn(
+E                                 ^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/trainer/ppo/core_algos.py", line 1336, in compute_policy_loss_vanilla
+E           negative_approx_kl = log_prob - old_log_prob
+E                                ~~~~~~~~~^~~~~~~~~~~~~~
+E       RuntimeError: The size of tensor a (256) must match the size of tensor b (40) at non-singleton dimension 1
+
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:211: ProcessRaisedException</failure></testcase><testcase classname="tests.workers.test_response_only_lm_head_on_gpu" name="test_flag_on_matches_flag_off[plain-fsdp2-2rank]" time="28.790"><failure message="torch.multiprocessing.spawn.ProcessRaisedException: &#10;&#10;-- Process 0 terminated with the following error:&#10;Traceback (most recent call last):&#10;  File &quot;/workspace/verl/.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py&quot;, line 87, in _wrap&#10;    fn(i, *args)&#10;  File &quot;/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py&quot;, line 498, in _worker&#10;    reference = run(precision=&quot;bf16&quot;, freeze=True, label=f&quot;{label}/bf16&quot;, flag=False)&#10;                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py&quot;, line 305, in _run_arm&#10;    train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))&#10;            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py&quot;, line 833, in forward_backward_batch&#10;    loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only)&#10;                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py&quot;, line 1715, in forward_step&#10;    loss, metrics = loss_function(&#10;                    ^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/workers/utils/losses.py&quot;, line 117, in ppo_loss&#10;    pg_loss, pg_metrics = policy_loss_fn(&#10;                          ^^^^^^^^^^^^^^^&#10;  File &quot;/workspace/verl/verl/trainer/ppo/core_algos.py&quot;, line 1336, in compute_policy_loss_vanilla&#10;    negative_approx_kl = log_prob - old_log_prob&#10;                         ~~~~~~~~~^~~~~~~~~~~~~~&#10;RuntimeError: The size of tensor a (256) must match the size of tensor b (40) at non-singleton dimension 1">variant = 'plain', strategy = 'fsdp2', world_size = 2
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_flag_on_matches_flag_off_9')
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
+    @pytest.mark.skipif(
+        not MODEL_PATH,
+        reason=f"no model directory among {MODEL_CANDIDATES}; link it or set VERL_RESPONSE_ONLY_LM_HEAD_MODEL",
+    )
+    @pytest.mark.parametrize("variant, strategy, world_size", CASES, ids=[f"{v}-{s}-{w}rank" for v, s, w in CASES])
+    def test_flag_on_matches_flag_off(variant, strategy, world_size, tmp_path):
+        if torch.cuda.device_count() &lt; world_size:
+            pytest.skip(f"needs {world_size} CUDA devices")
+        print(f"[response_only_lm_head] model {MODEL_PATH}, strategy {strategy}, variant {variant}, ranks {world_size}")
+        rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}_{world_size}")
+&gt;       mp.spawn(fn=_worker, args=(world_size, rendezvous_file, variant, strategy), nprocs=world_size, join=True)
+
+tests/workers/test_response_only_lm_head_on_gpu.py:538: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:340: in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:296: in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;torch.multiprocessing.spawn.ProcessContext object at 0x2ac1855f7f50&gt;
+timeout = None, grace_period = None
+
+    def join(self, timeout: float | None = None, grace_period: float | None = None):
+        r"""Join one or more processes within spawn context.
+    
+        Attempt to join one or more processes in this spawn context.
+        If one of them exited with a non-zero exit status, this function
+        kills the remaining processes (optionally with a grace period)
+        and raises an exception with the cause of the first process exiting.
+    
+        Returns ``True`` if all processes have been joined successfully,
+        ``False`` if there are more processes that need to be joined.
+    
+        Args:
+            timeout (float): Wait this long (in seconds) before giving up on waiting.
+            grace_period (float): When any processes fail, wait this long (in seconds)
+                for others to shutdown gracefully before terminating them. If they
+                still don't exit, wait another grace period before killing them.
+        """
+        # Ensure this function can be called even when we're done.
+        if len(self.sentinels) == 0:
+            return True
+    
+        # Wait for any process to fail or all of them to succeed.
+        ready = multiprocessing.connection.wait(
+            self.sentinels.keys(),
+            timeout=timeout,
+        )
+    
+        error_index = None
+        for sentinel in ready:
+            index = self.sentinels.pop(sentinel)
+            process = self.processes[index]
+            process.join()
+            if process.exitcode != 0:
+                error_index = index
+                break
+    
+        # Return if there was no error.
+        if error_index is None:
+            # Return whether or not all processes have been joined.
+            return len(self.sentinels) == 0
+        # An error occurred. Clean-up all processes before returning.
+        # First, allow a grace period for processes to shutdown themselves.
+        if grace_period is not None:
+            self._join_procs_with_timeout(grace_period)
+        # Then, terminate processes that are still alive. Try SIGTERM first.
+        for process in self.processes:
+            if process.is_alive():
+                log.warning("Terminating process %s via signal SIGTERM", process.pid)
+                process.terminate()
+    
+        # Try SIGKILL if the process isn't going down after another grace_period.
+        # The reason is related to python signal handling is limited
+        # to main thread and if that is in c/c++ land and stuck it won't
+        # to handle it. We have seen processes getting stuck not handling
+        # SIGTERM for the above reason.
+        self._join_procs_with_timeout(30 if grace_period is None else grace_period)
+        for process in self.processes:
+            if process.is_alive():
+                log.warning(
+                    "Unable to shutdown process %s via SIGTERM , forcefully exiting via SIGKILL",
+                    process.pid,
+                )
+                process.kill()
+            process.join()
+    
+        # The file will only be created if the process crashed.
+        failed_process = self.processes[error_index]
+        if not os.access(self.error_files[error_index], os.R_OK):
+            exitcode = self.processes[error_index].exitcode
+            if exitcode &lt; 0:
+                try:
+                    name = signal.Signals(-exitcode).name
+                except ValueError:
+                    name = f"&lt;Unknown signal {-exitcode}&gt;"
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with signal {name}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                    signal_name=name,
+                )
+            else:
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with exit code {exitcode:d}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                )
+    
+        with open(self.error_files[error_index], "rb") as fh:
+            original_trace = pickle.load(fh)
+        msg = f"\n\n-- Process {error_index:d} terminated with the following error:\n"
+        msg += original_trace
+&gt;       raise ProcessRaisedException(msg, error_index, failed_process.pid)
+E       torch.multiprocessing.spawn.ProcessRaisedException: 
+E       
+E       -- Process 0 terminated with the following error:
+E       Traceback (most recent call last):
+E         File "/workspace/verl/.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+E           fn(i, *args)
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 498, in _worker
+E           reference = run(precision="bf16", freeze=True, label=f"{label}/bf16", flag=False)
+E                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 305, in _run_arm
+E           train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 833, in forward_backward_batch
+E           loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only)
+E                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 1715, in forward_step
+E           loss, metrics = loss_function(
+E                           ^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/utils/losses.py", line 117, in ppo_loss
+E           pg_loss, pg_metrics = policy_loss_fn(
+E                                 ^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/trainer/ppo/core_algos.py", line 1336, in compute_policy_loss_vanilla
+E           negative_approx_kl = log_prob - old_log_prob
+E                                ~~~~~~~~~^~~~~~~~~~~~~~
+E       RuntimeError: The size of tensor a (256) must match the size of tensor b (40) at non-singleton dimension 1
+
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:211: ProcessRaisedException</failure></testcase></testsuite></testsuites>

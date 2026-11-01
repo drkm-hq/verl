@@ -1,0 +1,80 @@
+...............FF....F                                                   [100%]
+=================================== FAILURES ===================================
+E   AssertionError: documented low-severity leak
+    assert {'0cc35bac6b8...b11337a3_0_0'} <= {'ecd396ed8b7...b5cd1a3bfbc7'}
+      
+      Extra items in the left set:
+      '0cc35bac6b874addaa2e933cb11337a3'
+      '0cc35bac6b874addaa2e933cb11337a3_0_0'
+------------------------------ Captured log call -------------------------------
+2026-10-29 14:51:10,686	WARNING replay_buffer.py:579 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 100.0s)
+2026-10-29 14:51:10,693	INFO trainer_base.py:1028 -- Re-issued 1 in-flight prompts for step 7 under fresh uids; cleared 0 old trajectories from partition review-b9036836bc6247008128bc1a24aff6f0
+2026-10-29 14:51:10,706	INFO trainer_base.py:999 -- Dropped 2 restored rows without a prompt group from review-b9036836bc6247008128bc1a24aff6f0
+2026-10-29 14:51:10,707	INFO trainer_base.py:1028 -- Re-issued 1 in-flight prompts for step 8; cleared 0 old trajectories from partition review-b9036836bc6247008128bc1a24aff6f0
+<repo>/packages/p3/review-tests/test_review_buffer_on_cpu.py:134: AssertionError: documented low-severity leak
+E   AssertionError: expected repeated TTL re-issues, got [['a7b400b49006496baf96b656973a1ac8'], ['7de0b2e8491e4902802f9a3e3271da73']]
+    assert 2 >= 3
+     +  where 2 = len([['a7b400b49006496baf96b656973a1ac8'], ['7de0b2e8491e4902802f9a3e3271da73']])
+------------------------------ Captured log call -------------------------------
+2026-10-29 14:51:11,838	INFO replay_buffer.py:249 -- [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+2026-10-29 14:51:12,194	WARNING replay_buffer.py:579 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 14:51:12,209	INFO trainer_base.py:1028 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 14:51:12,740	WARNING replay_buffer.py:574 -- [V1ReplayBuffer] 1 prompts are being re-issued again (attempt >= 2), e.g. 7de0b2e8491e4902802f9a3e3271da73; inflight_ttl_s=0.5 must exceed the dispatch-to-terminal time including engine queueing, or healthy generations are restarted from scratch
+2026-10-29 14:51:12,740	WARNING replay_buffer.py:579 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 14:51:12,758	INFO trainer_base.py:1028 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+<repo>/packages/p3/review-tests/test_review_workers_a_on_cpu.py:47: AssertionError: expected repeated TTL re-issues, got [['a7b400b49006496baf96b656973a1ac8'], ['7de0b2e8491e4902802f9a3e3271da73']]
+E   AssertionError: no probe runs for val
+    assert 1 == 0
+------------------------------ Captured log call -------------------------------
+2026-10-29 14:51:24,146	INFO replay_buffer.py:249 -- [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+2026-10-29 14:51:24,153	WARNING agent_loop_tq.py:401 -- Agent loop worker 1 died with 1 prompts in flight: ['a277b5f0e2544d0281015e0618504c11']
+2026-10-29 14:51:24,153	WARNING agent_loop_tq.py:422 -- Agent loop worker 1 is dead (ActorDiedError); re-creating it (attempt 1/5): The actor died unexpectedly before finishing this task.
+	class_name: ReviewWorker
+	actor_id: 7e2cfc4d17c4f63479d9a66101000000
+	pid: 34764
+	name: agent_loop_worker_1_7d9056b2
+	namespace: d908c31a-28bf-4e37-811d-7241b074bd45
+	ip: 127.0.0.1
+The actor is dead because it was killed by `ray.kill`.
+2026-10-29 14:51:24,156	WARNING replay_buffer.py:539 -- [V1ReplayBuffer] marking 1 validation prompts of dead workers as failure
+<repo>/packages/p3/review-tests/test_review_workers_b_on_cpu.py:104: AssertionError: no probe runs for val
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+test_review2_buffer_on_cpu.py::test_terminal_write_inside_the_trainer_window_is_swept_and_the_fresh_attempt_is_the_only_group
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/_private/worker.py:2051: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3/review-tests/test_review_buffer_on_cpu.py::test_reissued_prompt_survives_checkpoint_and_retired_late_write_persists_as_garbage
+FAILED ../../packages/p3/review-tests/test_review_workers_a_on_cpu.py::test_reissue_of_a_small_batch_goes_back_to_worker_0_so_a_wedged_worker_0_livelocks
+FAILED ../../packages/p3/review-tests/test_review_workers_b_on_cpu.py::test_validation_partition_still_hangs_on_a_dead_worker_with_both_knobs_on
+3 failed, 19 passed, 8 warnings in 37.44s

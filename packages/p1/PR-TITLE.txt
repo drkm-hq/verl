@@ -1,0 +1,1 @@
+[fsdp, perf] feat: project the LM head only for loss rows

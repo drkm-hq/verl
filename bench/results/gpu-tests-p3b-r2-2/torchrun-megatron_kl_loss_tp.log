@@ -1,0 +1,24 @@
+WARNING:2026-10-29 15:35:56,948:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 15:35:56,948:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[INFO]: Local rank: 0, World size: 2
+[INFO] Running test case 0
+[INFO]: Local rank: 1, World size: 2
+[PASS] VP KL divergence correctness verified for test case 0
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+[PASS] VP tail-aware KL correctness verified for test case 0
+[INFO] Running test case 1
+[PASS] VP KL divergence correctness verified for test case 1
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+[PASS] VP tail-aware KL correctness verified for test case 1
+[INFO] Running test case 2
+[PASS] VP KL divergence correctness verified for test case 2
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+[PASS] VP tail-aware KL correctness verified for test case 2
+[INFO] Running test case 3
+[PASS] VP KL divergence correctness verified for test case 3
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+WARNING: forward_kl_topk_tail is most effective as a supervised distillation loss (use_policy_gradient=False). With policy gradient, the update uses only the sampled token's logprob ∇logπ(a), so the top-k distributional signal (how non-sampled logits should move) is largely unused.
+[PASS] VP tail-aware KL correctness verified for test case 3

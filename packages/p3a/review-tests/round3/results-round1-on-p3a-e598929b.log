@@ -1,0 +1,66 @@
+......sssssssFFFFFFFFF                                                   [100%]
+=================================== FAILURES ===================================
+E   AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+<repo>/packages/p3/review-tests/_review_common.py:101: AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+E   assert 1.0 == 2
+<repo>/packages/p3/review-tests/test_review_buffer_on_cpu.py:95: assert 1.0 == 2
+E   AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+<repo>/packages/p3/review-tests/_review_common.py:101: AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+E   AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+<repo>/packages/p3/review-tests/_review_common.py:101: AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+E   AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+<repo>/packages/p3/review-tests/_review_common.py:101: AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+E   AttributeError: <module 'verl.trainer.ppo.v1.replay_buffer' from '<repo>/wt/p3a/verl/trainer/ppo/v1/replay_buffer.py'> has no attribute 'WORKER_LIVENESS_PERIOD_SECONDS'
+<repo>/packages/p3/review-tests/test_review_workers_a_on_cpu.py:79: AttributeError: <module 'verl.trainer.ppo.v1.replay_buffer' from '<repo>/wt/p3a/verl/trainer/ppo/v1/replay_buffer.py'> has no attribute 'WORKER_LIVENESS_PERIOD_SECONDS'
+E   AttributeError: <module 'verl.trainer.ppo.v1.replay_buffer' from '<repo>/wt/p3a/verl/trainer/ppo/v1/replay_buffer.py'> has no attribute 'WORKER_LIVENESS_PERIOD_SECONDS'
+<repo>/packages/p3/review-tests/test_review_workers_b_on_cpu.py:25: AttributeError: <module 'verl.trainer.ppo.v1.replay_buffer' from '<repo>/wt/p3a/verl/trainer/ppo/v1/replay_buffer.py'> has no attribute 'WORKER_LIVENESS_PERIOD_SECONDS'
+E   AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+<repo>/packages/p3/review-tests/_review_common.py:101: AttributeError: type object 'PPOTrainer' has no attribute '_reap_dead_workers'
+E   AttributeError: <module 'verl.trainer.ppo.v1.replay_buffer' from '<repo>/wt/p3a/verl/trainer/ppo/v1/replay_buffer.py'> has no attribute 'WORKER_LIVENESS_PERIOD_SECONDS'
+<repo>/packages/p3/review-tests/test_review_workers_b_on_cpu.py:90: AttributeError: <module 'verl.trainer.ppo.v1.replay_buffer' from '<repo>/wt/p3a/verl/trainer/ppo/v1/replay_buffer.py'> has no attribute 'WORKER_LIVENESS_PERIOD_SECONDS'
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+test_review2_buffer_on_cpu.py::test_terminal_write_inside_the_trainer_window_is_swept_and_the_fresh_attempt_is_the_only_group
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/_private/worker.py:2051: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3/review-tests/test_review_buffer_on_cpu.py::test_terminal_flip_in_the_reissue_window_loses_the_group
+FAILED ../../packages/p3/review-tests/test_review_buffer_on_cpu.py::test_inflight_reissued_is_averaged_not_summed_across_iterations
+FAILED ../../packages/p3/review-tests/test_review_buffer_on_cpu.py::test_reissued_prompt_survives_checkpoint_and_retired_late_write_persists_as_garbage
+FAILED ../../packages/p3/review-tests/test_review_workers_a_on_cpu.py::test_reissue_of_a_small_batch_goes_back_to_worker_0_so_a_wedged_worker_0_livelocks
+FAILED ../../packages/p3/review-tests/test_review_workers_a_on_cpu.py::test_prompt_owner_map_grows_without_bound_on_the_default_path
+FAILED ../../packages/p3/review-tests/test_review_workers_a_on_cpu.py::test_dead_worker_half_terminated_chunk_reissues_only_the_inflight_prompt
+FAILED ../../packages/p3/review-tests/test_review_workers_b_on_cpu.py::test_two_workers_dying_at_once_are_both_relaunched_and_their_prompts_reissued
+FAILED ../../packages/p3/review-tests/test_review_workers_b_on_cpu.py::test_ttl_shorter_than_a_legitimate_generation_livelocks_on_healthy_workers
+FAILED ../../packages/p3/review-tests/test_review_workers_b_on_cpu.py::test_validation_partition_still_hangs_on_a_dead_worker_with_both_knobs_on
+9 failed, 6 passed, 7 skipped, 8 warnings in 8.95s

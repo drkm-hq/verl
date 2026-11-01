@@ -1,0 +1,65 @@
+E   TypeError: compute_grpo_vectorized_outcome_advantage() got an unexpected keyword argument 'turn_spans'
+E   TypeError: test_user_registered_estimator_without_var_kwargs_still_works.<locals>.plain_rloo() got an unexpected keyword argument 'turn_spans'
+E   AssertionError: {'turn_scores': [], 'tool_rewards': [0.25, -0.5, 1.0], 'turn_rewards': [], 'generated_turn_spans': [], ...}
+E   AssertionError: turn 2's reward (span over mask-0 tokens) vanished
+E   assert (2.0 == 0.0 ± 1.0e-12
+E   AssertionError: dense put the outcome at [5]
+E   AttributeError: 'NoneType' object has no attribute 'get'
+PASSED test_r1_adv_kwarg_on_cpu.py::test_rloo_unchanged_by_the_spans_column
+PASSED test_r1_adv_kwarg_on_cpu.py::test_turn_rloo_receives_spans_through_compute_advantage
+PASSED test_r2_ct_clipping_on_cpu.py::test_spans_equal_mask_runs_under_junction_edits[0-0]
+PASSED test_r2_ct_clipping_on_cpu.py::test_spans_equal_mask_runs_under_junction_edits[1-0]
+PASSED test_r2_ct_clipping_on_cpu.py::test_spans_equal_mask_runs_under_junction_edits[0-1]
+PASSED test_r2_ct_clipping_on_cpu.py::test_spans_equal_mask_runs_under_junction_edits[1-1]
+PASSED test_r2_ct_clipping_on_cpu.py::test_spans_equal_mask_runs_under_junction_edits[2-2]
+PASSED test_r3_flag_off_vs_main_on_cpu.py::test_as_dict_tensors_are_bit_identical_to_main
+PASSED test_r3_flag_off_vs_main_on_cpu.py::test_as_dict_keys_and_extra_fields_differ_only_by_the_three_new_metadata_keys
+PASSED test_r3_flag_off_vs_main_on_cpu.py::test_v0_postprocess_row_is_bit_identical_to_main_except_three_none_columns
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-1.0-0]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-1.0-1]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-1.0-2]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-1.0-3]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-1.0-4]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.9-0]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.9-1]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.9-2]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.9-3]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.9-4]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.5-0]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.5-1]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.5-2]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.5-3]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[False-0.5-4]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-1.0-0]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-1.0-1]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-1.0-2]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-1.0-3]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-1.0-4]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.9-0]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.9-1]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.9-2]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.9-3]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.9-4]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.5-0]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.5-1]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.5-2]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.5-3]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_tensor_matches_scalar_reference[True-0.5-4]
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_no_spans_equals_rloo_including_singleton_groups
+PASSED test_r4_turn_rloo_reference_on_cpu.py::test_spans_given_as_a_2d_numpy_array_or_lists_of_lists
+PASSED test_r5_loop_edges_on_cpu.py::test_done_on_turn_one_of_a_max_turns_one_loop_never_runs_the_tool
+PASSED test_r5_loop_edges_on_cpu.py::test_truncation_mid_turn_clips_the_span_and_keeps_the_outcome_on_a_generated_token
+PASSED test_r5_loop_edges_on_cpu.py::test_context_merge_budget_hit_keeps_the_step_reward_but_drops_the_observation
+PASSED test_r5_loop_edges_on_cpu.py::test_unknown_tool_and_tool_exception_count_as_zero_reward_turns
+PASSED test_r5_loop_edges_on_cpu.py::test_parallel_calls_sum_rewards_and_any_done_ends_the_episode
+PASSED test_r6_v1_lift_on_cpu.py::test_padding_row_copied_from_the_first_real_row_does_not_crash_or_change_real_rows
+PASSED test_r6_v1_lift_on_cpu.py::test_mixed_rows_with_and_without_spans
+PASSED test_r6_v1_lift_on_cpu.py::test_tq_side_packing_keeps_spans_as_tuples_through_nontensorstack
+FAILED test_r1_adv_kwarg_on_cpu.py::test_grpo_vectorized_still_works_when_the_spans_column_is_none_filled
+FAILED test_r1_adv_kwarg_on_cpu.py::test_user_registered_estimator_without_var_kwargs_still_works
+FAILED test_r2_ct_clipping_on_cpu.py::test_merge_that_removes_the_whole_turn_keeps_its_reward_somewhere
+FAILED test_r2_ct_clipping_on_cpu.py::test_writer_drops_a_reward_whose_span_has_no_generated_token_silently
+FAILED test_r4_turn_rloo_reference_on_cpu.py::test_spans_past_the_row_end_are_not_counted_as_reached
+FAILED test_r5_loop_edges_on_cpu.py::test_v0_row_with_no_generated_token_puts_the_outcome_where_the_default_path_does
+FAILED test_r6_v1_lift_on_cpu.py::test_non_dict_extra_fields_row_is_tolerated
+7 failed, 50 passed in 22.75s

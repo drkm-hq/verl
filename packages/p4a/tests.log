@@ -1,0 +1,61 @@
+P4a tests.log: contrib/p4a-turn-signals @ 0d4cd8ca (base main @ 2ab35292), 2026-10-29T17:34Z
+command: env PYTHONDONTWRITEBYTECODE=1 TORCH_COMPILE_DISABLE=1 TORCHINDUCTOR_DISABLE=1 HF_HUB_OFFLINE=1 PYTHONPATH=$PWD .venv-cpu/bin/python -m pytest -c pytest-cpu.ini --asyncio-mode=auto -p no:cacheprovider -rfEs <the P4a test files>
+
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.0, pluggy-1.6.0
+rootdir: <repo>
+configfile: pytest-cpu.ini
+plugins: asyncio-1.4.0, rerunfailures-16.3, hydra-core-1.3.3, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 62 items
+tests/experimental/agent_loop/test_turn_level_rewards_on_cpu.py ........ [ 12%]
+.....                                                                    [ 20%]
+tests/experimental/agent_loop/test_turn_spans_real_tokenizer_on_cpu.py . [ 22%]
+.                                                                        [ 24%]
+tests/experimental/agent_loop/test_tool_call_id_on_cpu.py ...            [ 29%]
+tests/experimental/reward_loop/test_reward_manager_extra_info_on_cpu.py . [ 30%]
+...................                                                      [ 61%]
+tests/experimental/reward_loop/test_rate_limited_reward_manager_on_cpu.py . [ 62%]
+............                                                             [ 82%]
+tests/trainer/test_turn_level_rewards_config_on_cpu.py .....             [ 90%]
+tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py ......                 [100%]
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+verl/workers/engine/__init__.py:32
+verl/workers/engine/__init__.py:41
+verl/workers/engine/__init__.py:50
+verl/workers/engine/__init__.py:60
+verl/workers/engine/__init__.py:69
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 62 passed, 7 warnings in 51.02s ========================
+
+== Round-1 probe research/review-bundle/evidence/reproductions/p4_reward_manager.py (flag absent in its config = off; naive merges as on main, dapo / gdpo hand the dataset dict over as on main) ==
+NaiveRewardManager callback extra_info= {'episode_done': True, 'turn_rewards': [2.0], 'generated_turn_spans': [(0, 2)], 'num_turns': None, 'rollout_reward_scores': {}} reward= 1.0
+DAPORewardManager callback extra_info= {} reward= 0.0
+GDPORewardManager callback extra_info= {'experiment_name': 'p4-check'} reward= 0.0
+
+== Round-3 probe research/review-bundle/follow-up-review/evidence/p4/flag_off_reward_repro.py (flag off, DAPO): main vs this tree ==
+verl: 7.0 [{'num_turns': 7, 'tool_rewards': [123.0]}]
+wt/p4a: 7.0 [{'num_turns': 7, 'tool_rewards': [123.0]}]
+
+== Touched regression group tests/experimental on this tree (scripts/run-cpu-tests-wt.sh, VERL_ROOT=wt/p4a): ================== 109 passed, 1 warning in 61.65s (0:01:01) ===================
+
+== Reviewer round-2 acceptance suite packages/p4a/review-tests/round2 (r2a/r2b/r2c) on this tree (not edited) ==
+15 failed, 37 passed, 2 warnings in 4.53s
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[absent-DAPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[absent-GDPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[absent-RateLimitedRewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[none-DAPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[none-GDPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[none-RateLimitedRewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[empty-DAPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[empty-GDPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[empty-RateLimitedRewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[dictconfig-DAPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[dictconfig-GDPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_metadata_reaches_the_reward_fn_whatever_the_dataset_extra_info_is[dictconfig-RateLimitedRewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_a_non_mapping_extra_info_is_passed_through_unchanged_with_one_warning_per_type[DAPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_a_multi_output_session_is_scored_on_the_last_row_with_that_rows_metadata[DAPORewardManager]
+FAILED test_r2a_extra_info_contract_on_cpu.py::test_a_multi_output_session_is_scored_on_the_last_row_with_that_rows_metadata[GDPORewardManager]
+The 15 failures are r2a cases that construct dapo / gdpo / rate_limited with a config that has no turn_level_rewards key (= off) and assert the merged keys: the pre-R2-04 contract that round 3 reverses by decision (flag off = each manager's main contract). All r2b / r2c sweeps and the naive / remote r2a cases pass.

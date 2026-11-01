@@ -1,0 +1,54 @@
+# P3 test record (worktree <repo>/wt/p3, branch contrib/p3-v1-never-hang @ 5e6f6b74)
+# Env: .venv-cpu (Python 3.12.14, torch 2.13.0 CPU, ray 2.55.1, transferqueue 0.1.11), PYTHONPATH=wt/p3,
+# TORCH_COMPILE_DISABLE=1 TORCHINDUCTOR_DISABLE=1 HF_HUB_ENABLE_HF_TRANSFER=0, pytest -c pytest-cpu.ini
+# (python_files=*_on_cpu.py) --asyncio-mode=auto. Dates 2026-10-28/29 local. Full logs: packages/p3/logs/.
+
+## New tests
+cd wt/p3 && PYTHONPATH=$PWD python -m pytest -c ../../pytest-cpu.ini --rootdir $PWD -q --asyncio-mode=auto \
+    tests/trainer/ppo/v1/test_inflight_recovery_on_cpu.py tests/trainer/ppo/v1/test_dead_worker_recovery_on_cpu.py
+-> 18 passed in 65.06s
+   test_inflight_recovery_on_cpu.py        11 passed (25.4 s alone; real TransferQueue, no actor workers)
+   test_dead_worker_recovery_on_cpu.py      7 passed (48.6 s alone incl. Ray startup; per-test call times
+       with --durations: killed+relaunch 5.96 s, liveness probe 5.27 s, TTL-off baseline 4.21 s,
+       dispatch-to-dead 3.93 s, silently stuck + TTL 3.79 s, relaunch-off raises 3.70 s, names worker 2.22 s)
+   Ray processes: ray.shutdown() in the module fixture; pgrep gcs_server/raylet clean after the run.
+
+## Regression groups (same harness as research/00-cpu-env.md section 7, pointed at the worktree)
+cd wt/p3 && PYTHONPATH=$PWD python ../../scripts/timeout.py 420 python -m pytest -c ../../pytest-cpu.ini \
+    --rootdir $PWD -s --asyncio-mode=auto -rfEs --continue-on-collection-errors tests/trainer
+-> 456 passed, 1 skipped, 0 failed in 111.69s   (baseline on main: 438 passed, 1 skipped; +18 new)
+   (an earlier run had 6 failures in test_trainer_base_on_cpu.py: partial configs without actor_rollout_ref;
+    fixed by OmegaConf.select in _build_replay_buffer, commit 5e6f6b74, re-run clean)
+cd wt/p3 && PYTHONPATH=$PWD python ../../scripts/timeout.py 420 python -m pytest -c ../../pytest-cpu.ini \
+    --rootdir $PWD -s --asyncio-mode=auto -rfEs --continue-on-collection-errors tests/experimental
+-> 74 passed in 77.75s   (baseline: 74 passed)
+Also re-run individually while building: tests/trainer/ppo/v1/test_reissue_inflight_on_cpu.py (13 passed),
+test_replay_buffer_on_cpu.py + test_agent_loop_tq_on_cpu.py (46 passed), test_trainer_base_on_cpu.py (10 passed).
+
+## Lint (pre-commit hooks from .pre-commit-config.yaml, ruff v0.12.2, mypy 1.17)
+pre-commit run ruff|ruff-format|mypy --files <7 changed .py files>       -> Passed / Passed / Passed
+pre-commit run check-license|check-docs-time-info|check-docstrings|check-naming-conventions|validate-structure|check-device-api-usage --all-files -> all Passed
+bash scripts/generate_trainer_config.sh  -> "All good" (the 4 _generated_*.yaml committed, +2 lines each)
+PR_TITLE="[trainer, rollout, cfg] feat: in-flight prompt TTL with re-issue and dead agent-loop worker redispatch" \
+    python tests/special_sanity/check_pr_title.py -> valid (modules trainer, rollout, cfg; type feat)
+
+## Not run here
+GPU / multi-node / Modal: nothing. The chaos proof on 2 GPUs (SIGKILL an agent-loop worker mid-step,
+separate_async) is a placeholder in PR-BODY.md "Chaos proof".
+
+# ---------------------------------------------------------------------------------------------------------
+# After the review fixes (2026-10-29): branch contrib/p3-v1-never-hang @ 39f95929 (16 commits), combined reference
+# ---------------------------------------------------------------------------------------------------------
+New tests: test_inflight_recovery_on_cpu.py 17 + test_dead_worker_recovery_on_cpu.py 11 -> 28 passed in 94.18s
+    (+1 in test_metrics_aggregator_on_cpu.py). Slowest: killed+relaunch 8.1 s, TTL-below-generation 7.3 s, probe 6.8 s.
+Existing V1 files re-run: test_reissue_inflight / test_trainer_base / test_agent_loop_tq / test_replay_buffer -> 74 passed.
+tests/trainer      -> 467 passed, 1 skipped, 0 failed in 172.95s   (logs/reg-trainer-after-fixes.log)
+tests/experimental -> 74 passed in 66.98s                            (logs/reg-experimental-after-fixes.log)
+Reviewer suite (packages/p3/review-tests, unmodified) -> 6 passed, 3 failed (logs/review-tests-after-fixes.log):
+    R1 R2 R5 R6 R7 R8 pass; R3:134 / R4:47 / R9:104 fail on characterization assertions (see REVIEW.md section 8).
+Lint: ruff / ruff-format / mypy on the 7 changed .py files Passed; check-docs-time-info Passed;
+    generate_trainer_config.sh -> All good. Title check valid.
+Split branches: see packages/p3a/tests.log and packages/p3b/tests.log.
+
+## R-A cherry-pick (2026-10-29): combined @ f6366f48 (17 commits)
+tests/trainer 470 passed / 1 skipped in 75.9 s; tests/experimental 74 passed in 60.2 s; test_review2_* 9 passed (logs/*-after-ra.log).

@@ -1,0 +1,73 @@
+torch 2.15.0 threads 6
+
+## parity: max|adv diff| / max|ret diff| over ALL positions; (fp64 scan, fp32 scan); rel = ret diff / max|ret|
+seed0 N=   5 L=    1 g=1.0 l=1.0: GAE adv 0.0e+00/0.0e+00 ret 0.0e+00/0.0e+00 (max|ret| 5.0) | RF++ fp32 ret 0.0e+00 adv 0.0e+00 | nan_adv_loop=False
+seed0 N=   5 L=    1 g=1.0 l=0.95: GAE adv 0.0e+00/0.0e+00 ret 0.0e+00/0.0e+00 (max|ret| 5.0) | RF++ fp32 ret 0.0e+00 adv 0.0e+00 | nan_adv_loop=False
+seed0 N=   5 L=    1 g=0.99 l=0.95: GAE adv 0.0e+00/0.0e+00 ret 0.0e+00/0.0e+00 (max|ret| 5.0) | RF++ fp32 ret 0.0e+00 adv 0.0e+00 | nan_adv_loop=False
+seed0 N=   5 L=    1 g=0.9 l=0.9: GAE adv 0.0e+00/0.0e+00 ret 0.0e+00/0.0e+00 (max|ret| 5.0) | RF++ fp32 ret 0.0e+00 adv 0.0e+00 | nan_adv_loop=False
+seed0 N=   5 L=    1 g=0.5 l=0.5: GAE adv 0.0e+00/0.0e+00 ret 0.0e+00/0.0e+00 (max|ret| 5.0) | RF++ fp32 ret 0.0e+00 adv 0.0e+00 | nan_adv_loop=False
+seed0 N=   5 L=    1 g=0.3 l=1.0: GAE adv 0.0e+00/0.0e+00 ret 0.0e+00/0.0e+00 (max|ret| 5.0) | RF++ fp32 ret 0.0e+00 adv 0.0e+00 | nan_adv_loop=False
+seed0 N=   8 L=    7 g=1.0 l=1.0: GAE adv 1.2e-07/1.2e-07 ret 4.8e-07/4.8e-07 (max|ret| 4.8) | RF++ fp32 ret 4.8e-07 adv 2.4e-07 | nan_adv_loop=False
+seed0 N=   8 L=    7 g=1.0 l=0.95: GAE adv 2.4e-07/2.4e-07 ret 4.8e-07/4.8e-07 (max|ret| 4.1) | RF++ fp32 ret 4.8e-07 adv 2.4e-07 | nan_adv_loop=False
+seed0 N=   8 L=    7 g=0.99 l=0.95: GAE adv 2.4e-07/2.4e-07 ret 2.4e-07/4.8e-07 (max|ret| 4.1) | RF++ fp32 ret 2.4e-07 adv 4.8e-07 | nan_adv_loop=False
+seed0 N=   8 L=    7 g=0.9 l=0.9: GAE adv 2.4e-07/1.5e-07 ret 4.8e-07/4.8e-07 (max|ret| 4.1) | RF++ fp32 ret 2.4e-07 adv 2.4e-07 | nan_adv_loop=False
+seed0 N=   8 L=    7 g=0.5 l=0.5: GAE adv 1.5e-08/1.5e-08 ret 3.0e-08/3.0e-08 (max|ret| 4.1) | RF++ fp32 ret 3.0e-08 adv 3.0e-08 | nan_adv_loop=False
+seed0 N=   8 L=    7 g=0.3 l=1.0: GAE adv 1.2e-07/3.6e-07 ret 1.2e-07/2.4e-07 (max|ret| 4.1) | RF++ fp32 ret 2.4e-07 adv 2.4e-07 | nan_adv_loop=False
+seed0 N=   5 L=  257 g=1.0 l=1.0: GAE adv 7.2e-07/7.2e-07 ret 5.7e-06/5.7e-06 (max|ret| 21.7) | RF++ fp32 ret 4.8e-06 adv 4.8e-07 | nan_adv_loop=False
+seed0 N=   5 L=  257 g=1.0 l=0.95: GAE adv 4.8e-07/4.8e-07 ret 1.9e-06/1.9e-06 (max|ret| 10.9) | RF++ fp32 ret 4.8e-06 adv 4.8e-07 | nan_adv_loop=False
+seed0 N=   5 L=  257 g=0.99 l=0.95: GAE adv 7.2e-07/4.8e-07 ret 2.9e-06/1.9e-06 (max|ret| 10.4) | RF++ fp32 ret 7.6e-06 adv 9.5e-07 | nan_adv_loop=False
+seed0 N=   5 L=  257 g=0.9 l=0.9: GAE adv 2.4e-07/4.8e-07 ret 4.8e-07/9.5e-07 (max|ret| 7.0) | RF++ fp32 ret 9.5e-07 adv 4.8e-07 | nan_adv_loop=False
+seed0 N=   5 L=  257 g=0.5 l=0.5: GAE adv 2.4e-07/2.4e-07 ret 4.8e-07/2.4e-07 (max|ret| 5.6) | RF++ fp32 ret 4.8e-07 adv 4.8e-07 | nan_adv_loop=False
+seed0 N=   5 L=  257 g=0.3 l=1.0: GAE adv 7.2e-07/7.2e-07 ret 4.8e-07/4.8e-07 (max|ret| 5.4) | RF++ fp32 ret 2.4e-07 adv 2.4e-07 | nan_adv_loop=False
+seed0 N= 128 L= 8192 g=1.0 l=1.0: GAE adv 8.3e-06/8.3e-06 ret 4.0e-04/4.0e-04 (max|ret| 216.2) | RF++ fp32 ret 4.7e-04 adv 8.9e-06 | nan_adv_loop=False
+seed0 N= 128 L= 8192 g=1.0 l=0.95: GAE adv 1.5e-06/1.2e-06 ret 5.7e-06/3.8e-06 (max|ret| 14.5) | RF++ fp32 ret 4.7e-04 adv 8.9e-06 | nan_adv_loop=False
+seed0 N= 128 L= 8192 g=0.99 l=0.95: GAE adv 1.4e-06/1.4e-06 ret 4.8e-06/3.8e-06 (max|ret| 13.5) | RF++ fp32 ret 1.5e-05 adv 2.1e-06 | nan_adv_loop=False
+seed0 N= 128 L= 8192 g=0.9 l=0.9: GAE adv 4.8e-07/7.2e-07 ret 9.5e-07/1.4e-06 (max|ret| 10.0) | RF++ fp32 ret 1.9e-06 adv 9.5e-07 | nan_adv_loop=False
+seed0 N= 128 L= 8192 g=0.5 l=0.5: GAE adv 4.8e-07/4.8e-07 ret 9.5e-07/9.5e-07 (max|ret| 7.4) | RF++ fp32 ret 4.8e-07 adv 4.8e-07 | nan_adv_loop=False
+seed0 N= 128 L= 8192 g=0.3 l=1.0: GAE adv 4.8e-07/4.8e-07 ret 4.8e-07/4.8e-07 (max|ret| 7.4) | RF++ fp32 ret 4.8e-07 adv 4.8e-07 | nan_adv_loop=False
+cases=216  WORST: GAE adv fp64 9.06e-06 fp32 9.06e-06 | ret fp64 5.04e-04 fp32 5.04e-04 (rel 2.32e-06) | RF++ fp32 ret 5.49e-04 adv 9.54e-06
+
+## single valid token in the whole batch: both raise verl's masked_var guard?
+ loop: ValueError: The sum of the mask is one, which can cause a division by zero. | scan: ValueError: The sum of the mask is one, which can cause a division by zero.
+
+## all-masked batch (every row masked): both NaN?
+ loop: ValueError: At least one element in the mask has to be 1. | scan: ValueError: At least one element in the mask has to be 1.
+
+## naive global weighted cumsum (no blocking): fp32 and fp64 at q=0.95
+L=  512 torch.float32  ret maxdiff=1.91e-06 nan/inf=False
+L=  512 torch.float64  ret maxdiff=2.38e-06 nan/inf=False
+L= 2048 torch.float32  ret maxdiff=2.86e-06 nan/inf=False
+L= 2048 torch.float64  ret maxdiff=3.81e-06 nan/inf=False
+L= 8192 torch.float32  ret maxdiff=nan nan/inf=True
+L= 8192 torch.float64  ret maxdiff=4.29e-06 nan/inf=False
+L=32768 torch.float32  ret maxdiff=nan nan/inf=True
+L=32768 torch.float64  ret maxdiff=nan nan/inf=True
+
+## timings (median of 3 for scans, single run for loops); realistic masks with holes
+-- N=1024 L=8192
+   GAE loop (q=0.95)                    420.1 ms   speedup vs loop    1.0x
+   RF++ loop (gamma=1)                  258.2 ms   speedup vs loop    1.0x
+   GAE scan q=1 float32                  27.6 ms   speedup vs loop   15.2x
+   GAE scan q=1 float64                  28.9 ms   speedup vs loop   14.5x
+   GAE scan q=0.95 float32               55.5 ms   speedup vs loop    7.6x
+   GAE scan q=0.95 float64               81.7 ms   speedup vs loop    5.1x
+   RF++ scan gamma=1 fp32                12.2 ms   speedup vs loop   21.2x
+   RF++ scan gamma=0.99 fp32             39.5 ms   speedup vs loop    6.5x
+-- N=4096 L=8192
+   GAE loop (q=0.95)                   1419.7 ms   speedup vs loop    1.0x
+   RF++ loop (gamma=1)                  924.5 ms   speedup vs loop    1.0x
+   GAE scan q=1 float32                 104.7 ms   speedup vs loop   13.6x
+   GAE scan q=1 float64                 115.0 ms   speedup vs loop   12.3x
+   GAE scan q=0.95 float32              197.3 ms   speedup vs loop    7.2x
+   GAE scan q=0.95 float64              293.4 ms   speedup vs loop    4.8x
+   RF++ scan gamma=1 fp32                43.0 ms   speedup vs loop   21.5x
+   RF++ scan gamma=0.99 fp32            135.9 ms   speedup vs loop    6.8x
+-- N=4096 L=32768
+   GAE loop (q=0.95)                   5684.6 ms   speedup vs loop    1.0x
+   RF++ loop (gamma=1)                 3491.1 ms   speedup vs loop    1.0x
+   GAE scan q=1 float32                 368.0 ms   speedup vs loop   15.4x
+   GAE scan q=1 float64                 411.5 ms   speedup vs loop   13.8x
+   GAE scan q=0.95 float32              843.2 ms   speedup vs loop    6.7x
+   GAE scan q=0.95 float64             1414.6 ms   speedup vs loop    4.0x
+   RF++ scan gamma=1 fp32               163.7 ms   speedup vs loop   21.3x
+   RF++ scan gamma=0.99 fp32            633.6 ms   speedup vs loop    5.5x

@@ -1,0 +1,52 @@
+....FF..                                                                 [100%]
+=================================== FAILURES ===================================
+E   Failed: sampling did not return within 20.0 simulated seconds despite healthy 2.0-second generations: {'dispatches': 2, 'completions': 1, 'reissues': 0}, TTL discards charged per step: {'train': 2}
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:238 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:454 [V1ReplayBuffer] the in-flight TTL would fail the last 2 finishable groups of step 1 (past max_inflight_reissues; nothing replaces a failed group without sync_refill_failed_groups): holding them back, suspending the TTL for the step and waiting for their generations
+<repo>/packages/p3a/review-tests/round3/_r3_loop_common.py:96: Failed: sampling did not return within 20.0 simulated seconds despite healthy 2.0-second generations: {'dispatches': 2, 'completions': 1, 'reissues': 0}, TTL discards charged per step: {'train': 2}
+E   Failed: sampling did not return within 20.0 simulated seconds despite healthy 2.0-second generations: {'dispatches': 8, 'completions': 4, 'reissues': 6}, TTL discards charged per step: {'train': 8}
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:238 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:532 [V1ReplayBuffer] re-issuing 2 expired in-flight prompts (oldest age: 0.6s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:527 [V1ReplayBuffer] 2 prompts are being re-issued again (attempt >= 2), e.g. 000cfd2453534339826935b1c986c190; inflight_ttl_s=0.5 must exceed the dispatch-to-terminal time including engine queueing, or healthy generations are restarted from scratch
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:532 [V1ReplayBuffer] re-issuing 2 expired in-flight prompts (oldest age: 0.6s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:527 [V1ReplayBuffer] 2 prompts are being re-issued again (attempt >= 2), e.g. bd6d71a426e44fa9bd0ca938511cf3cd; inflight_ttl_s=0.5 must exceed the dispatch-to-terminal time including engine queueing, or healthy generations are restarted from scratch
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:532 [V1ReplayBuffer] re-issuing 2 expired in-flight prompts (oldest age: 0.6s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:454 [V1ReplayBuffer] the in-flight TTL would fail the last 2 finishable groups of step 1 (past max_inflight_reissues; nothing replaces a failed group without sync_refill_failed_groups): holding them back, suspending the TTL for the step and waiting for their generations
+<repo>/packages/p3a/review-tests/round3/_r3_loop_common.py:96: Failed: sampling did not return within 20.0 simulated seconds despite healthy 2.0-second generations: {'dispatches': 8, 'completions': 4, 'reissues': 6}, TTL discards charged per step: {'train': 8}
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3a/review-tests/round3/test_r3b_hold_back_on_cpu.py::test_r3b_h1_dead_writer_is_failed_and_padded_once_the_other_group_finished[0]
+FAILED ../../packages/p3a/review-tests/round3/test_r3b_hold_back_on_cpu.py::test_r3b_h1_dead_writer_is_failed_and_padded_once_the_other_group_finished[3]
+2 failed, 6 passed, 7 warnings in 2.30s

@@ -1,0 +1,892 @@
+[2026-10-29T04:12:16Z] build_long_dataset start tokenizer=Qwen/Qwen3-1.7B target=6000 dst=/hf-cache/data/gsm8k-long
+[2026-10-29T04:12:16Z] $ uv sync --frozen --all-packages --extra vllm --extra fsdp
+Using CPython 3.12.3 interpreter at: /usr/local/bin/python
+Creating virtual environment at: .venv
+   Building verl @ file:///workspace/verl
+Downloading pillow (6.8MiB)
+Downloading aiohttp (1.8MiB)
+Downloading tokenizers (3.2MiB)
+Downloading transformers (11.5MiB)
+Downloading flashinfer-python (32.1MiB)
+Downloading nvidia-cudnn-frontend (9.7MiB)
+Downloading xgrammar (1.3MiB)
+Downloading tokenspeed-triton (89.0MiB)
+Downloading oss-harmony (3.4MiB)
+Downloading nccl-extensions (21.5MiB)
+Downloading vllm (311.4MiB)
+Downloading nvidia-cutlass-dsl-libs-core (1.6MiB)
+Downloading nvidia-cutlass-dsl-libs-cu12 (87.5MiB)
+Downloading instanttensor (6.2MiB)
+Downloading nvidia-cutlass-dsl-libs-base (2.9MiB)
+Downloading nvidia-cutlass-dsl-libs-cu13 (87.7MiB)
+ Downloaded xgrammar
+ Downloaded aiohttp
+ Downloaded nvidia-cutlass-dsl-libs-base
+ Downloaded tokenizers
+ Downloaded nvidia-cutlass-dsl-libs-core
+ Downloaded oss-harmony
+ Downloaded instanttensor
+ Downloaded pillow
+ Downloaded nvidia-cudnn-frontend
+      Built verl @ file:///workspace/verl
+ Downloaded nccl-extensions
+ Downloaded tokenspeed-triton
+ Downloaded nvidia-cutlass-dsl-libs-cu12
+ Downloaded nvidia-cutlass-dsl-libs-cu13
+ Downloaded transformers
+ Downloaded flashinfer-python
+ Downloaded vllm
+Prepared 27 packages in 10.47s
+Installed 260 packages in 26.37s
+ + absl-py==2.4.0
+ + accelerate==1.14.0
+ + aiohappyeyeballs==2.6.2
+ + aiohttp==3.14.5
+ + aiohttp-cors==0.8.1
+ + aiosignal==1.4.0
+ + annotated-doc==0.0.4
+ + annotated-types==0.7.0
+ + anthropic==0.109.1
+ + antlr4-python3-runtime==4.9.3
+ + anyio==4.13.0
+ + apache-tvm-ffi==0.1.11
+ + astor==0.8.1
+ + attrs==26.1.0
+ + av==17.1.0
+ + blake3==1.0.8
+ + cachetools==7.1.4
+ + cbor2==6.1.2
+ + certifi==2026.5.20
+ + cffi==2.0.0
+ + charset-normalizer==3.4.7
+ + click==8.5.0
+ + cloudpickle==3.1.2
+ + codetiming==1.4.0
+ + colorful==0.5.8
+ + compressed-tensors==0.17.0
+ + cryptography==49.0.0
+ + cuda-bindings==13.3.1
+ + cuda-core==1.0.1
+ + cuda-pathfinder==1.5.5
+ + cuda-python==13.3.1
+ + cuda-tile==1.6.0rc5
+ + cuda-toolkit==13.0.3.0
+ + cupy-cuda13x==14.0.1
+ + datasets==5.0.0
+ + depyf==0.20.0
+ + detect-installer==0.1.0
+ + dill==0.4.1
+ + distlib==0.4.3
+ + distro==1.9.0
+ + dnspython==2.8.0
+ + docstring-parser==0.18.0
+ + einops==0.8.2
+ + email-validator==2.3.0
+ + fastapi==0.136.3
+ + fastapi-cli==0.0.24
+ + fastapi-cloud-cli==0.20.0
+ + fastar==0.11.0
+ + fastsafetensors==0.4.0
+ + filelock==3.29.4
+ + fla-core==0.5.2
+ + flash-attn==2.8.3
+ + flash-linear-attention==0.5.2
+ + flashinfer-python==0.7.0.post1
+ + frozenlist==1.8.0
+ + fsspec==2026.4.0
+ + gitdb==4.0.12
+ + gitpython==3.1.50
+ + google-api-core==2.31.0
+ + google-auth==2.54.0
+ + googleapis-common-protos==1.75.0
+ + grpcio==1.81.1
+ + h11==0.16.0
+ + hf-xet==1.6.0
+ + httpcore==1.0.9
+ + httpcore2==2.16.0
+ + httptools==0.8.0
+ + httpx==0.28.1
+ + httpx2==2.16.0
+ + huggingface-hub==1.32.0
+ + humming-kernels==0.1.17
+ + hydra-core==1.3.3
+ + idna==3.18
+ + ijson==3.5.0
+ + importlib-metadata==9.0.0
+ + iniconfig==2.3.0
+ + instanttensor==0.2.2
+ + interegular==0.3.3
+ + jinja2==3.1.6
+ + jiter==0.15.0
+ + jmespath==1.1.0
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + lark==1.2.2
+ + liger-kernel==0.8.4
+ + llguidance==1.7.6
+ + llvmlite==0.47.0
+ + lm-format-enforcer==0.11.3
+ + loguru==0.7.3
+ + markdown==3.10.2
+ + markdown-it-py==4.2.0
+ + markupsafe==3.0.3
+ + mathruler==0.1.0
+ + mcp==2.3.0
+ + mcp-types==2.3.0
+ + mdurl==0.1.2
+ + mistral-common==1.11.7
+ + ml-dtypes==0.5.4
+ + model-hosting-container-standards==0.1.15
+ + mpmath==1.3.0
+ + msgpack==1.2.0
+ + msgspec==0.21.1
+ + multidict==6.7.1
+ + multiprocess==0.70.19
+ + nccl-extensions==0.1.0
+ + nccl4py==0.5.0
+ + networkx==3.6.1
+ + ninja==1.13.0
+ + numba==0.65.0
+ + numpy==2.4.6
+ + nvidia-cublas==13.1.1.3
+ + nvidia-cuda-cccl==13.3.3.4.1
+ + nvidia-cuda-crt==13.3.73
+ + nvidia-cuda-cupti==13.0.85
+ + nvidia-cuda-nvcc==13.2.86
+ + nvidia-cuda-nvrtc==13.0.88
+ + nvidia-cuda-runtime==13.0.96
+ + nvidia-cudnn-cu13==9.20.0.48
+ + nvidia-cudnn-frontend==1.31.0
+ + nvidia-cufft==12.0.0.61
+ + nvidia-cufile==1.15.1.6
+ + nvidia-curand==10.4.0.35
+ + nvidia-cusolver==12.0.4.66
+ + nvidia-cusparse==12.6.3.3
+ + nvidia-cusparselt-cu13==0.8.0
+ + nvidia-cutlass-dsl==4.8.0
+ + nvidia-cutlass-dsl-libs-base==4.8.0
+ + nvidia-cutlass-dsl-libs-core==4.8.0
+ + nvidia-cutlass-dsl-libs-cu12==4.8.0
+ + nvidia-cutlass-dsl-libs-cu13==4.8.0
+ + nvidia-ml-py==13.610.43
+ + nvidia-nccl-cu13==2.29.7
+ + nvidia-nvjitlink==13.0.88
+ + nvidia-nvshmem-cu13==3.4.5
+ + nvidia-nvtx==13.0.85
+ + nvidia-nvvm==13.2.86
+ + nvtx==0.2.15
+ + omegaconf==2.3.1
+ + openai==2.41.1
+ + opencensus==0.11.4
+ + opencensus-context==0.1.3
+ + opencv-python-headless==4.13.0.92
+ + opentelemetry-api==1.42.1
+ + opentelemetry-exporter-otlp==1.42.1
+ + opentelemetry-exporter-otlp-proto-common==1.42.1
+ + opentelemetry-exporter-otlp-proto-grpc==1.42.1
+ + opentelemetry-exporter-otlp-proto-http==1.42.1
+ + opentelemetry-exporter-prometheus==0.63b1
+ + opentelemetry-proto==1.42.1
+ + opentelemetry-sdk==1.42.1
+ + opentelemetry-semantic-conventions==0.63b1
+ + opentelemetry-semantic-conventions-ai==0.5.1
+ + orjson==3.11.9
+ + oss-harmony==0.0.11
+ + outlines-core==0.2.14
+ + packaging==25.0
+ + pandas==3.0.3
+ + partial-json-parser==0.2.1.1.post7
+ + peft==0.19.1
+ + pillow==13.0.0
+ + platformdirs==4.10.0
+ + pluggy==1.6.0
+ + prometheus-client==0.25.0
+ + prometheus-fastapi-instrumentator==8.0.0
+ + propcache==0.5.2
+ + proto-plus==1.28.0
+ + protobuf==6.33.6
+ + psutil==7.2.2
+ + py-cpuinfo==9.0.0
+ + py-spy==0.4.2
+ + pyarrow==24.0.0
+ + pyasn1==0.6.3
+ + pyasn1-modules==0.4.2
+ + pybase64==1.4.3
+ + pybind11==3.0.4
+ + pycountry==26.2.16
+ + pycparser==3.0
+ + pydantic==2.13.4
+ + pydantic-core==2.46.4
+ + pydantic-extra-types==2.11.1
+ + pydantic-settings==2.14.1
+ + pygments==2.20.0
+ + pyjwt==2.13.0
+ + pylatexenc==2.10
+ + pynvvideocodec==2.0.4
+ + pytest==9.1.0
+ + pytest-asyncio==1.4.0
+ + pytest-rerunfailures==16.3
+ + python-dateutil==2.9.0.post0
+ + python-discovery==1.4.2
+ + python-dotenv==1.2.2
+ + python-json-logger==4.1.0
+ + python-multipart==0.0.32
+ + pyvers==0.1.0
+ + pyyaml==6.0.3
+ + pyzmq==27.1.0
+ + quack-kernels==0.6.5
+ + qwen-vl-utils==0.0.14
+ + ray==2.55.1
+ + referencing==0.37.0
+ + regex==2026.5.9
+ + requests==2.34.2
+ + rich==15.0.0
+ + rich-toolkit==0.20.1
+ + rignore==0.7.6
+ + rpds-py==2026.5.1
+ + safetensors==0.8.0
+ + sentencepiece==0.2.1
+ + sentry-sdk==2.62.0
+ + setproctitle==1.3.7
+ + setuptools==80.10.2
+ + shellingham==1.5.4
+ + six==1.17.0
+ + smart-open==7.6.1
+ + smmap==5.0.3
+ + sniffio==1.3.1
+ + sse-starlette==3.4.4
+ + starlette==1.3.1
+ + supervisor==4.3.0
+ + sympy==1.14.0
+ + tabulate==0.10.0
+ + tensorboard==2.20.0
+ + tensorboard-data-server==0.7.2
+ + tensordict==0.10.0
+ + tiktoken==0.13.0
+ + tilelang==0.1.12
+ + tokenizers==0.23.2
+ + tokenspeed-mla==0.2.15
+ + tokenspeed-triton==3.9.10.post20261008
+ + torch==2.13.0+cu130
+ + torch-c-dlpack-ext==0.1.5
+ + torchaudio==2.11.0+cu130
+ + torchcodec==0.16.0
+ + torchdata==0.11.0
+ + torchvision==0.28.0+cu130
+ + tqdm==4.68.2
+ + transferqueue==0.1.11
+ + transformers==5.16.1
+ + triton==3.7.1
+ + trl==0.27.0
+ + truststore==0.10.5
+ + typer==0.25.1
+ + typing-extensions==4.15.0
+ + typing-inspection==0.4.2
+ + urllib3==2.7.0
+ + uvicorn==0.49.0
+ + uvloop==0.22.1
+ + verl==0.10.0.dev0 (from file:///workspace/verl)
+ + virtualenv==21.5.0
+ + vllm==0.32.0
+ + wandb==0.27.2
+ + watchfiles==1.2.0
+ + websockets==16.0
+ + werkzeug==3.1.8
+ + wrapt==2.2.1
+ + xgrammar==0.2.8
+ + xxhash==3.7.0
+ + yarl==1.25.1
+ + z3-solver==4.15.4.0
+ + zipp==4.1.0
+[2026-10-29T04:12:54Z] uv sync done in 37.9s
+[2026-10-29T04:12:54Z] $ uv run --frozen --all-packages --extra vllm --extra fsdp python3 /root/build_gsm8k_long.py --src /hf-cache/data/gsm8k --dst /hf-cache/data/gsm8k-long --tokenizer /hf-cache/hf_home/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e --target-tokens 6000
+
+Map (num_proc=16):   0%|          | 0/7473 [00:00<?, ? examples/s]
+Map (num_proc=16):   0%|          | 1/7473 [00:03<7:06:35,  3.43s/ examples]
+Map (num_proc=16):   0%|          | 6/7473 [00:03<55:25,  2.25 examples/s]  
+Map (num_proc=16):   0%|          | 10/7473 [00:03<29:33,  4.21 examples/s]
+Map (num_proc=16):   0%|          | 15/7473 [00:03<17:04,  7.28 examples/s]
+Map (num_proc=16):   0%|          | 19/7473 [00:03<12:25, 10.00 examples/s]
+Map (num_proc=16):   0%|          | 23/7473 [00:04<09:46, 12.70 examples/s]
+Map (num_proc=16):   0%|          | 27/7473 [00:04<07:50, 15.83 examples/s]
+Map (num_proc=16):   0%|          | 31/7473 [00:04<06:36, 18.79 examples/s]
+Map (num_proc=16):   0%|          | 36/7473 [00:04<05:23, 23.01 examples/s]
+Map (num_proc=16):   1%|          | 40/7473 [00:04<04:51, 25.49 examples/s]
+Map (num_proc=16):   1%|          | 44/7473 [00:04<04:46, 25.90 examples/s]
+Map (num_proc=16):   1%|          | 48/7473 [00:04<04:31, 27.37 examples/s]
+Map (num_proc=16):   1%|          | 53/7473 [00:04<03:53, 31.75 examples/s]
+Map (num_proc=16):   1%|          | 58/7473 [00:05<03:26, 35.98 examples/s]
+Map (num_proc=16):   1%|          | 65/7473 [00:05<03:03, 40.38 examples/s]
+Map (num_proc=16):   1%|          | 73/7473 [00:05<02:36, 47.29 examples/s]
+Map (num_proc=16):   1%|          | 82/7473 [00:05<02:15, 54.59 examples/s]
+Map (num_proc=16):   1%|          | 88/7473 [00:05<02:15, 54.41 examples/s]
+Map (num_proc=16):   1%|▏         | 97/7473 [00:05<02:09, 56.91 examples/s]
+Map (num_proc=16):   1%|▏         | 104/7473 [00:05<02:04, 59.13 examples/s]
+Map (num_proc=16):   1%|▏         | 112/7473 [00:05<01:54, 64.52 examples/s]
+Map (num_proc=16):   2%|▏         | 119/7473 [00:06<01:57, 62.62 examples/s]
+Map (num_proc=16):   2%|▏         | 128/7473 [00:06<01:51, 65.96 examples/s]
+Map (num_proc=16):   2%|▏         | 136/7473 [00:06<01:54, 64.26 examples/s]
+Map (num_proc=16):   2%|▏         | 144/7473 [00:06<01:53, 64.39 examples/s]
+Map (num_proc=16):   2%|▏         | 152/7473 [00:06<01:52, 64.96 examples/s]
+Map (num_proc=16):   2%|▏         | 160/7473 [00:06<01:59, 61.43 examples/s]
+Map (num_proc=16):   2%|▏         | 172/7473 [00:06<01:45, 69.42 examples/s]
+Map (num_proc=16):   2%|▏         | 183/7473 [00:06<01:35, 75.94 examples/s]
+Map (num_proc=16):   3%|▎         | 195/7473 [00:07<01:27, 83.01 examples/s]
+Map (num_proc=16):   3%|▎         | 204/7473 [00:07<01:25, 84.72 examples/s]
+Map (num_proc=16):   3%|▎         | 214/7473 [00:07<01:27, 83.15 examples/s]
+Map (num_proc=16):   3%|▎         | 226/7473 [00:07<01:24, 85.33 examples/s]
+Map (num_proc=16):   3%|▎         | 236/7473 [00:07<01:24, 86.15 examples/s]
+Map (num_proc=16):   3%|▎         | 250/7473 [00:07<01:12, 99.43 examples/s]
+Map (num_proc=16):   4%|▎         | 262/7473 [00:07<01:23, 86.20 examples/s]
+Map (num_proc=16):   4%|▎         | 276/7473 [00:07<01:15, 95.03 examples/s]
+Map (num_proc=16):   4%|▍         | 287/7473 [00:08<01:13, 98.18 examples/s]
+Map (num_proc=16):   4%|▍         | 299/7473 [00:08<01:14, 96.87 examples/s]
+Map (num_proc=16):   4%|▍         | 311/7473 [00:08<01:12, 98.97 examples/s]
+Map (num_proc=16):   4%|▍         | 325/7473 [00:08<01:09, 102.75 examples/s]
+Map (num_proc=16):   5%|▍         | 337/7473 [00:08<01:08, 104.26 examples/s]
+Map (num_proc=16):   5%|▍         | 352/7473 [00:08<01:04, 109.74 examples/s]
+Map (num_proc=16):   5%|▍         | 364/7473 [00:08<01:03, 112.17 examples/s]
+Map (num_proc=16):   5%|▌         | 377/7473 [00:08<01:03, 111.02 examples/s]
+Map (num_proc=16):   5%|▌         | 394/7473 [00:08<00:59, 118.68 examples/s]
+Map (num_proc=16):   6%|▌         | 412/7473 [00:09<00:54, 128.72 examples/s]
+Map (num_proc=16):   6%|▌         | 426/7473 [00:09<00:54, 128.75 examples/s]
+Map (num_proc=16):   6%|▌         | 439/7473 [00:09<00:58, 119.80 examples/s]
+Map (num_proc=16):   6%|▌         | 461/7473 [00:09<00:50, 139.25 examples/s]
+Map (num_proc=16):   6%|▋         | 476/7473 [00:09<00:49, 141.01 examples/s]
+Map (num_proc=16):   7%|▋         | 492/7473 [00:09<00:50, 137.67 examples/s]
+Map (num_proc=16):   7%|▋         | 507/7473 [00:09<00:52, 132.71 examples/s]
+Map (num_proc=16):   7%|▋         | 523/7473 [00:09<00:49, 139.39 examples/s]
+Map (num_proc=16):   7%|▋         | 539/7473 [00:10<00:52, 130.92 examples/s]
+Map (num_proc=16):   7%|▋         | 553/7473 [00:10<00:54, 127.67 examples/s]
+Map (num_proc=16):   8%|▊         | 567/7473 [00:10<00:53, 128.41 examples/s]
+Map (num_proc=16):   8%|▊         | 583/7473 [00:10<00:50, 136.19 examples/s]
+Map (num_proc=16):   8%|▊         | 599/7473 [00:10<00:49, 139.95 examples/s]
+Map (num_proc=16):   8%|▊         | 615/7473 [00:10<00:47, 143.34 examples/s]
+Map (num_proc=16):   8%|▊         | 634/7473 [00:10<00:44, 153.42 examples/s]
+Map (num_proc=16):   9%|▊         | 651/7473 [00:10<00:43, 157.60 examples/s]
+Map (num_proc=16):   9%|▉         | 668/7473 [00:10<00:43, 156.20 examples/s]
+Map (num_proc=16):   9%|▉         | 685/7473 [00:11<00:43, 155.51 examples/s]
+Map (num_proc=16):   9%|▉         | 701/7473 [00:11<00:46, 146.22 examples/s]
+Map (num_proc=16):  10%|▉         | 720/7473 [00:11<00:44, 151.83 examples/s]
+Map (num_proc=16):  10%|▉         | 737/7473 [00:11<00:44, 151.87 examples/s]
+Map (num_proc=16):  10%|█         | 753/7473 [00:11<00:43, 153.82 examples/s]
+Map (num_proc=16):  10%|█         | 770/7473 [00:11<00:46, 143.82 examples/s]
+Map (num_proc=16):  11%|█         | 792/7473 [00:11<00:41, 160.86 examples/s]
+Map (num_proc=16):  11%|█         | 812/7473 [00:11<00:40, 164.63 examples/s]
+Map (num_proc=16):  11%|█         | 829/7473 [00:11<00:42, 156.46 examples/s]
+Map (num_proc=16):  11%|█▏        | 849/7473 [00:12<00:42, 157.42 examples/s]
+Map (num_proc=16):  12%|█▏        | 869/7473 [00:12<00:39, 165.73 examples/s]
+Map (num_proc=16):  12%|█▏        | 887/7473 [00:12<00:39, 166.67 examples/s]
+Map (num_proc=16):  12%|█▏        | 908/7473 [00:12<00:37, 173.33 examples/s]
+Map (num_proc=16):  12%|█▏        | 927/7473 [00:12<00:37, 175.86 examples/s]
+Map (num_proc=16):  13%|█▎        | 946/7473 [00:12<00:37, 175.94 examples/s]
+Map (num_proc=16):  13%|█▎        | 971/7473 [00:12<00:33, 191.41 examples/s]
+Map (num_proc=16):  13%|█▎        | 992/7473 [00:12<00:35, 181.64 examples/s]
+Map (num_proc=16):  14%|█▎        | 1011/7473 [00:12<00:35, 180.40 examples/s]
+Map (num_proc=16):  14%|█▍        | 1031/7473 [00:13<00:40, 157.42 examples/s]
+Map (num_proc=16):  14%|█▍        | 1056/7473 [00:13<00:36, 178.04 examples/s]
+Map (num_proc=16):  14%|█▍        | 1076/7473 [00:13<00:35, 182.14 examples/s]
+Map (num_proc=16):  15%|█▍        | 1095/7473 [00:13<00:35, 180.28 examples/s]
+Map (num_proc=16):  15%|█▌        | 1121/7473 [00:13<00:31, 199.44 examples/s]
+Map (num_proc=16):  15%|█▌        | 1143/7473 [00:13<00:32, 196.32 examples/s]
+Map (num_proc=16):  16%|█▌        | 1164/7473 [00:13<00:31, 197.73 examples/s]
+Map (num_proc=16):  16%|█▌        | 1185/7473 [00:13<00:33, 188.30 examples/s]
+Map (num_proc=16):  16%|█▌        | 1206/7473 [00:14<00:33, 188.12 examples/s]
+Map (num_proc=16):  16%|█▋        | 1229/7473 [00:14<00:32, 194.77 examples/s]
+Map (num_proc=16):  17%|█▋        | 1252/7473 [00:14<00:31, 198.75 examples/s]
+Map (num_proc=16):  17%|█▋        | 1278/7473 [00:14<00:28, 213.79 examples/s]
+Map (num_proc=16):  17%|█▋        | 1302/7473 [00:14<00:28, 215.17 examples/s]
+Map (num_proc=16):  18%|█▊        | 1326/7473 [00:14<00:28, 217.24 examples/s]
+Map (num_proc=16):  18%|█▊        | 1349/7473 [00:14<00:28, 218.03 examples/s]
+Map (num_proc=16):  18%|█▊        | 1375/7473 [00:14<00:26, 226.01 examples/s]
+Map (num_proc=16):  19%|█▊        | 1398/7473 [00:14<00:28, 214.19 examples/s]
+Map (num_proc=16):  19%|█▉        | 1423/7473 [00:15<00:31, 190.12 examples/s]
+Map (num_proc=16):  19%|█▉        | 1449/7473 [00:15<00:29, 202.01 examples/s]
+Map (num_proc=16):  20%|█▉        | 1475/7473 [00:15<00:28, 213.46 examples/s]
+Map (num_proc=16):  20%|██        | 1500/7473 [00:15<00:29, 204.35 examples/s]
+Map (num_proc=16):  21%|██        | 1536/7473 [00:15<00:24, 244.24 examples/s]
+Map (num_proc=16):  21%|██        | 1563/7473 [00:15<00:24, 237.11 examples/s]
+Map (num_proc=16):  21%|██▏       | 1589/7473 [00:15<00:25, 230.30 examples/s]
+Map (num_proc=16):  22%|██▏       | 1614/7473 [00:15<00:25, 230.08 examples/s]
+Map (num_proc=16):  22%|██▏       | 1639/7473 [00:15<00:26, 222.04 examples/s]
+Map (num_proc=16):  22%|██▏       | 1667/7473 [00:16<00:24, 234.97 examples/s]
+Map (num_proc=16):  23%|██▎       | 1692/7473 [00:16<00:24, 233.54 examples/s]
+Map (num_proc=16):  23%|██▎       | 1717/7473 [00:16<00:24, 234.34 examples/s]
+Map (num_proc=16):  23%|██▎       | 1742/7473 [00:16<00:25, 225.11 examples/s]
+Map (num_proc=16):  24%|██▎       | 1768/7473 [00:16<00:25, 227.47 examples/s]
+Map (num_proc=16):  24%|██▍       | 1793/7473 [00:16<00:24, 233.11 examples/s]
+Map (num_proc=16):  24%|██▍       | 1817/7473 [00:16<00:24, 229.69 examples/s]
+Map (num_proc=16):  25%|██▍       | 1844/7473 [00:16<00:23, 240.56 examples/s]
+Map (num_proc=16):  25%|██▌       | 1870/7473 [00:16<00:23, 236.04 examples/s]
+Map (num_proc=16):  25%|██▌       | 1895/7473 [00:17<00:30, 181.84 examples/s]
+Map (num_proc=16):  26%|██▌       | 1920/7473 [00:17<00:28, 197.72 examples/s]
+Map (num_proc=16):  26%|██▌       | 1948/7473 [00:17<00:26, 212.34 examples/s]
+Map (num_proc=16):  27%|██▋       | 2020/7473 [00:17<00:16, 322.58 examples/s]
+Map (num_proc=16):  27%|██▋       | 2054/7473 [00:17<00:18, 286.88 examples/s]
+Map (num_proc=16):  28%|██▊       | 2084/7473 [00:17<00:20, 263.04 examples/s]
+Map (num_proc=16):  28%|██▊       | 2112/7473 [00:17<00:20, 258.08 examples/s]
+Map (num_proc=16):  29%|██▊       | 2140/7473 [00:18<00:20, 261.43 examples/s]
+Map (num_proc=16):  29%|██▉       | 2168/7473 [00:18<00:22, 237.84 examples/s]
+Map (num_proc=16):  29%|██▉       | 2194/7473 [00:18<00:24, 219.50 examples/s]
+Map (num_proc=16):  30%|██▉       | 2217/7473 [00:18<00:23, 222.00 examples/s]
+Map (num_proc=16):  30%|██▉       | 2241/7473 [00:18<00:23, 223.11 examples/s]
+Map (num_proc=16):  30%|███       | 2265/7473 [00:18<00:23, 221.57 examples/s]
+Map (num_proc=16):  31%|███       | 2289/7473 [00:18<00:23, 222.73 examples/s]
+Map (num_proc=16):  31%|███       | 2320/7473 [00:18<00:21, 242.85 examples/s]
+Map (num_proc=16):  31%|███▏      | 2347/7473 [00:18<00:20, 245.47 examples/s]
+Map (num_proc=16):  32%|███▏      | 2372/7473 [00:19<00:20, 246.01 examples/s]
+Map (num_proc=16):  32%|███▏      | 2397/7473 [00:19<00:20, 242.67 examples/s]
+Map (num_proc=16):  32%|███▏      | 2422/7473 [00:19<00:24, 205.28 examples/s]
+Map (num_proc=16):  33%|███▎      | 2450/7473 [00:19<00:22, 223.82 examples/s]
+Map (num_proc=16):  33%|███▎      | 2483/7473 [00:19<00:20, 248.55 examples/s]
+Map (num_proc=16):  34%|███▍      | 2529/7473 [00:19<00:16, 300.69 examples/s]
+Map (num_proc=16):  34%|███▍      | 2562/7473 [00:19<00:17, 277.17 examples/s]
+Map (num_proc=16):  35%|███▍      | 2591/7473 [00:19<00:18, 260.79 examples/s]
+Map (num_proc=16):  35%|███▌      | 2619/7473 [00:20<00:19, 247.68 examples/s]
+Map (num_proc=16):  35%|███▌      | 2646/7473 [00:20<00:20, 240.04 examples/s]
+Map (num_proc=16):  36%|███▌      | 2673/7473 [00:20<00:19, 245.39 examples/s]
+Map (num_proc=16):  36%|███▌      | 2698/7473 [00:20<00:20, 237.90 examples/s]
+Map (num_proc=16):  36%|███▋      | 2723/7473 [00:20<00:20, 234.62 examples/s]
+Map (num_proc=16):  37%|███▋      | 2750/7473 [00:20<00:19, 242.82 examples/s]
+Map (num_proc=16):  37%|███▋      | 2775/7473 [00:20<00:19, 237.66 examples/s]
+Map (num_proc=16):  38%|███▊      | 2803/7473 [00:20<00:19, 245.13 examples/s]
+Map (num_proc=16):  38%|███▊      | 2829/7473 [00:20<00:20, 226.76 examples/s]
+Map (num_proc=16):  38%|███▊      | 2862/7473 [00:21<00:18, 245.42 examples/s]
+Map (num_proc=16):  39%|███▊      | 2888/7473 [00:21<00:18, 248.05 examples/s]
+Map (num_proc=16):  39%|███▉      | 2914/7473 [00:21<00:20, 219.36 examples/s]
+Map (num_proc=16):  39%|███▉      | 2945/7473 [00:21<00:18, 239.23 examples/s]
+Map (num_proc=16):  40%|███▉      | 2971/7473 [00:21<00:18, 240.72 examples/s]
+Map (num_proc=16):  40%|████      | 3004/7473 [00:21<00:16, 263.01 examples/s]
+Map (num_proc=16):  41%|████      | 3032/7473 [00:21<00:17, 257.63 examples/s]
+Map (num_proc=16):  41%|████      | 3059/7473 [00:21<00:19, 226.48 examples/s]
+Map (num_proc=16):  41%|████▏     | 3091/7473 [00:21<00:17, 250.25 examples/s]
+Map (num_proc=16):  42%|████▏     | 3118/7473 [00:22<00:17, 243.34 examples/s]
+Map (num_proc=16):  42%|████▏     | 3144/7473 [00:22<00:18, 228.03 examples/s]
+Map (num_proc=16):  42%|████▏     | 3169/7473 [00:22<00:19, 224.72 examples/s]
+Map (num_proc=16):  43%|████▎     | 3193/7473 [00:22<00:19, 222.21 examples/s]
+Map (num_proc=16):  43%|████▎     | 3224/7473 [00:22<00:17, 245.63 examples/s]
+Map (num_proc=16):  44%|████▎     | 3251/7473 [00:22<00:17, 235.42 examples/s]
+Map (num_proc=16):  44%|████▍     | 3280/7473 [00:22<00:17, 245.87 examples/s]
+Map (num_proc=16):  44%|████▍     | 3310/7473 [00:22<00:15, 260.67 examples/s]
+Map (num_proc=16):  45%|████▍     | 3341/7473 [00:23<00:15, 264.18 examples/s]
+Map (num_proc=16):  45%|████▌     | 3368/7473 [00:23<00:18, 220.33 examples/s]
+Map (num_proc=16):  45%|████▌     | 3393/7473 [00:23<00:18, 215.34 examples/s]
+Map (num_proc=16):  46%|████▌     | 3417/7473 [00:23<00:18, 219.54 examples/s]
+Map (num_proc=16):  46%|████▌     | 3440/7473 [00:23<00:18, 219.93 examples/s]
+Map (num_proc=16):  47%|████▋     | 3491/7473 [00:23<00:13, 295.89 examples/s]
+Map (num_proc=16):  47%|████▋     | 3522/7473 [00:23<00:14, 267.05 examples/s]
+Map (num_proc=16):  48%|████▊     | 3550/7473 [00:23<00:15, 248.90 examples/s]
+Map (num_proc=16):  48%|████▊     | 3576/7473 [00:23<00:15, 247.04 examples/s]
+Map (num_proc=16):  48%|████▊     | 3603/7473 [00:24<00:16, 230.21 examples/s]
+Map (num_proc=16):  49%|████▊     | 3628/7473 [00:24<00:16, 230.82 examples/s]
+Map (num_proc=16):  49%|████▉     | 3652/7473 [00:24<00:16, 230.78 examples/s]
+Map (num_proc=16):  49%|████▉     | 3679/7473 [00:24<00:15, 238.95 examples/s]
+Map (num_proc=16):  50%|████▉     | 3710/7473 [00:24<00:14, 251.49 examples/s]
+Map (num_proc=16):  50%|█████     | 3737/7473 [00:24<00:14, 255.78 examples/s]
+Map (num_proc=16):  50%|█████     | 3763/7473 [00:24<00:15, 241.17 examples/s]
+Map (num_proc=16):  51%|█████     | 3788/7473 [00:24<00:16, 220.44 examples/s]
+Map (num_proc=16):  51%|█████     | 3811/7473 [00:25<00:18, 198.24 examples/s]
+Map (num_proc=16):  51%|█████▏    | 3836/7473 [00:25<00:17, 211.05 examples/s]
+Map (num_proc=16):  52%|█████▏    | 3862/7473 [00:25<00:16, 222.52 examples/s]
+Map (num_proc=16):  52%|█████▏    | 3886/7473 [00:25<00:15, 227.20 examples/s]
+Map (num_proc=16):  53%|█████▎    | 3935/7473 [00:25<00:11, 300.58 examples/s]
+Map (num_proc=16):  53%|█████▎    | 3966/7473 [00:25<00:11, 293.72 examples/s]
+Map (num_proc=16):  53%|█████▎    | 3996/7473 [00:25<00:13, 256.07 examples/s]
+Map (num_proc=16):  54%|█████▍    | 4024/7473 [00:25<00:13, 252.59 examples/s]
+Map (num_proc=16):  54%|█████▍    | 4051/7473 [00:25<00:14, 240.21 examples/s]
+Map (num_proc=16):  55%|█████▍    | 4077/7473 [00:26<00:14, 232.70 examples/s]
+Map (num_proc=16):  55%|█████▍    | 4102/7473 [00:26<00:14, 236.49 examples/s]
+Map (num_proc=16):  55%|█████▌    | 4127/7473 [00:26<00:14, 229.45 examples/s]
+Map (num_proc=16):  56%|█████▌    | 4152/7473 [00:26<00:14, 232.30 examples/s]
+Map (num_proc=16):  56%|█████▌    | 4183/7473 [00:26<00:13, 248.06 examples/s]
+Map (num_proc=16):  56%|█████▋    | 4210/7473 [00:26<00:14, 231.17 examples/s]
+Map (num_proc=16):  57%|█████▋    | 4241/7473 [00:26<00:13, 248.38 examples/s]
+Map (num_proc=16):  57%|█████▋    | 4267/7473 [00:26<00:13, 236.13 examples/s]
+Map (num_proc=16):  57%|█████▋    | 4291/7473 [00:27<00:16, 196.10 examples/s]
+Map (num_proc=16):  58%|█████▊    | 4316/7473 [00:27<00:15, 206.36 examples/s]
+Map (num_proc=16):  58%|█████▊    | 4344/7473 [00:27<00:14, 221.58 examples/s]
+Map (num_proc=16):  58%|█████▊    | 4369/7473 [00:27<00:13, 226.86 examples/s]
+Map (num_proc=16):  59%|█████▉    | 4394/7473 [00:27<00:13, 226.30 examples/s]
+Map (num_proc=16):  59%|█████▉    | 4419/7473 [00:27<00:14, 213.54 examples/s]
+Map (num_proc=16):  59%|█████▉    | 4442/7473 [00:27<00:14, 207.08 examples/s]
+Map (num_proc=16):  60%|█████▉    | 4469/7473 [00:27<00:13, 220.60 examples/s]
+Map (num_proc=16):  60%|██████    | 4492/7473 [00:27<00:14, 205.99 examples/s]
+Map (num_proc=16):  60%|██████    | 4517/7473 [00:28<00:13, 217.49 examples/s]
+Map (num_proc=16):  61%|██████    | 4549/7473 [00:28<00:12, 237.95 examples/s]
+Map (num_proc=16):  61%|██████    | 4576/7473 [00:28<00:12, 239.74 examples/s]
+Map (num_proc=16):  62%|██████▏   | 4601/7473 [00:28<00:12, 238.65 examples/s]
+Map (num_proc=16):  62%|██████▏   | 4626/7473 [00:28<00:11, 239.38 examples/s]
+Map (num_proc=16):  62%|██████▏   | 4652/7473 [00:28<00:11, 239.49 examples/s]
+Map (num_proc=16):  63%|██████▎   | 4680/7473 [00:28<00:11, 245.61 examples/s]
+Map (num_proc=16):  63%|██████▎   | 4710/7473 [00:28<00:10, 254.83 examples/s]
+Map (num_proc=16):  63%|██████▎   | 4739/7473 [00:29<00:12, 214.90 examples/s]
+Map (num_proc=16):  64%|██████▎   | 4764/7473 [00:29<00:12, 220.69 examples/s]
+Map (num_proc=16):  64%|██████▍   | 4790/7473 [00:29<00:11, 230.65 examples/s]
+Map (num_proc=16):  65%|██████▍   | 4822/7473 [00:29<00:10, 252.66 examples/s]
+Map (num_proc=16):  65%|██████▌   | 4863/7473 [00:29<00:08, 293.98 examples/s]
+Map (num_proc=16):  66%|██████▌   | 4895/7473 [00:29<00:10, 246.73 examples/s]
+Map (num_proc=16):  66%|██████▌   | 4922/7473 [00:29<00:10, 247.39 examples/s]
+Map (num_proc=16):  66%|██████▌   | 4950/7473 [00:29<00:10, 247.67 examples/s]
+Map (num_proc=16):  67%|██████▋   | 4977/7473 [00:29<00:10, 238.52 examples/s]
+Map (num_proc=16):  67%|██████▋   | 5003/7473 [00:30<00:10, 233.49 examples/s]
+Map (num_proc=16):  67%|██████▋   | 5030/7473 [00:30<00:10, 236.90 examples/s]
+Map (num_proc=16):  68%|██████▊   | 5055/7473 [00:30<00:10, 239.19 examples/s]
+Map (num_proc=16):  68%|██████▊   | 5081/7473 [00:30<00:10, 231.37 examples/s]
+Map (num_proc=16):  68%|██████▊   | 5105/7473 [00:30<00:10, 227.24 examples/s]
+Map (num_proc=16):  69%|██████▊   | 5134/7473 [00:30<00:09, 239.52 examples/s]
+Map (num_proc=16):  69%|██████▉   | 5161/7473 [00:30<00:09, 241.70 examples/s]
+Map (num_proc=16):  69%|██████▉   | 5186/7473 [00:30<00:10, 209.62 examples/s]
+Map (num_proc=16):  70%|██████▉   | 5208/7473 [00:31<00:11, 196.94 examples/s]
+Map (num_proc=16):  70%|███████   | 5233/7473 [00:31<00:10, 207.03 examples/s]
+Map (num_proc=16):  70%|███████   | 5259/7473 [00:31<00:10, 216.62 examples/s]
+Map (num_proc=16):  71%|███████   | 5297/7473 [00:31<00:08, 260.45 examples/s]
+Map (num_proc=16):  71%|███████▏  | 5329/7473 [00:31<00:07, 270.30 examples/s]
+Map (num_proc=16):  72%|███████▏  | 5357/7473 [00:31<00:08, 254.29 examples/s]
+Map (num_proc=16):  72%|███████▏  | 5384/7473 [00:31<00:08, 238.11 examples/s]
+Map (num_proc=16):  72%|███████▏  | 5409/7473 [00:31<00:08, 234.45 examples/s]
+Map (num_proc=16):  73%|███████▎  | 5436/7473 [00:31<00:08, 231.36 examples/s]
+Map (num_proc=16):  73%|███████▎  | 5461/7473 [00:32<00:08, 230.15 examples/s]
+Map (num_proc=16):  73%|███████▎  | 5486/7473 [00:32<00:08, 231.86 examples/s]
+Map (num_proc=16):  74%|███████▍  | 5519/7473 [00:32<00:07, 249.53 examples/s]
+Map (num_proc=16):  74%|███████▍  | 5547/7473 [00:32<00:07, 254.22 examples/s]
+Map (num_proc=16):  75%|███████▍  | 5574/7473 [00:32<00:07, 254.25 examples/s]
+Map (num_proc=16):  75%|███████▍  | 5602/7473 [00:32<00:07, 248.56 examples/s]
+Map (num_proc=16):  75%|███████▌  | 5636/7473 [00:32<00:07, 247.69 examples/s]
+Map (num_proc=16):  76%|███████▌  | 5667/7473 [00:32<00:06, 263.20 examples/s]
+Map (num_proc=16):  76%|███████▌  | 5694/7473 [00:32<00:07, 249.02 examples/s]
+Map (num_proc=16):  77%|███████▋  | 5721/7473 [00:33<00:07, 235.24 examples/s]
+Map (num_proc=16):  77%|███████▋  | 5746/7473 [00:33<00:07, 219.94 examples/s]
+Map (num_proc=16):  77%|███████▋  | 5772/7473 [00:33<00:07, 222.34 examples/s]
+Map (num_proc=16):  78%|███████▊  | 5796/7473 [00:33<00:07, 223.13 examples/s]
+Map (num_proc=16):  78%|███████▊  | 5819/7473 [00:33<00:07, 219.51 examples/s]
+Map (num_proc=16):  78%|███████▊  | 5843/7473 [00:33<00:07, 223.51 examples/s]
+Map (num_proc=16):  79%|███████▊  | 5869/7473 [00:33<00:07, 222.43 examples/s]
+Map (num_proc=16):  79%|███████▉  | 5892/7473 [00:33<00:07, 219.12 examples/s]
+Map (num_proc=16):  79%|███████▉  | 5915/7473 [00:33<00:07, 217.69 examples/s]
+Map (num_proc=16):  79%|███████▉  | 5938/7473 [00:34<00:07, 217.75 examples/s]
+Map (num_proc=16):  80%|███████▉  | 5962/7473 [00:34<00:06, 220.66 examples/s]
+Map (num_proc=16):  80%|████████  | 5985/7473 [00:34<00:06, 220.12 examples/s]
+Map (num_proc=16):  80%|████████  | 6008/7473 [00:34<00:06, 216.20 examples/s]
+Map (num_proc=16):  81%|████████  | 6030/7473 [00:34<00:06, 216.95 examples/s]
+Map (num_proc=16):  81%|████████  | 6052/7473 [00:34<00:06, 214.47 examples/s]
+Map (num_proc=16):  81%|████████▏ | 6076/7473 [00:34<00:06, 215.36 examples/s]
+Map (num_proc=16):  82%|████████▏ | 6100/7473 [00:34<00:06, 222.13 examples/s]
+Map (num_proc=16):  82%|████████▏ | 6125/7473 [00:34<00:06, 221.65 examples/s]
+Map (num_proc=16):  82%|████████▏ | 6151/7473 [00:35<00:05, 227.75 examples/s]
+Map (num_proc=16):  83%|████████▎ | 6174/7473 [00:35<00:05, 217.51 examples/s]
+Map (num_proc=16):  83%|████████▎ | 6197/7473 [00:35<00:06, 209.19 examples/s]
+Map (num_proc=16):  83%|████████▎ | 6226/7473 [00:35<00:05, 216.24 examples/s]
+Map (num_proc=16):  84%|████████▎ | 6254/7473 [00:35<00:05, 226.57 examples/s]
+Map (num_proc=16):  84%|████████▍ | 6279/7473 [00:35<00:05, 227.81 examples/s]
+Map (num_proc=16):  84%|████████▍ | 6302/7473 [00:35<00:05, 212.95 examples/s]
+Map (num_proc=16):  85%|████████▍ | 6324/7473 [00:35<00:05, 210.45 examples/s]
+Map (num_proc=16):  85%|████████▍ | 6346/7473 [00:36<00:05, 197.29 examples/s]
+Map (num_proc=16):  85%|████████▌ | 6370/7473 [00:36<00:05, 201.88 examples/s]
+Map (num_proc=16):  86%|████████▌ | 6391/7473 [00:36<00:05, 203.09 examples/s]
+Map (num_proc=16):  86%|████████▌ | 6412/7473 [00:36<00:05, 192.59 examples/s]
+Map (num_proc=16):  86%|████████▌ | 6434/7473 [00:36<00:05, 197.09 examples/s]
+Map (num_proc=16):  86%|████████▋ | 6454/7473 [00:36<00:05, 190.54 examples/s]
+Map (num_proc=16):  87%|████████▋ | 6476/7473 [00:36<00:05, 191.30 examples/s]
+Map (num_proc=16):  87%|████████▋ | 6496/7473 [00:36<00:05, 193.32 examples/s]
+Map (num_proc=16):  87%|████████▋ | 6517/7473 [00:36<00:05, 185.26 examples/s]
+Map (num_proc=16):  87%|████████▋ | 6536/7473 [00:37<00:05, 174.45 examples/s]
+Map (num_proc=16):  88%|████████▊ | 6554/7473 [00:37<00:05, 168.75 examples/s]
+Map (num_proc=16):  88%|████████▊ | 6571/7473 [00:37<00:05, 151.38 examples/s]
+Map (num_proc=16):  88%|████████▊ | 6587/7473 [00:37<00:06, 134.80 examples/s]
+Map (num_proc=16):  88%|████████▊ | 6606/7473 [00:37<00:06, 142.16 examples/s]
+Map (num_proc=16):  89%|████████▊ | 6621/7473 [00:37<00:06, 141.68 examples/s]
+Map (num_proc=16):  89%|████████▉ | 6639/7473 [00:37<00:05, 140.14 examples/s]
+Map (num_proc=16):  89%|████████▉ | 6656/7473 [00:37<00:05, 140.25 examples/s]
+Map (num_proc=16):  89%|████████▉ | 6671/7473 [00:38<00:05, 139.07 examples/s]
+Map (num_proc=16):  89%|████████▉ | 6686/7473 [00:38<00:05, 137.59 examples/s]
+Map (num_proc=16):  90%|████████▉ | 6704/7473 [00:38<00:05, 145.39 examples/s]
+Map (num_proc=16):  90%|████████▉ | 6720/7473 [00:38<00:05, 144.81 examples/s]
+Map (num_proc=16):  90%|█████████ | 6739/7473 [00:38<00:04, 152.07 examples/s]
+Map (num_proc=16):  90%|█████████ | 6758/7473 [00:38<00:04, 150.82 examples/s]
+Map (num_proc=16):  91%|█████████ | 6774/7473 [00:38<00:04, 142.98 examples/s]
+Map (num_proc=16):  91%|█████████ | 6794/7473 [00:38<00:04, 145.63 examples/s]
+Map (num_proc=16):  91%|█████████ | 6813/7473 [00:38<00:04, 152.36 examples/s]
+Map (num_proc=16):  91%|█████████▏| 6830/7473 [00:39<00:04, 145.72 examples/s]
+Map (num_proc=16):  92%|█████████▏| 6846/7473 [00:39<00:04, 142.94 examples/s]
+Map (num_proc=16):  92%|█████████▏| 6861/7473 [00:39<00:04, 144.21 examples/s]
+Map (num_proc=16):  92%|█████████▏| 6877/7473 [00:39<00:04, 147.03 examples/s]
+Map (num_proc=16):  92%|█████████▏| 6893/7473 [00:39<00:04, 137.76 examples/s]
+Map (num_proc=16):  92%|█████████▏| 6907/7473 [00:39<00:04, 118.94 examples/s]
+Map (num_proc=16):  93%|█████████▎| 6921/7473 [00:39<00:05, 109.64 examples/s]
+Map (num_proc=16):  93%|█████████▎| 6935/7473 [00:39<00:04, 113.98 examples/s]
+Map (num_proc=16):  93%|█████████▎| 6950/7473 [00:40<00:04, 113.92 examples/s]
+Map (num_proc=16):  93%|█████████▎| 6962/7473 [00:40<00:04, 113.66 examples/s]
+Map (num_proc=16):  93%|█████████▎| 6974/7473 [00:40<00:04, 110.55 examples/s]
+Map (num_proc=16):  94%|█████████▎| 6989/7473 [00:40<00:04, 119.99 examples/s]
+Map (num_proc=16):  94%|█████████▎| 7002/7473 [00:40<00:04, 116.14 examples/s]
+Map (num_proc=16):  94%|█████████▍| 7015/7473 [00:40<00:04, 112.67 examples/s]
+Map (num_proc=16):  94%|█████████▍| 7031/7473 [00:40<00:03, 123.04 examples/s]
+Map (num_proc=16):  94%|█████████▍| 7047/7473 [00:40<00:03, 122.81 examples/s]
+Map (num_proc=16):  94%|█████████▍| 7060/7473 [00:41<00:03, 124.03 examples/s]
+Map (num_proc=16):  95%|█████████▍| 7074/7473 [00:41<00:03, 122.24 examples/s]
+Map (num_proc=16):  95%|█████████▍| 7087/7473 [00:41<00:03, 118.44 examples/s]
+Map (num_proc=16):  95%|█████████▌| 7100/7473 [00:41<00:03, 115.37 examples/s]
+Map (num_proc=16):  95%|█████████▌| 7112/7473 [00:41<00:03, 112.53 examples/s]
+Map (num_proc=16):  95%|█████████▌| 7124/7473 [00:41<00:03, 109.24 examples/s]
+Map (num_proc=16):  96%|█████████▌| 7137/7473 [00:41<00:02, 114.07 examples/s]
+Map (num_proc=16):  96%|█████████▌| 7151/7473 [00:41<00:03, 106.60 examples/s]
+Map (num_proc=16):  96%|█████████▌| 7163/7473 [00:42<00:03, 97.71 examples/s] 
+Map (num_proc=16):  96%|█████████▌| 7174/7473 [00:42<00:03, 95.69 examples/s]
+Map (num_proc=16):  96%|█████████▌| 7187/7473 [00:42<00:02, 96.37 examples/s]
+Map (num_proc=16):  96%|█████████▋| 7197/7473 [00:42<00:02, 95.49 examples/s]
+Map (num_proc=16):  96%|█████████▋| 7207/7473 [00:42<00:02, 93.82 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7217/7473 [00:42<00:02, 89.59 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7226/7473 [00:42<00:02, 85.89 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7237/7473 [00:42<00:02, 82.43 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7247/7473 [00:43<00:02, 75.38 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7255/7473 [00:43<00:03, 72.64 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7266/7473 [00:43<00:02, 77.61 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7276/7473 [00:43<00:02, 77.76 examples/s]
+Map (num_proc=16):  97%|█████████▋| 7286/7473 [00:43<00:02, 78.87 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7297/7473 [00:43<00:02, 79.77 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7309/7473 [00:43<00:01, 84.95 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7319/7473 [00:43<00:01, 83.13 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7329/7473 [00:44<00:01, 82.00 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7339/7473 [00:44<00:01, 73.03 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7349/7473 [00:44<00:01, 72.42 examples/s]
+Map (num_proc=16):  98%|█████████▊| 7358/7473 [00:44<00:01, 70.24 examples/s]
+Map (num_proc=16):  99%|█████████▊| 7366/7473 [00:44<00:01, 64.79 examples/s]
+Map (num_proc=16):  99%|█████████▊| 7373/7473 [00:44<00:02, 49.64 examples/s]
+Map (num_proc=16):  99%|█████████▊| 7379/7473 [00:45<00:02, 40.57 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7384/7473 [00:45<00:02, 40.89 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7390/7473 [00:45<00:02, 37.26 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7395/7473 [00:45<00:02, 33.82 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7399/7473 [00:45<00:02, 32.46 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7403/7473 [00:45<00:02, 32.60 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7407/7473 [00:46<00:02, 31.67 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7412/7473 [00:46<00:01, 33.21 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7416/7473 [00:46<00:01, 33.19 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7420/7473 [00:46<00:01, 32.22 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7424/7473 [00:46<00:01, 31.05 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7428/7473 [00:46<00:01, 30.35 examples/s]
+Map (num_proc=16):  99%|█████████▉| 7432/7473 [00:46<00:01, 31.89 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7436/7473 [00:46<00:01, 32.03 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7440/7473 [00:47<00:01, 31.31 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7444/7473 [00:47<00:00, 30.79 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7448/7473 [00:47<00:00, 31.94 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7452/7473 [00:47<00:00, 30.91 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7456/7473 [00:47<00:00, 31.11 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7461/7473 [00:47<00:00, 33.00 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7466/7473 [00:47<00:00, 34.06 examples/s]
+Map (num_proc=16): 100%|█████████▉| 7470/7473 [00:48<00:00, 29.87 examples/s]
+Map (num_proc=16): 100%|██████████| 7473/7473 [00:48<00:00, 154.38 examples/s]
+
+Creating parquet from Arrow format:   0%|          | 0/3 [00:00<?, ?ba/s]
+Creating parquet from Arrow format:  33%|███▎      | 1/3 [00:00<00:00,  2.63ba/s]
+Creating parquet from Arrow format:  67%|██████▋   | 2/3 [00:00<00:00,  2.69ba/s]
+Creating parquet from Arrow format: 100%|██████████| 3/3 [00:00<00:00,  3.89ba/s]
+train: {"rows": 7473, "iters": 19311, "tokens_min": 5977, "tokens_max": 6024, "tokens_mean": 5998.630402783353, "off_target": 16, "over_6144": 0, "sha256": "ed121315bad0c9edbf481469971f1b0f66fe8ae3ef452784b5af8e9bf71c35b6", "seconds": 51.4, "columns": ["data_source", "prompt", "ability", "reward_model", "extra_info"]}
+
+Map (num_proc=16):   0%|          | 0/1319 [00:00<?, ? examples/s]
+Map (num_proc=16):   0%|          | 1/1319 [00:03<1:13:40,  3.35s/ examples]
+Map (num_proc=16):   0%|          | 5/1319 [00:03<11:31,  1.90 examples/s]  
+Map (num_proc=16):   1%|          | 9/1319 [00:03<05:36,  3.89 examples/s]
+Map (num_proc=16):   1%|          | 13/1319 [00:03<03:25,  6.35 examples/s]
+Map (num_proc=16):   1%|▏         | 19/1319 [00:03<02:01, 10.71 examples/s]
+Map (num_proc=16):   2%|▏         | 23/1319 [00:04<01:37, 13.33 examples/s]
+Map (num_proc=16):   2%|▏         | 27/1319 [00:04<01:21, 15.79 examples/s]
+Map (num_proc=16):   2%|▏         | 32/1319 [00:04<01:02, 20.70 examples/s]
+Map (num_proc=16):   3%|▎         | 37/1319 [00:04<00:50, 25.24 examples/s]
+Map (num_proc=16):   3%|▎         | 41/1319 [00:04<00:47, 26.69 examples/s]
+Map (num_proc=16):   3%|▎         | 45/1319 [00:04<00:46, 27.62 examples/s]
+Map (num_proc=16):   4%|▎         | 49/1319 [00:04<00:43, 29.20 examples/s]
+Map (num_proc=16):   4%|▍         | 54/1319 [00:04<00:39, 32.20 examples/s]
+Map (num_proc=16):   4%|▍         | 58/1319 [00:05<00:39, 32.27 examples/s]
+Map (num_proc=16):   5%|▍         | 65/1319 [00:05<00:33, 37.24 examples/s]
+Map (num_proc=16):   6%|▌         | 75/1319 [00:05<00:24, 51.08 examples/s]
+Map (num_proc=16):   6%|▋         | 83/1319 [00:05<00:22, 53.85 examples/s]
+Map (num_proc=16):   7%|▋         | 91/1319 [00:05<00:20, 59.40 examples/s]
+Map (num_proc=16):   8%|▊         | 100/1319 [00:05<00:19, 63.35 examples/s]
+Map (num_proc=16):   8%|▊         | 107/1319 [00:05<00:19, 61.80 examples/s]
+Map (num_proc=16):   9%|▊         | 115/1319 [00:06<00:24, 48.59 examples/s]
+Map (num_proc=16):   9%|▉         | 121/1319 [00:06<00:28, 41.72 examples/s]
+Map (num_proc=16):  10%|▉         | 128/1319 [00:06<00:31, 37.28 examples/s]
+Map (num_proc=16):  10%|█         | 134/1319 [00:06<00:33, 35.87 examples/s]
+Map (num_proc=16):  10%|█         | 138/1319 [00:06<00:34, 34.59 examples/s]
+Map (num_proc=16):  11%|█         | 144/1319 [00:06<00:31, 36.84 examples/s]
+Map (num_proc=16):  12%|█▏        | 152/1319 [00:07<00:25, 45.27 examples/s]
+Map (num_proc=16):  12%|█▏        | 160/1319 [00:07<00:22, 50.92 examples/s]
+Map (num_proc=16):  13%|█▎        | 170/1319 [00:07<00:20, 56.64 examples/s]
+Map (num_proc=16):  14%|█▎        | 180/1319 [00:07<00:18, 61.73 examples/s]
+Map (num_proc=16):  14%|█▍        | 188/1319 [00:07<00:17, 63.70 examples/s]
+Map (num_proc=16):  15%|█▍        | 195/1319 [00:07<00:19, 58.58 examples/s]
+Map (num_proc=16):  15%|█▌        | 202/1319 [00:07<00:19, 58.75 examples/s]
+Map (num_proc=16):  16%|█▌        | 208/1319 [00:07<00:23, 48.06 examples/s]
+Map (num_proc=16):  16%|█▌        | 214/1319 [00:08<00:25, 42.59 examples/s]
+Map (num_proc=16):  17%|█▋        | 220/1319 [00:08<00:28, 38.93 examples/s]
+Map (num_proc=16):  17%|█▋        | 225/1319 [00:08<00:30, 35.33 examples/s]
+Map (num_proc=16):  18%|█▊        | 234/1319 [00:08<00:24, 44.04 examples/s]
+Map (num_proc=16):  18%|█▊        | 242/1319 [00:08<00:21, 49.22 examples/s]
+Map (num_proc=16):  19%|█▉        | 252/1319 [00:08<00:18, 56.42 examples/s]
+Map (num_proc=16):  20%|█▉        | 261/1319 [00:09<00:17, 59.62 examples/s]
+Map (num_proc=16):  21%|██        | 271/1319 [00:09<00:16, 62.67 examples/s]
+Map (num_proc=16):  21%|██        | 279/1319 [00:09<00:17, 59.91 examples/s]
+Map (num_proc=16):  22%|██▏       | 287/1319 [00:09<00:21, 48.80 examples/s]
+Map (num_proc=16):  22%|██▏       | 294/1319 [00:09<00:21, 46.60 examples/s]
+Map (num_proc=16):  23%|██▎       | 300/1319 [00:09<00:25, 40.46 examples/s]
+Map (num_proc=16):  23%|██▎       | 306/1319 [00:10<00:27, 36.88 examples/s]
+Map (num_proc=16):  24%|██▎       | 311/1319 [00:10<00:26, 38.13 examples/s]
+Map (num_proc=16):  24%|██▍       | 319/1319 [00:10<00:22, 43.66 examples/s]
+Map (num_proc=16):  25%|██▍       | 327/1319 [00:10<00:21, 46.45 examples/s]
+Map (num_proc=16):  25%|██▌       | 336/1319 [00:10<00:18, 53.48 examples/s]
+Map (num_proc=16):  26%|██▌       | 343/1319 [00:10<00:17, 56.86 examples/s]
+Map (num_proc=16):  27%|██▋       | 350/1319 [00:10<00:19, 50.40 examples/s]
+Map (num_proc=16):  27%|██▋       | 360/1319 [00:11<00:16, 57.69 examples/s]
+Map (num_proc=16):  28%|██▊       | 368/1319 [00:11<00:20, 46.95 examples/s]
+Map (num_proc=16):  28%|██▊       | 374/1319 [00:11<00:20, 46.62 examples/s]
+Map (num_proc=16):  29%|██▉       | 380/1319 [00:11<00:22, 42.25 examples/s]
+Map (num_proc=16):  29%|██▉       | 385/1319 [00:11<00:22, 41.23 examples/s]
+Map (num_proc=16):  30%|██▉       | 392/1319 [00:11<00:21, 43.44 examples/s]
+Map (num_proc=16):  30%|███       | 398/1319 [00:12<00:19, 46.89 examples/s]
+Map (num_proc=16):  31%|███       | 405/1319 [00:12<00:18, 49.84 examples/s]
+Map (num_proc=16):  31%|███▏      | 413/1319 [00:12<00:16, 56.43 examples/s]
+Map (num_proc=16):  32%|███▏      | 420/1319 [00:12<00:15, 59.10 examples/s]
+Map (num_proc=16):  33%|███▎      | 429/1319 [00:12<00:14, 61.00 examples/s]
+Map (num_proc=16):  33%|███▎      | 437/1319 [00:12<00:14, 60.04 examples/s]
+Map (num_proc=16):  34%|███▎      | 444/1319 [00:12<00:14, 59.66 examples/s]
+Map (num_proc=16):  34%|███▍      | 453/1319 [00:12<00:16, 51.28 examples/s]
+Map (num_proc=16):  35%|███▍      | 459/1319 [00:13<00:19, 44.75 examples/s]
+Map (num_proc=16):  35%|███▌      | 465/1319 [00:13<00:21, 39.44 examples/s]
+Map (num_proc=16):  36%|███▌      | 470/1319 [00:13<00:21, 38.71 examples/s]
+Map (num_proc=16):  36%|███▌      | 475/1319 [00:13<00:21, 39.37 examples/s]
+Map (num_proc=16):  37%|███▋      | 483/1319 [00:13<00:17, 46.67 examples/s]
+Map (num_proc=16):  37%|███▋      | 491/1319 [00:13<00:16, 51.37 examples/s]
+Map (num_proc=16):  38%|███▊      | 499/1319 [00:13<00:14, 55.87 examples/s]
+Map (num_proc=16):  38%|███▊      | 507/1319 [00:14<00:13, 58.66 examples/s]
+Map (num_proc=16):  39%|███▉      | 516/1319 [00:14<00:12, 63.91 examples/s]
+Map (num_proc=16):  40%|███▉      | 524/1319 [00:14<00:12, 63.92 examples/s]
+Map (num_proc=16):  40%|████      | 532/1319 [00:14<00:15, 49.55 examples/s]
+Map (num_proc=16):  41%|████      | 538/1319 [00:14<00:17, 45.07 examples/s]
+Map (num_proc=16):  41%|████      | 544/1319 [00:14<00:19, 40.03 examples/s]
+Map (num_proc=16):  42%|████▏     | 550/1319 [00:15<00:20, 37.87 examples/s]
+Map (num_proc=16):  42%|████▏     | 555/1319 [00:15<00:20, 37.01 examples/s]
+Map (num_proc=16):  43%|████▎     | 563/1319 [00:15<00:17, 42.22 examples/s]
+Map (num_proc=16):  43%|████▎     | 571/1319 [00:15<00:15, 47.15 examples/s]
+Map (num_proc=16):  44%|████▍     | 580/1319 [00:15<00:14, 52.06 examples/s]
+Map (num_proc=16):  45%|████▍     | 588/1319 [00:15<00:13, 55.37 examples/s]
+Map (num_proc=16):  45%|████▌     | 597/1319 [00:16<00:13, 52.85 examples/s]
+Map (num_proc=16):  46%|████▌     | 607/1319 [00:16<00:11, 60.87 examples/s]
+Map (num_proc=16):  47%|████▋     | 614/1319 [00:16<00:11, 59.53 examples/s]
+Map (num_proc=16):  47%|████▋     | 622/1319 [00:16<00:15, 44.14 examples/s]
+Map (num_proc=16):  48%|████▊     | 628/1319 [00:16<00:16, 41.14 examples/s]
+Map (num_proc=16):  48%|████▊     | 633/1319 [00:16<00:17, 39.77 examples/s]
+Map (num_proc=16):  48%|████▊     | 638/1319 [00:16<00:16, 40.58 examples/s]
+Map (num_proc=16):  49%|████▉     | 646/1319 [00:17<00:15, 44.13 examples/s]
+Map (num_proc=16):  50%|████▉     | 654/1319 [00:17<00:13, 50.57 examples/s]
+Map (num_proc=16):  50%|█████     | 662/1319 [00:17<00:11, 55.09 examples/s]
+Map (num_proc=16):  51%|█████     | 671/1319 [00:17<00:10, 62.38 examples/s]
+Map (num_proc=16):  51%|█████▏    | 679/1319 [00:17<00:10, 61.64 examples/s]
+Map (num_proc=16):  52%|█████▏    | 688/1319 [00:17<00:10, 61.94 examples/s]
+Map (num_proc=16):  53%|█████▎    | 696/1319 [00:17<00:10, 62.18 examples/s]
+Map (num_proc=16):  53%|█████▎    | 704/1319 [00:18<00:13, 45.46 examples/s]
+Map (num_proc=16):  54%|█████▍    | 710/1319 [00:18<00:15, 39.81 examples/s]
+Map (num_proc=16):  54%|█████▍    | 715/1319 [00:18<00:15, 38.47 examples/s]
+Map (num_proc=16):  55%|█████▍    | 720/1319 [00:18<00:15, 37.71 examples/s]
+Map (num_proc=16):  55%|█████▌    | 726/1319 [00:18<00:14, 41.33 examples/s]
+Map (num_proc=16):  56%|█████▌    | 734/1319 [00:18<00:12, 45.47 examples/s]
+Map (num_proc=16):  56%|█████▋    | 742/1319 [00:19<00:11, 51.54 examples/s]
+Map (num_proc=16):  57%|█████▋    | 751/1319 [00:19<00:10, 56.76 examples/s]
+Map (num_proc=16):  58%|█████▊    | 760/1319 [00:19<00:09, 60.34 examples/s]
+Map (num_proc=16):  58%|█████▊    | 769/1319 [00:19<00:08, 64.69 examples/s]
+Map (num_proc=16):  59%|█████▉    | 777/1319 [00:19<00:09, 57.96 examples/s]
+Map (num_proc=16):  60%|█████▉    | 785/1319 [00:19<00:11, 45.23 examples/s]
+Map (num_proc=16):  60%|██████    | 793/1319 [00:20<00:11, 44.44 examples/s]
+Map (num_proc=16):  61%|██████    | 799/1319 [00:20<00:13, 39.38 examples/s]
+Map (num_proc=16):  61%|██████    | 804/1319 [00:20<00:13, 38.71 examples/s]
+Map (num_proc=16):  62%|██████▏   | 812/1319 [00:20<00:11, 44.00 examples/s]
+Map (num_proc=16):  62%|██████▏   | 819/1319 [00:20<00:10, 46.16 examples/s]
+Map (num_proc=16):  63%|██████▎   | 829/1319 [00:20<00:09, 51.70 examples/s]
+Map (num_proc=16):  63%|██████▎   | 837/1319 [00:20<00:09, 53.02 examples/s]
+Map (num_proc=16):  64%|██████▍   | 843/1319 [00:21<00:08, 54.26 examples/s]
+Map (num_proc=16):  65%|██████▍   | 853/1319 [00:21<00:07, 59.76 examples/s]
+Map (num_proc=16):  65%|██████▌   | 860/1319 [00:21<00:08, 55.33 examples/s]
+Map (num_proc=16):  66%|██████▌   | 866/1319 [00:21<00:09, 46.09 examples/s]
+Map (num_proc=16):  66%|██████▌   | 872/1319 [00:21<00:10, 41.21 examples/s]
+Map (num_proc=16):  66%|██████▋   | 877/1319 [00:21<00:11, 39.64 examples/s]
+Map (num_proc=16):  67%|██████▋   | 882/1319 [00:22<00:11, 36.89 examples/s]
+Map (num_proc=16):  67%|██████▋   | 888/1319 [00:22<00:10, 41.53 examples/s]
+Map (num_proc=16):  68%|██████▊   | 894/1319 [00:22<00:09, 44.91 examples/s]
+Map (num_proc=16):  68%|██████▊   | 902/1319 [00:22<00:07, 52.16 examples/s]
+Map (num_proc=16):  69%|██████▉   | 910/1319 [00:22<00:07, 55.24 examples/s]
+Map (num_proc=16):  70%|██████▉   | 918/1319 [00:22<00:06, 58.30 examples/s]
+Map (num_proc=16):  70%|███████   | 924/1319 [00:22<00:06, 57.31 examples/s]
+Map (num_proc=16):  71%|███████   | 935/1319 [00:22<00:05, 65.90 examples/s]
+Map (num_proc=16):  71%|███████▏  | 943/1319 [00:23<00:06, 56.29 examples/s]
+Map (num_proc=16):  72%|███████▏  | 949/1319 [00:23<00:07, 48.71 examples/s]
+Map (num_proc=16):  72%|███████▏  | 956/1319 [00:23<00:08, 44.45 examples/s]
+Map (num_proc=16):  73%|███████▎  | 962/1319 [00:23<00:08, 41.45 examples/s]
+Map (num_proc=16):  73%|███████▎  | 967/1319 [00:23<00:08, 39.80 examples/s]
+Map (num_proc=16):  74%|███████▍  | 976/1319 [00:23<00:07, 47.18 examples/s]
+Map (num_proc=16):  75%|███████▍  | 983/1319 [00:23<00:06, 50.93 examples/s]
+Map (num_proc=16):  75%|███████▌  | 992/1319 [00:24<00:05, 56.27 examples/s]
+Map (num_proc=16):  76%|███████▌  | 1001/1319 [00:24<00:05, 60.08 examples/s]
+Map (num_proc=16):  76%|███████▋  | 1009/1319 [00:24<00:05, 60.28 examples/s]
+Map (num_proc=16):  77%|███████▋  | 1017/1319 [00:24<00:04, 62.90 examples/s]
+Map (num_proc=16):  78%|███████▊  | 1024/1319 [00:24<00:05, 56.41 examples/s]
+Map (num_proc=16):  78%|███████▊  | 1030/1319 [00:24<00:05, 48.84 examples/s]
+Map (num_proc=16):  79%|███████▊  | 1036/1319 [00:24<00:06, 44.35 examples/s]
+Map (num_proc=16):  79%|███████▉  | 1041/1319 [00:25<00:06, 41.72 examples/s]
+Map (num_proc=16):  79%|███████▉  | 1047/1319 [00:25<00:06, 39.20 examples/s]
+Map (num_proc=16):  80%|███████▉  | 1052/1319 [00:25<00:06, 39.29 examples/s]
+Map (num_proc=16):  80%|████████  | 1061/1319 [00:25<00:05, 48.15 examples/s]
+Map (num_proc=16):  81%|████████  | 1069/1319 [00:25<00:04, 52.16 examples/s]
+Map (num_proc=16):  82%|████████▏ | 1077/1319 [00:25<00:04, 58.63 examples/s]
+Map (num_proc=16):  82%|████████▏ | 1085/1319 [00:25<00:03, 61.56 examples/s]
+Map (num_proc=16):  83%|████████▎ | 1093/1319 [00:26<00:03, 60.65 examples/s]
+Map (num_proc=16):  83%|████████▎ | 1100/1319 [00:26<00:04, 52.85 examples/s]
+Map (num_proc=16):  84%|████████▍ | 1107/1319 [00:26<00:04, 42.45 examples/s]
+Map (num_proc=16):  84%|████████▍ | 1113/1319 [00:26<00:05, 37.05 examples/s]
+Map (num_proc=16):  85%|████████▍ | 1119/1319 [00:26<00:05, 34.55 examples/s]
+Map (num_proc=16):  85%|████████▌ | 1124/1319 [00:27<00:05, 35.46 examples/s]
+Map (num_proc=16):  86%|████████▌ | 1130/1319 [00:27<00:04, 38.93 examples/s]
+Map (num_proc=16):  86%|████████▌ | 1137/1319 [00:27<00:04, 42.95 examples/s]
+Map (num_proc=16):  87%|████████▋ | 1145/1319 [00:27<00:03, 48.36 examples/s]
+Map (num_proc=16):  87%|████████▋ | 1153/1319 [00:27<00:03, 52.37 examples/s]
+Map (num_proc=16):  88%|████████▊ | 1161/1319 [00:27<00:02, 54.64 examples/s]
+Map (num_proc=16):  89%|████████▊ | 1168/1319 [00:27<00:02, 54.52 examples/s]
+Map (num_proc=16):  89%|████████▉ | 1179/1319 [00:27<00:02, 64.23 examples/s]
+Map (num_proc=16):  90%|████████▉ | 1187/1319 [00:28<00:02, 60.24 examples/s]
+Map (num_proc=16):  91%|█████████ | 1195/1319 [00:28<00:02, 54.87 examples/s]
+Map (num_proc=16):  91%|█████████ | 1201/1319 [00:28<00:02, 46.76 examples/s]
+Map (num_proc=16):  92%|█████████▏| 1207/1319 [00:28<00:02, 42.73 examples/s]
+Map (num_proc=16):  92%|█████████▏| 1212/1319 [00:28<00:02, 43.66 examples/s]
+Map (num_proc=16):  92%|█████████▏| 1220/1319 [00:28<00:02, 48.96 examples/s]
+Map (num_proc=16):  93%|█████████▎| 1229/1319 [00:28<00:01, 55.99 examples/s]
+Map (num_proc=16):  94%|█████████▍| 1237/1319 [00:29<00:01, 58.02 examples/s]
+Map (num_proc=16):  94%|█████████▍| 1245/1319 [00:29<00:01, 63.12 examples/s]
+Map (num_proc=16):  95%|█████████▌| 1254/1319 [00:29<00:00, 65.16 examples/s]
+Map (num_proc=16):  96%|█████████▌| 1262/1319 [00:29<00:00, 65.47 examples/s]
+Map (num_proc=16):  96%|█████████▌| 1269/1319 [00:29<00:00, 56.49 examples/s]
+Map (num_proc=16):  97%|█████████▋| 1275/1319 [00:29<00:00, 50.61 examples/s]
+Map (num_proc=16):  97%|█████████▋| 1281/1319 [00:29<00:00, 43.00 examples/s]
+Map (num_proc=16):  98%|█████████▊| 1288/1319 [00:30<00:00, 39.17 examples/s]
+Map (num_proc=16):  98%|█████████▊| 1293/1319 [00:30<00:00, 35.28 examples/s]
+Map (num_proc=16):  98%|█████████▊| 1297/1319 [00:30<00:00, 33.16 examples/s]
+Map (num_proc=16):  99%|█████████▊| 1301/1319 [00:30<00:00, 32.43 examples/s]
+Map (num_proc=16):  99%|█████████▉| 1305/1319 [00:30<00:00, 33.22 examples/s]
+Map (num_proc=16):  99%|█████████▉| 1310/1319 [00:30<00:00, 33.98 examples/s]
+Map (num_proc=16): 100%|█████████▉| 1314/1319 [00:31<00:00, 31.84 examples/s]
+Map (num_proc=16): 100%|█████████▉| 1318/1319 [00:31<00:00, 32.28 examples/s]
+Map (num_proc=16): 100%|██████████| 1319/1319 [00:31<00:00, 42.13 examples/s]
+
+Creating parquet from Arrow format:   0%|          | 0/1 [00:00<?, ?ba/s]
+Creating parquet from Arrow format: 100%|██████████| 1/1 [00:00<00:00,  8.34ba/s]
+Creating parquet from Arrow format: 100%|██████████| 1/1 [00:00<00:00,  8.33ba/s]
+test: {"rows": 1319, "iters": 3373, "tokens_min": 5992, "tokens_max": 6016, "tokens_mean": 5998.760424564064, "off_target": 1, "over_6144": 0, "sha256": "d3b3f6a79b4a97f0d0fda7e5bedc4e84fe57b80ddfd5c4dd2f1f422068d87cd3", "seconds": 33.4, "columns": ["data_source", "prompt", "ability", "reward_model", "extra_info"]}
+
+Generating train split: 0 examples [00:00, ? examples/s]
+Generating train split: 1319 examples [00:00, 15036.29 examples/s]
+BUILD_OK {"target_tokens": 6000, "tolerance": 8, "tokenizer": "/hf-cache/hf_home/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e", "header": "Reference material (background reading, not needed to answer the question):", "stride": 7919, "filler": {"source": "cache", "sha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75", "n_words": 127360, "cache": "/hf-cache/data/gsm8k-long/filler.txt"}, "words_per_token": 0.7608902415826517, "num_proc": 16, "splits": {"train": {"rows": 7473, "iters": 19311, "tokens_min": 5977, "tokens_max": 6024, "tokens_mean": 5998.630402783353, "off_target": 16, "over_6144": 0, "sha256": "ed121315bad0c9edbf481469971f1b0f66fe8ae3ef452784b5af8e9bf71c35b6", "seconds": 51.4, "columns": ["data_source", "prompt", "ability", "reward_model", "extra_info"]}, "test": {"rows": 1319, "iters": 3373, "tokens_min": 5992, "tokens_max": 6016, "tokens_mean": 5998.760424564064, "off_target": 1, "over_6144": 0, "sha256": "d3b3f6a79b4a97f0d0fda7e5bedc4e84fe57b80ddfd5c4dd2f1f422068d87cd3", "seconds": 33.4, "columns": ["data_source", "prompt", "ability", "reward_model", "extra_info"]}}, "example_ground_truth": "18"}
+[2026-10-29T04:14:42Z] $ ls -la /hf-cache/data/gsm8k-long
+total 237907
+drwxr-xr-x 1 root root        45 Oct 29 04:09 .
+drwxr-xr-x 1 root root        15 Oct 29 03:38 ..
+-rw-r--r-- 1 root root      1903 Oct 29 04:14 build.json
+-rw-r--r-- 1 root root    772386 Oct 29 03:38 filler.txt
+-rw-r--r-- 1 root root  36447143 Oct 29 04:14 test.parquet
+-rw-r--r-- 1 root root 206393527 Oct 29 04:14 train.parquet

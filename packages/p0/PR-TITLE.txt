@@ -1,0 +1,1 @@
+[BREAKING][algo, trainer] fix: resolve the seq-mean-token-sum-norm horizon to response_length under the V1 trainer

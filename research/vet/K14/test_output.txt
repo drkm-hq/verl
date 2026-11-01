@@ -1,0 +1,8 @@
+INFO:2026-10-28 22:56:50,933:[Rank 0] Loaded model from /var/folders/1s/hg6gjv_5295g36gmd9qhwpn80000gn/T/k14-_sp2y26u/async/global_step_3/actor/model_world_size_2_rank_0.pt
+INFO:2026-10-28 22:56:50,946:[Rank 1] Loaded optimizer from /var/folders/1s/hg6gjv_5295g36gmd9qhwpn80000gn/T/k14-_sp2y26u/async/global_step_3/actor/optim_world_size_2_rank_1.pt
+INFO:2026-10-28 22:56:50,947:[Rank 0] Loaded optimizer from /var/folders/1s/hg6gjv_5295g36gmd9qhwpn80000gn/T/k14-_sp2y26u/async/global_step_3/actor/optim_world_size_2_rank_0.pt
+INFO:2026-10-28 22:56:50,947:[Rank 1] Loaded rng from /var/folders/1s/hg6gjv_5295g36gmd9qhwpn80000gn/T/k14-_sp2y26u/async/global_step_3/actor/extra_state_world_size_2_rank_1.pt
+INFO:2026-10-28 22:56:50,948:[Rank 0] Loaded rng from /var/folders/1s/hg6gjv_5295g36gmd9qhwpn80000gn/T/k14-_sp2y26u/async/global_step_3/actor/extra_state_world_size_2_rank_0.pt
+[rank 0] shard 34.6 MB | sync save 287 ms | async call 29 ms, finalize 143 ms | sync_bitexact=True live_changed_after_call=True async_equals_pre_race_snapshot=True tracker_only_at_finalize=True
+[rank 1] shard 34.6 MB | sync save 288 ms | async call 25 ms, finalize 139 ms | sync_bitexact=True live_changed_after_call=True async_equals_pre_race_snapshot=True tracker_only_at_finalize=True
+K14 CPU TEST PASS

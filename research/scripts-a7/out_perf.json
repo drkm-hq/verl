@@ -1,0 +1,3576 @@
+[
+ {
+  "number": 8365,
+  "title": "[perf, algo] feat: compute sum_pi_squared in row chunks to cut peak memory",
+  "age": 3,
+  "draft": false,
+  "author": "flyingdoubleG",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 9,
+  "score": 7.0,
+  "lines": 43,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [
+   "`calculate_sum_pi_squared_from_logits` computes `exp(logsumexp(2 * logits) - 2 * logsumexp(logits))` over the whole packed micro-batch in one pass. It is used by `actor.calculate_sum_pi_squared=True`, which optimal token"
+  ],
+  "nums": [
+   "24 GB",
+   "4096 \u00d7",
+   "4.64 GiB",
+   "2.32 GiB",
+   "8192 \u00d7",
+   "9.27 GiB",
+   "2.32 GiB",
+   "8192 \u00d7"
+  ],
+  "files": [
+   "verl/utils/torch_functional.py"
+  ]
+ },
+ {
+  "number": 7804,
+  "title": "[fsdp, perf] feat: offload optimizer states around each update",
+  "age": 49,
+  "draft": false,
+  "author": "yue-zeng-yue",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 22,
+  "score": 7.0,
+  "lines": 439,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "| Full actor-window allocated peak, maximum rank | 14.693 GiB | 12.372 GiB |",
+   "| Whole-run sampled NVML peak, maximum GPU | 21.621 GiB | 21.623 GiB |",
+   "Actor peak decreases by 15.80%, with +9.56% actor median time. Actor and whole-GPU peaks measure different scopes; rollout memory can dominate the latter.",
+   "memory from 15.703 to 12.472 GiB (\u221220.58%) and increased the complete actor window",
+   "15.80%; sampled whole-GPU peak is essentially unchanged. The line chart has a",
+   "on two A800 GPUs. Fixed-input peak allocated memory was 15.703/12.472 GiB off/on,"
+  ],
+  "nums": [
+   "2\u00d7",
+   "80GB",
+   "14.693 GiB",
+   "12.372 GiB",
+   "21.621 GiB",
+   "21.623 GiB",
+   "15.80%",
+   "9.56%"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/engine/fsdp.yaml",
+   "verl/workers/config/engine.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 6990,
+  "title": "[vllm, rollout, perf]feat: add extra-prefix-cache for agentic system prefix rollout",
+  "age": 111,
+  "draft": false,
+  "author": "HanlinDu",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 24,
+  "score": 7.0,
+  "lines": 1308,
+  "nfiles": 17,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/ppo/v1/trainer_colocate_async.py",
+   "verl/trainer/ppo/v1/trainer_separate_async.py",
+   "verl/trainer/ppo/v1/trainer_sync.py",
+   "verl/trainer/ppo/v1/weight_update_hooks.py",
+   "verl/utils/chat_template.py",
+   "verl/workers/config/rollout.py",
+   "verl/workers/rollout/extra_prefix_cache/README.md",
+   "verl/workers/rollout/extra_prefix_cache/__init__.py"
+  ]
+ },
+ {
+  "number": 8137,
+  "title": "[training_utils, perf] refactor: cache Karmarkar-Karp state spread",
+  "age": 21,
+  "draft": false,
+  "author": "IsaacLi74",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 6.3,
+  "lines": 308,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "2.13x",
+   "1.33x",
+   "2.68x",
+   "1.34x"
+  ],
+  "files": [
+   "verl/utils/seqlen_balancing.py"
+  ]
+ },
+ {
+  "number": 8331,
+  "title": "[perf, rollout] feat: fused Triton fast path for FP8_BLOCK weight export in the compressed-tensors quantizer",
+  "age": 6,
+  "draft": false,
+  "author": "BeichenHuang",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 3,
+  "score": 6.0,
+  "lines": 222,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "Measured on 8x H20-3e, Qwen3-30B-A3B-Base, DAPO 2K/8K, 64x8 (`timing_s/update_weights` per step): BF16 4.4 s, FP8_BLOCK rollout / FP8 QAT / FP8 E2E 14.6-15.2 s. The extra ~10 s cancels the FP8 generation speed-up at ~1K-"
+  ],
+  "nums": [
+   "768x",
+   "8x",
+   "64x",
+   "128x",
+   "8x",
+   "768x",
+   "8x"
+  ],
+  "files": [
+   "verl/utils/qat/compressed_tensors.py"
+  ]
+ },
+ {
+  "number": 5838,
+  "title": "[perf, fsdp, trainer] feat: Skip training for zero-advantage responses to speed up RL.",
+  "age": 210,
+  "draft": false,
+  "author": "sheilaliuxl",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 3,
+  "score": 6.0,
+  "lines": 1142,
+  "nfiles": 14,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "25%",
+   "40.9%",
+   "1.7x",
+   "60.7%",
+   "2.5x",
+   "2x"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/algorithm.py",
+   "verl/trainer/config/ppo_trainer.yaml",
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/metric_utils.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ]
+ },
+ {
+  "number": 5778,
+  "title": "[perf] feat: batch acquire/release RPCs, work-stealing scheduling, and empty cache dedup",
+  "age": 215,
+  "draft": false,
+  "author": "zzxxxl",
+  "perf_tag": true,
+  "title_hit": true,
+  "body_kw": 3,
+  "score": 6.0,
+  "lines": 1412,
+  "nfiles": 7,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/utils/memory_utils.py",
+   "verl/workers/config/rollout.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/megatron_workers.py"
+  ]
+ },
+ {
+  "number": 8300,
+  "title": "[fsdp, perf, trainer] feat: shared-prefix packing for the FSDP engine",
+  "age": 8,
+  "draft": false,
+  "author": "DeeproChoudhury",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 20,
+  "score": 5.0,
+  "lines": 2043,
+  "nfiles": 29,
+  "has_tests": true,
+  "claims": [
+   "GRPO on Qwen3-4B, `rollout.n=8`, 2x H100: a training step is **2.7x faster** with a 2k-token prompt and 1.18x faster on plain GSM8K (83-token prompts), with reward curves matching within sampling noise. Peak memory is un",
+   "With the long prompt the actor phases reach ~85% of the 3.65x token saving and the ref exceeds it. On GSM8K every phase beats the 1.10x token saving (1.18x on the step), because dynamic batching now budgets by packed len",
+   "Single-GPU forward+backward sweep (Qwen3-4B, fused kernels, gradient checkpointing, 8 x 1024 response tokens): speedup 1.06x at a 64-token prompt, 2.18x at 2048, 3.81x at 8192, at least 84% of the token ratio throughout;"
+  ],
+  "nums": [
+   "2x",
+   "2.7x faster",
+   "1.18x faster",
+   "3.8x",
+   "\u2192 18.7 GB",
+   "2x",
+   "3.13x",
+   "1.19x"
+  ],
+  "files": [
+   "verl/models/transformers/dense_common.py",
+   "verl/models/transformers/monkey_patch.py",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/engine/fsdp.yaml",
+   "verl/trainer/config/ref/dp_ref.yaml",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/utils.py",
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ]
+ },
+ {
+  "number": 8206,
+  "title": "[algo, fsdp, perf] refactor: share support normalization in score centering",
+  "age": 16,
+  "draft": true,
+  "author": "tongyx361",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 5.0,
+  "lines": 1075,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "Peak allocated memory, including identical inputs: 6,236,165,120 -> 3,749,990,400 bytes (5.808 -> 3.492 GiB). Max fixture loss difference 4.47e-8, BF16 logits-gradient max difference 7.63e-6, mass-metric max difference 4",
+   "This measures synthetic-logits score/loss forward and dense-gradient backward. Model computation, optimizer, rollout, reward, Ray and communication are excluded. A separate public pretrained Qwen3-0.6B matched generated-"
+  ],
+  "nums": [
+   "0.350%",
+   "0.373%",
+   "80GB",
+   "0%",
+   "57.8%",
+   "50%",
+   "58.7%",
+   "100%"
+  ],
+  "files": [
+   "verl/trainer/ppo/score_centering.py",
+   "verl/trainer/ppo/score_centering_scores.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7281,
+  "title": "[trainer, perf] refactor: avoid scalar tensor dispatch in batch balancing",
+  "age": 83,
+  "draft": false,
+  "author": "ai-yang",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 4.3,
+  "lines": 89,
+  "nfiles": 5,
+  "has_tests": true,
+  "claims": [
+   "| Token throughput | 2591.3 tokens/s | 2576.0 tokens/s | -15.4 tokens/s | -0.59% |",
+   "The two independently ordered pairs reduced balance time by 70.59% and 65.65%. Input, index, ordered-length, partition-workload, partition-size, and token fingerprints matched exactly at every compared step. Maximum loss"
+  ],
+  "nums": [
+   "22.26\u00d7",
+   "95.51%",
+   "24.89\u00d7",
+   "95.98%",
+   "27.26\u00d7",
+   "96.33%",
+   "68.12%",
+   "3.136\u00d7"
+  ],
+  "files": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/trainer/sft_trainer_ray.py",
+   "verl/utils/seqlen_balancing.py"
+  ]
+ },
+ {
+  "number": 7097,
+  "title": "[training_utils, perf] feat: reuse jagged rows across dynamic batches",
+  "age": 101,
+  "draft": false,
+  "author": "zhangxin81",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 4.3,
+  "lines": 217,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [
+   "| Batch | Partitions | Baseline | Optimized | Savings | Paired speedup | 95% CI | Latency reduction |"
+  ],
+  "nums": [
+   "95%",
+   "2.133x",
+   "2.113x",
+   "2.136x",
+   "52.50%",
+   "2.865x",
+   "2.857x",
+   "2.923x"
+  ],
+  "files": [
+   "verl/utils/seqlen_balancing.py",
+   "verl/utils/tensordict_utils.py"
+  ]
+ },
+ {
+  "number": 8435,
+  "title": "[rollout, sglang] fix: reduce tensor lifetime overlap during bucketed weight sync",
+  "age": 0,
+  "draft": false,
+  "author": "Levius-Fubuki",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 13,
+  "score": 4.0,
+  "lines": 205,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "Each trial completed 8 IPC updates and returned to the same 128 MiB live receive buffer. The table includes that buffer. These results isolate the lifetime overlap; they are not an end-to-end SGLang training benchmark or"
+  ],
+  "nums": [
+   "128 MiB",
+   "256 MiB",
+   "768 MiB",
+   "640 MiB",
+   "640 MiB",
+   "384 MiB",
+   "128 MiB",
+   "50% reduction"
+  ],
+  "files": [
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/rollout/sglang_rollout/utils.py"
+  ]
+ },
+ {
+  "number": 8425,
+  "title": "[megatron, perf] fix: fake-quantize all MXFP4 expert weights of a grouped linear in one call",
+  "age": 0,
+  "draft": false,
+  "author": "0z5a",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 3,
+  "score": 4.0,
+  "lines": 216,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "9\u00d7",
+   "2 \u00d7",
+   "4\u00d7",
+   "2 \u00d7"
+  ],
+  "files": [
+   "verl/utils/qat/modelopt.py"
+  ]
+ },
+ {
+  "number": 8338,
+  "title": "[megatron] fix memory management in overrided recompute backward",
+  "age": 6,
+  "draft": false,
+  "author": "HydrogenSulfate",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 9,
+  "score": 4.0,
+  "lines": 241,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "20%",
+   "40%",
+   "60%",
+   "80%",
+   "100%",
+   "736.56 MiB",
+   "3068.4 MiB",
+   "576.0 MiB"
+  ],
+  "files": [
+   "verl/models/mcore/patch.py"
+  ]
+ },
+ {
+  "number": 8256,
+  "title": "[model] fix: support Transformers 5 Qwen3.5 dynamic cache",
+  "age": 13,
+  "draft": false,
+  "author": "LZC-BELIEVER",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 8,
+  "score": 4.0,
+  "lines": 300,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/qwen3_5.py"
+  ]
+ },
+ {
+  "number": 8116,
+  "title": "[perf, trainer] feat: report opt-in update phase timing and lifecycle metrics",
+  "age": 24,
+  "draft": false,
+  "author": "tongyx361",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 3,
+  "score": 4.0,
+  "lines": 532,
+  "nfiles": 22,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/engine/automodel.yaml",
+   "verl/trainer/config/engine/fsdp.yaml",
+   "verl/trainer/config/engine/megatron.yaml",
+   "verl/trainer/config/engine/torchtitan.yaml"
+  ]
+ },
+ {
+  "number": 8097,
+  "title": "[fsdp, model] fix: gather DTensor LM heads for fused kernels",
+  "age": 26,
+  "draft": true,
+  "author": "kolehma8",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 8,
+  "score": 4.0,
+  "lines": 285,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "2 x"
+  ],
+  "files": [
+   "verl/models/transformers/qwen3_5.py",
+   "verl/models/transformers/qwen3_vl.py",
+   "verl/utils/experimental/torch_functional.py",
+   "verl/utils/fsdp_utils.py",
+   "verl/utils/kernel/linear_cross_entropy.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 8096,
+  "title": "[fsdp, model] fix: run fused LM heads through FSDP2 hooks",
+  "age": 26,
+  "draft": false,
+  "author": "cyanseek",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 9,
+  "score": 4.0,
+  "lines": 500,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "2\u00d7",
+   "2\u00d7",
+   "2\u00d7"
+  ],
+  "files": [
+   "verl/models/transformers/dense_common.py",
+   "verl/models/transformers/fused_lm_head.py",
+   "verl/models/transformers/glm4v.py",
+   "verl/models/transformers/qwen2_vl.py",
+   "verl/models/transformers/qwen3_5.py",
+   "verl/models/transformers/qwen3_vl.py"
+  ]
+ },
+ {
+  "number": 8057,
+  "title": "[fsdp] feat: make FSDP2 CPU offload pin_memory configurable",
+  "age": 29,
+  "draft": false,
+  "author": "Longwt123",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 15,
+  "score": 4.0,
+  "lines": 47,
+  "nfiles": 7,
+  "has_tests": true,
+  "claims": [
+   "- The container cgroup was nowhere near its limit (`memory.current` \u2248 1 GiB vs a 800 GiB limit, `memory.failcnt` = 0), and inside the container `VmPin` was `0 kB` \u2014 the pinned pages are not charged to the cgroup.",
+   "- `MemAvailable` on the node was still \u2248 1.9 TiB; the allocation failed once clean `MemFree` dropped to ~160\u2013200 GiB, because the synchronous host-pinned allocation does not wait for reclaimable page cache.",
+   "Field evidence was collected on Ascend A3 (8\u00d7NPU, driver 26.0.rc3): the pinned host allocation failure reproduces reliably while `pin_memory=True` is hardcoded \u2014 a reproducer that grows pinned allocations until `aclrtMal"
+  ],
+  "nums": [
+   "1 GiB",
+   "800 GiB",
+   "200 GiB",
+   "8\u00d7"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/engine/fsdp.yaml",
+   "verl/workers/config/engine.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 8029,
+  "title": "[megatron] fix: wait for LM-head parameter all-gather before fused kernels",
+  "age": 31,
+  "draft": false,
+  "author": "ewan0x79",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 11,
+  "score": 4.0,
+  "lines": 770,
+  "nfiles": 7,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/mcore/model_forward_fused.py",
+   "verl/utils/megatron/param_sync.py",
+   "verl/utils/megatron_utils.py"
+  ]
+ },
+ {
+  "number": 7991,
+  "title": "[model] fix: reject logit softcapping in generic fused forward",
+  "age": 36,
+  "draft": false,
+  "author": "hscspring",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 6,
+  "score": 4.0,
+  "lines": 61,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/monkey_patch.py"
+  ]
+ },
+ {
+  "number": 7910,
+  "title": "[ckpt, ray, trainer] feat: add opt-in sub-second fault tolerance with dynamic NCCL re-rendezvous and in-memory failover",
+  "age": 41,
+  "draft": false,
+  "author": "sunnylovestiramisu",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 6,
+  "score": 4.0,
+  "lines": 165,
+  "nfiles": 6,
+  "has_tests": false,
+  "claims": [
+   "Default Behavior: Gated behind fault_tolerance.enable=False (default), ensuring 100% backward compatibility and zero overhead for standard runs."
+  ],
+  "nums": [
+   "100%",
+   "24x",
+   "80GB",
+   "942.3 MB",
+   "942.3 MB"
+  ],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/single_controller/ray/base.py",
+   "verl/trainer/config/config.py",
+   "verl/trainer/config/ppo_trainer.yaml",
+   "verl/trainer/ppo/ray_trainer.py"
+  ]
+ },
+ {
+  "number": 7826,
+  "title": "[megatron] fix: keep fused log-prob kernels available with MTP on bshd",
+  "age": 48,
+  "draft": true,
+  "author": "AliceChenyy",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 18,
+  "score": 4.0,
+  "lines": 135,
+  "nfiles": 4,
+  "has_tests": false,
+  "claims": [
+   "`transpose(0, 1).contiguous()` copy. Long-context runs OOM on 96 GB cards **regardless"
+  ],
+  "nums": [
+   "30 GB",
+   "96 GB",
+   "0.962 GB",
+   "7.62 GB",
+   "1.005 GB",
+   "27.5 GB",
+   "1.177 GB",
+   "107.2 GB"
+  ],
+  "files": [
+   "verl/models/mcore/model_forward.py",
+   "verl/models/mcore/model_forward_fused.py",
+   "verl/models/mcore/mtp_patch.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7809,
+  "title": "[megatron] feat: fuse linear top-k log probabilities",
+  "age": 49,
+  "draft": false,
+  "author": "HSYZhang",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 7,
+  "score": 4.0,
+  "lines": 1958,
+  "nfiles": 10,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/mcore/model_forward_fused.py",
+   "verl/utils/kernel/linear_topk_log_probs.py",
+   "verl/utils/kernel/topk_log_probs_kernels.py",
+   "verl/utils/model.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7733,
+  "title": "[megatron] feat: add memory-efficient chunked top-k KL computation",
+  "age": 54,
+  "draft": false,
+  "author": "HSYZhang",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 18,
+  "score": 4.0,
+  "lines": 187,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [
+   "At small token counts the chunk workspace makes peak memory effectively unchanged. The benefit grows with sequence length, reaching a stable `42.8%` reduction; for the TP=4 E20-scale case at `N=49,152`, this saves `17.12"
+  ],
+  "nums": [
+   "13.28 GiB",
+   "13.29 GiB",
+   "0.01 GiB",
+   "0.1%",
+   "26.56 GiB",
+   "18.97 GiB",
+   "7.59 GiB",
+   "28.6%"
+  ],
+  "files": [
+   "verl/trainer/distillation/megatron/losses.py"
+  ]
+ },
+ {
+  "number": 7685,
+  "title": "[megatron] feat: deduplicate host parameter-offload replicas",
+  "age": 56,
+  "draft": false,
+  "author": "qiangyupei",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 33,
+  "score": 4.0,
+  "lines": 595,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "- Hardware: 4 nodes x 8 Ascend NPUs, 32 GiB device memory per NPU",
+   "Accelerator peak allocated memory was unchanged at 17.785 GiB, as expected for a host-memory optimization.",
+   "Dedup was 1.10% slower than the repeated baseline and 0.62% faster than the first baseline, so its result lies inside the observed 1.70% baseline run-to-run spread. No measurable end-to-end performance regression was obs",
+   "A second experiment used Qwen3.6-35B-A3B on one node with 1 TB host memory and 16 x 64 GiB Ascend NPUs, using TP=2, CP=8, EP=8, ETP=1 (world size=16), with actor parameter offload enabled. KL loss was disabled, so this r",
+   "The 98.08 GiB actor-only estimate covers only redundant parameter tensor storage. The reported ~900 GB peak is whole-node memory and also includes optimizer and gradient state, pinned/staging buffers, Ray processes, allo"
+  ],
+  "nums": [
+   "32 GiB",
+   "75.0%",
+   "50.0%",
+   "53.8%",
+   "53.8%",
+   "53.8%",
+   "17.785 GiB",
+   "1.70%"
+  ],
+  "files": [
+   "verl/experimental/separation/engine_workers.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/engine/megatron.yaml",
+   "verl/trainer/config/ref/megatron_ref.yaml",
+   "verl/utils/megatron_utils.py",
+   "verl/workers/config/engine.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7341,
+  "title": "fix(model_merger): add --fuse-lora flag to merge LoRA weights into base model",
+  "age": 79,
+  "draft": false,
+  "author": "shotsan",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 7,
+  "score": 4.0,
+  "lines": 367,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/model_merger/base_model_merger.py"
+  ]
+ },
+ {
+  "number": 7292,
+  "title": "[wip] ref model cross-step prompt KV cache via native past_key_values",
+  "age": 83,
+  "draft": false,
+  "author": "0hujun",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 22,
+  "score": 4.0,
+  "lines": 621,
+  "nfiles": 6,
+  "has_tests": true,
+  "claims": [
+   "| 16K prompt, n=4, cross-step reuse | 16384 | **13x** | cache hit skips prompt forward |",
+   "| Raw GSM8K (no sys prompt, GRPO n=8) | ~111 | **0.9x** | cache overhead > savings (prompt too short) |",
+   "**Shallow clone (key to large-model feasibility).** HF `DynamicCache` is mutated in-place by a forward; a naive `deepcopy` per response is O(prompt_len) \u2014 for a 16K prompt on an 8B model that is ~8GB \u00d7 n, infeasible. `_c",
+   "**Constraints / follow-ups:** requires no remove-padding change (works in padded mode); FSDP + `use_cache` validated single-card on NPU (FSDP-integrated training run still pending). Intra-batch the per-response sequentia"
+  ],
+  "nums": [
+   "16x",
+   "13x",
+   "0.9x",
+   "8GB",
+   "0.9x"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/model/hf_model.yaml",
+   "verl/trainer/ppo/ref_prefix_cache.py",
+   "verl/workers/config/model.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 6940,
+  "title": "[rollout, vllm] feat: KV-cache-aware request load balancer",
+  "age": 114,
+  "draft": true,
+  "author": "zhaizhiqiangA",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 8,
+  "score": 4.0,
+  "lines": 3581,
+  "nfiles": 43,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/rollout/llm_router/README.md",
+   "verl/workers/rollout/llm_router/__init__.py",
+   "verl/workers/rollout/llm_router/balancer.py",
+   "verl/workers/rollout/llm_router/collectors/__init__.py",
+   "verl/workers/rollout/llm_router/collectors/collector.py",
+   "verl/workers/rollout/llm_router/collectors/decoder/__init__.py",
+   "verl/workers/rollout/llm_router/collectors/decoder/base.py",
+   "verl/workers/rollout/llm_router/collectors/decoder/vllm/__init__.py"
+  ]
+ },
+ {
+  "number": 6832,
+  "title": "Enable Fused Kernels by Default for Memory Efficiency",
+  "age": 127,
+  "draft": false,
+  "author": "0hujun",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 17,
+  "score": 4.0,
+  "lines": 19,
+  "nfiles": 5,
+  "has_tests": false,
+  "claims": [
+   "This PR proposes changing the default value of `use_fused_kernels` from `False` to `True` across all engine backends (FSDP2, Megatron, VeOmni, AutoModel). Fused kernels provide significant memory savings (32x reduction i",
+   "2. **Suboptimal memory usage** \u2014 full logits materialization wastes ~30 GB of GPU memory",
+   "| **Total peak savings** | \u2014 | \u2014 | **~29 GB** |",
+   "- With fused kernels: trains successfully at 32K, peak memory 34.4 GB (56%)"
+  ],
+  "nums": [
+   "32x reduction",
+   "30 GB",
+   "9.93 GB",
+   "0.31 GB",
+   "32x",
+   "19.87 GB",
+   "0.31 GB",
+   "64x"
+  ],
+  "files": [
+   "verl/trainer/config/actor/actor.yaml",
+   "verl/trainer/config/model/hf_model.yaml",
+   "verl/workers/config/actor.py",
+   "verl/workers/config/engine.py",
+   "verl/workers/config/model.py"
+  ]
+ },
+ {
+  "number": 6737,
+  "title": "[fsdp, veomni] fix: wire fused top-k distillation outputs",
+  "age": 135,
+  "draft": false,
+  "author": "zhangxin81",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 12,
+  "score": 4.0,
+  "lines": 189,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/veomni/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 5617,
+  "title": "[megatron, ckpt, worker] fix: clear CUDA cache after checkpoint save",
+  "age": 226,
+  "draft": false,
+  "author": "yuki731",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 6,
+  "score": 4.0,
+  "lines": 5,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/megatron_workers.py"
+  ]
+ },
+ {
+  "number": 4435,
+  "title": "[rollout, vllm] feat: support KV cache FP8",
+  "age": 327,
+  "draft": false,
+  "author": "sharonyu-115",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 12,
+  "score": 4.0,
+  "lines": 445,
+  "nfiles": 10,
+  "has_tests": true,
+  "claims": [
+   "- FP8 linear W8A8 vs BF16: up to 20% speedup\u200b",
+   "- KV cache FP8 only vs BF16: ~38% rollout speedup.\u200b",
+   "- FP8 linear W8A8 + KV cache FP8 vs BF16 about ~44% speedup \u200b"
+  ],
+  "nums": [
+   "32x",
+   "3x",
+   "20% speedup",
+   "38%",
+   "44% speedup"
+  ],
+  "files": [
+   "verl/trainer/config/ppo_megatron_trainer.yaml",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/utils/vllm/vllm_fp8_utils.py",
+   "verl/workers/config/rollout.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ]
+ },
+ {
+  "number": 4257,
+  "title": "[Draft,Don't reivew][fsdp_workers] fix: Skip FSDP loading in async rollout mode to save GPU memory",
+  "age": 338,
+  "draft": false,
+  "author": "JobQiu",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 10,
+  "score": 4.0,
+  "lines": 74,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [
+   "**Memory Savings**: ~50% for rollout workers (e.g., 14GB vs 22GB for Qwen2.5-3B)"
+  ],
+  "nums": [
+   "50%",
+   "14GB",
+   "22GB",
+   "22GB",
+   "24GB",
+   "46GB",
+   "14GB",
+   "24GB"
+  ],
+  "files": [
+   "verl/workers/fsdp_workers.py"
+  ]
+ },
+ {
+  "number": 8109,
+  "title": "[veomni, perf] fix: stage exported weights one tensor at a time",
+  "age": 24,
+  "draft": false,
+  "author": "tongyx361",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 2,
+  "score": 3.7,
+  "lines": 135,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/engine/veomni/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7150,
+  "title": "[algo] fix: dense group ids in as_torch_index and RLOO vectorized parity",
+  "age": 94,
+  "draft": false,
+  "author": "keepkeen",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 5,
+  "score": 3.7,
+  "lines": 187,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/utils/groupwise.py"
+  ]
+ },
+ {
+  "number": 6194,
+  "title": "[fsdp, megatron, vllm, trainer, algo, cfg] feat: Nitrobrew on-policy distillation (teacher hidden states communication + constant-memory fused KL)",
+  "age": 183,
+  "draft": true,
+  "author": "tea-more",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 5,
+  "score": 3.7,
+  "lines": 1669,
+  "nfiles": 16,
+  "has_tests": true,
+  "claims": [
+   "For comprehensive cross-scale profiling and convergence results (Qwen3 0.6B/8B, 1.7B/32B, 4B/32B; up to 14\u00d7 speedup on the largest pair), see [the blogpost](https://blog.tilderesearch.com/blog/nitrobrew)."
+  ],
+  "nums": [
+   "2 \u00d7",
+   "2 \u00d7",
+   "14\u00d7 speedup"
+  ],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/teacher_loop/__init__.py",
+   "verl/experimental/teacher_loop/nitrobrew_teacher.py",
+   "verl/trainer/distillation/fsdp/nitrobrew_loss.py",
+   "verl/trainer/distillation/losses.py",
+   "verl/trainer/distillation/megatron/nitrobrew_loss.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/config/distillation.py"
+  ]
+ },
+ {
+  "number": 6110,
+  "title": "[fsdp, training_utils] feat: support per-sample temperature with fused linear cross entropy",
+  "age": 189,
+  "draft": false,
+  "author": "KimmiShi",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 5,
+  "score": 3.7,
+  "lines": 307,
+  "nfiles": 5,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/experimental/torch_functional.py",
+   "verl/utils/kernel/linear_cross_entropy.py",
+   "verl/utils/torch_functional.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 5948,
+  "title": "[model] fix: Align Qwen VLM Ulysses + fused-kernel paths and harden multimodal position-id / vision-embed handling",
+  "age": 202,
+  "draft": false,
+  "author": "jamindy",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 5,
+  "score": 3.7,
+  "lines": 695,
+  "nfiles": 14,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/common/__init__.py",
+   "verl/models/transformers/common/vision_pos_embed_utils.py",
+   "verl/models/transformers/monkey_patch.py",
+   "verl/models/transformers/qwen2_vl.py",
+   "verl/models/transformers/qwen3_5.py",
+   "verl/models/transformers/qwen3_vl.py",
+   "verl/utils/model.py",
+   "verl/utils/tensordict_utils.py"
+  ]
+ },
+ {
+  "number": 8378,
+  "title": "[training_utils] fix: keep confident-label logprobs and gradients in the Triton fused linear cross-entropy",
+  "age": 3,
+  "draft": false,
+  "author": "catherinelee274",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 298,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "64\u00d7",
+   "64\u00d7",
+   "3 \u00d7"
+  ],
+  "files": [
+   "verl/utils/kernel/kernels.py",
+   "verl/utils/kernel/linear_cross_entropy.py"
+  ]
+ },
+ {
+  "number": 8312,
+  "title": "fix: run dense fused kernels through the FSDP2 LM head",
+  "age": 7,
+  "draft": true,
+  "author": "ZiyiXu06",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 53,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/dense_common.py",
+   "verl/models/transformers/monkey_patch.py"
+  ]
+ },
+ {
+  "number": 8289,
+  "title": "[1/3][perf, reward, rollout] feat: support profiling independent Ray actors",
+  "age": 8,
+  "draft": false,
+  "author": "jiefangxuanyan",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 1,
+  "score": 3.3,
+  "lines": 2725,
+  "nfiles": 31,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/reward_loop/reward_loop.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/profiler/profiler.yaml",
+   "verl/trainer/config/reward/reward.yaml",
+   "verl/trainer/main_ppo.py"
+  ]
+ },
+ {
+  "number": 7794,
+  "title": "[trainer] fix: keep raw score for singleton groups in vectorized RLOO",
+  "age": 50,
+  "draft": false,
+  "author": "rrrxxx0510",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 27,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/ppo/core_algos.py"
+  ]
+ },
+ {
+  "number": 7096,
+  "title": "[worker, perf] feat: defer scalar metric materialization",
+  "age": 101,
+  "draft": false,
+  "author": "zhangxin81",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 1,
+  "score": 3.3,
+  "lines": 418,
+  "nfiles": 14,
+  "has_tests": true,
+  "claims": [
+   "| Micro-batches | Metric scalars | Eager median | Deferred median | Paired speedup | Bootstrap 95% CI |"
+  ],
+  "nums": [
+   "95%",
+   "2.445x",
+   "2.296x",
+   "2.524x",
+   "4.073x",
+   "3.821x",
+   "4.208x",
+   "4.603x"
+  ],
+  "files": [
+   "verl/trainer/distillation/losses.py",
+   "verl/trainer/ppo/core_algos.py",
+   "verl/utils/metric/__init__.py",
+   "verl/utils/metric/utils.py",
+   "verl/workers/engine/automodel/transformer_impl.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/engine/torchtitan/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 5958,
+  "title": "[perf,tool] feat: Support data transport time log",
+  "age": 201,
+  "draft": false,
+  "author": "0oshowero0",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 1,
+  "score": 3.3,
+  "lines": 125,
+  "nfiles": 4,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/single_controller/base/decorator.py",
+   "verl/trainer/main_ppo_sync.py",
+   "verl/utils/profiler/performance.py",
+   "verl/utils/transferqueue_utils.py"
+  ]
+ },
+ {
+  "number": 5800,
+  "title": "[trtllm] fix: sleep mode ignores gpu_memory_utilization causing OOM",
+  "age": 212,
+  "draft": false,
+  "author": "Superjomn",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 16,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py"
+  ]
+ },
+ {
+  "number": 5651,
+  "title": "[Megatron] feat: offload optimizer fp32 params to CPU to save GPU memory",
+  "age": 224,
+  "draft": false,
+  "author": "sherry-huang-997",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 38,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [
+   "This enables 2x more GPU memory margin for inference when using bf16 training by offloading the fp32 master weights in optimizer to CPU.",
+   "This PR adds support for offloading optimizer fp32 master weights to CPU during inference in Megatron training mode. When using bf16 training with optimizer offloading enabled, the fp32 optimizer state still occupies sig"
+  ],
+  "nums": [
+   "2x",
+   "2x"
+  ],
+  "files": [
+   "verl/utils/megatron_utils.py"
+  ]
+ },
+ {
+  "number": 5619,
+  "title": "[perf] optimize the bucketed weight transfer using double buffer in vllm rollout weight synchronization",
+  "age": 226,
+  "draft": true,
+  "author": "jianjunzhong",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 1,
+  "score": 3.3,
+  "lines": 2012,
+  "nfiles": 23,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "2x",
+   "3.27%",
+   "4.94%",
+   "0.88%",
+   "2.46%",
+   "2.33%",
+   "26.79%",
+   "15.94%"
+  ],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/kimi_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml"
+  ]
+ },
+ {
+  "number": 5426,
+  "title": "[tool, rollout] refactor: cache tool list initialization with MCP timeout",
+  "age": 243,
+  "draft": false,
+  "author": "denismegerle",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 164,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/tools/utils/tool_registry.py"
+  ]
+ },
+ {
+  "number": 4677,
+  "title": "perf(ppo): vectorize advantage estimators and optimize tensor ops",
+  "age": 307,
+  "draft": false,
+  "author": "herniqeu",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 197,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/utils/torch_functional.py"
+  ]
+ },
+ {
+  "number": 3548,
+  "title": "[algo, worker] refactor: async reward computation for 20% verl training speedup",
+  "age": 403,
+  "draft": false,
+  "author": "XuDongYangthu",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 4,
+  "score": 3.3,
+  "lines": 508,
+  "nfiles": 4,
+  "has_tests": false,
+  "claims": [
+   "Previously, reward calculation was blocking and slow \u2014 now we decouple it via background threads, achieving **~20% end-to-end training speedup** in ReVR workloads.",
+   "- Training throughput \u2191 20%",
+   "[algo, worker] refactor: async reward for 20% ReVR speedup",
+   "- Verified 20% training throughput gain and no accuracy drop"
+  ],
+  "nums": [
+   "20%",
+   "20%",
+   "20%",
+   "20%"
+  ],
+  "files": [
+   "verl/utils/reward_score/format.py",
+   "verl/workers/reward_manager/__init__.py",
+   "verl/workers/reward_manager/kefu_mthread.py",
+   "verl/workers/reward_manager/naive_mthread.py"
+  ]
+ },
+ {
+  "number": 8290,
+  "title": "[2/3][perf, trainer] fix: count and forward worker profiling windows",
+  "age": 8,
+  "draft": false,
+  "author": "jiefangxuanyan",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 3237,
+  "nfiles": 45,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/reward_loop/reward_loop.py",
+   "verl/experimental/separation/ray_trainer.py",
+   "verl/single_controller/ray/base.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/profiler/profiler.yaml"
+  ]
+ },
+ {
+  "number": 7832,
+  "title": "[perf, tests] feat: add cohere2_moe MFU estimation and Ulysses coverage",
+  "age": 48,
+  "draft": false,
+  "author": "inin-zou",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 144,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "8x"
+  ],
+  "files": [
+   "verl/utils/flops_counter.py"
+  ]
+ },
+ {
+  "number": 7524,
+  "title": "[megatron] fix: balance R2 padding for peak-memory reduction",
+  "age": 66,
+  "draft": false,
+  "author": "EazyReal",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 3,
+  "score": 3.0,
+  "lines": 214,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/megatron/router_replay_utils.py"
+  ]
+ },
+ {
+  "number": 7105,
+  "title": "[perf] feat: mstx profiler support schedule to mini batch",
+  "age": 99,
+  "draft": false,
+  "author": "mengchengTang",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 422,
+  "nfiles": 15,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/actor/actor.yaml",
+   "verl/trainer/config/critic/critic.yaml",
+   "verl/trainer/config/profiler/profiler.yaml",
+   "verl/utils/profiler/config.py"
+  ]
+ },
+ {
+  "number": 6944,
+  "title": "[perf] fix: correct Qwen-VL head_dim consistency and merger token count (#6903)",
+  "age": 114,
+  "draft": false,
+  "author": "chethanuk",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 57,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/flops_counter.py"
+  ]
+ },
+ {
+  "number": 5549,
+  "title": "[perf, training_utils] fix: Run gc regularly in trainer/sft_trainer.py to avoid spikes in step time.",
+  "age": 232,
+  "draft": false,
+  "author": "sheilaliuxl",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 198,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [
+   "16.2%",
+   "17.0%",
+   "48.0%",
+   "1.92x",
+   "3.4%",
+   "78.5%",
+   "4.7x"
+  ],
+  "files": [
+   "verl/trainer/config/sft_trainer_engine.yaml",
+   "verl/trainer/sft_trainer.py"
+  ]
+ },
+ {
+  "number": 5391,
+  "title": "[perf, trtllm] feat: Add Nsight support for rollout server mode (trtllm)",
+  "age": 245,
+  "draft": false,
+  "author": "davidmlw",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 364,
+  "nfiles": 21,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/single_controller/ray/base.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/actor/actor.yaml",
+   "verl/trainer/config/ppo_megatron_trainer.yaml"
+  ]
+ },
+ {
+  "number": 5332,
+  "title": "fix: handle labels=None in fused forward to avoid crash without MTP (#5273)",
+  "age": 254,
+  "draft": false,
+  "author": "devchilll",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 3,
+  "score": 3.0,
+  "lines": 8,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/mcore/model_forward_fused.py"
+  ]
+ },
+ {
+  "number": 4707,
+  "title": "[perf] fix: correct torch profiler logic for distributed trace collection",
+  "age": 304,
+  "draft": false,
+  "author": "AkiRusProd",
+  "perf_tag": true,
+  "title_hit": false,
+  "body_kw": 0,
+  "score": 3.0,
+  "lines": 71,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/profiler/profile.py"
+  ]
+ },
+ {
+  "number": 1349,
+  "title": "Explicitly initialize optimizer states to prevent OOM during rollout",
+  "age": 545,
+  "draft": false,
+  "author": "llkn-2",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 3,
+  "score": 3.0,
+  "lines": 23,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/fsdp_workers.py"
+  ]
+ },
+ {
+  "number": 8251,
+  "title": "[fsdp, vllm] fix: stabilize FSDP-Turbo training and fix the transposition of fused moe weights to support deepseek-v4-flash training on NPU",
+  "age": 13,
+  "draft": false,
+  "author": "zhouhengan1211",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 2,
+  "score": 2.7,
+  "lines": 613,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/vllm/npu_vllm_patch.py",
+   "verl/workers/engine/fsdp/fsdp_turbo_impl.py"
+  ]
+ },
+ {
+  "number": 7499,
+  "title": "[megatron] fix: don't crash fused forward when labels is None (#5273)",
+  "age": 68,
+  "draft": false,
+  "author": "amanyagami",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 2,
+  "score": 2.7,
+  "lines": 130,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/mcore/model_forward_fused.py"
+  ]
+ },
+ {
+  "number": 6416,
+  "title": "[worker]fix: restore actor engine GPU memory logging",
+  "age": 161,
+  "draft": false,
+  "author": "wlhgtc",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 2,
+  "score": 2.7,
+  "lines": 18,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/profiler/performance.py",
+   "verl/workers/engine_workers.py"
+  ]
+ },
+ {
+  "number": 5338,
+  "title": "[fsdp,algo] feat: add use_length_grouped_bsz to reduce padding waste in FSDP training",
+  "age": 253,
+  "draft": false,
+  "author": "roeeh21",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 2,
+  "score": 2.7,
+  "lines": 123,
+  "nfiles": 12,
+  "has_tests": false,
+  "claims": [
+   "`use_length_grouped_bsz` is **~4.7x faster than dense** and **~10.7% slower than `use_remove_padding`**."
+  ],
+  "nums": [
+   "1x",
+   "4.7x faster",
+   "10.7% slower",
+   "1x"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/actor/dp_actor.yaml",
+   "verl/trainer/config/model/hf_model.yaml",
+   "verl/utils/seqlen_balancing.py",
+   "verl/workers/config/actor.py"
+  ]
+ },
+ {
+  "number": 1686,
+  "title": "Fix async SGLang rollout OOM and illegal memory access",
+  "age": 520,
+  "draft": false,
+  "author": "jybsuper",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 2,
+  "score": 2.7,
+  "lines": 3,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/sharding_manager/fsdp_sglang.py"
+  ]
+ },
+ {
+  "number": 8277,
+  "title": "[training_utils] fix: bind tuple outputs to the activation offload commit node",
+  "age": 10,
+  "draft": false,
+  "author": "Eliaaazzz",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 241,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/activation_offload.py"
+  ]
+ },
+ {
+  "number": 8074,
+  "title": "[megatron] feat: adapt 1f1b EP overlap in model engine",
+  "age": 28,
+  "draft": false,
+  "author": "ji-huazhong",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 417,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/engine/megatron/model_forward_1f1b_overlap.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7277,
+  "title": "[rollout] FlexKV KV cache offload for dynamic resource",
+  "age": 83,
+  "draft": false,
+  "author": "DylanChen-NV",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 785,
+  "nfiles": 12,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/experimental/fully_async_policy/dynamic_schedule/dynamic_resource_controller.py",
+   "verl/experimental/fully_async_policy/fully_async_main.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/workers/config/rollout.py",
+   "verl/workers/rollout/flexkv_service.py"
+  ]
+ },
+ {
+  "number": 5081,
+  "title": "[fsdp]Optimizing old logp onload/offload with non-blocking copy",
+  "age": 273,
+  "draft": true,
+  "author": "Shangwei-Li",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 29,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/fully_async_policy/fsdp2_utils.py"
+  ]
+ },
+ {
+  "number": 4174,
+  "title": "[megatron] fix: correct weight passing in fused forward",
+  "age": 344,
+  "draft": false,
+  "author": "tangyc314",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 6,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/mcore/model_forward_fused.py"
+  ]
+ },
+ {
+  "number": 3724,
+  "title": "[model]{bug-fix}: Fix wrong log prob calculations using fused kernels and USP",
+  "age": 383,
+  "draft": false,
+  "author": "joshyan1",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 17,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/qwen2_vl.py"
+  ]
+ },
+ {
+  "number": 3467,
+  "title": "[sglang] fix: make sglang generation faster by passing image tensor",
+  "age": 410,
+  "draft": true,
+  "author": "nanjiangwill",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 9,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ]
+ },
+ {
+  "number": 2605,
+  "title": "[sglang] feat: Support flatten buckets to speed up resharding by 20%",
+  "age": 468,
+  "draft": true,
+  "author": "hebiao064",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 129,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [
+   "From `timing_s/reshard:46.068260192871094` to `timing_s/reshard:37.51481628417969`, about 20% speed up"
+  ],
+  "nums": [
+   "20%"
+  ],
+  "files": [
+   "verl/workers/sharding_manager/fsdp_sglang.py"
+  ]
+ },
+ {
+  "number": 2220,
+  "title": "[fsdp] fix: no pad rm_score to avoid oom",
+  "age": 489,
+  "draft": false,
+  "author": "zengwz",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 1,
+  "score": 2.3,
+  "lines": 9,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [
+   "Let us consider a typical scenario: mbs=32, seq_len=4096, and vocab_size=150k. In this case, the rm_score after pad_input would consume 40GB of memory. However, we can simplify this process and avoid padding such a large"
+  ],
+  "nums": [
+   "40GB"
+  ],
+  "files": [
+   "verl/workers/fsdp_workers.py"
+  ]
+ },
+ {
+  "number": 8428,
+  "title": "build(deps-dev): bump flash-linear-attention from 0.5.2 to 0.6.0",
+  "age": 0,
+  "draft": false,
+  "author": "app/dependabot",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 7,
+  "score": 2.0,
+  "lines": 6,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": []
+ },
+ {
+  "number": 8427,
+  "title": "build(deps): bump liger-kernel from 0.8.4 to 0.8.5",
+  "age": 0,
+  "draft": false,
+  "author": "app/dependabot",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 6,
+  "score": 2.0,
+  "lines": 8,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": []
+ },
+ {
+  "number": 8419,
+  "title": "[fsdp, veomni] feat: opt in to FP32 logits before temperature scaling",
+  "age": 0,
+  "draft": true,
+  "author": "Li-Jicheng",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 7,
+  "score": 2.0,
+  "lines": 76,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "16.8946% lower",
+   "64.2752% lower"
+  ],
+  "files": [
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 8264,
+  "title": "[megatron, ckpt] fix: synchronize overlapping parameters before checkpoint save",
+  "age": 12,
+  "draft": false,
+  "author": "ewan0x79",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 27,
+  "score": 2.0,
+  "lines": 203,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [
+   "**Setup:** 2 \u00d7 H20-141G, Qwen3-1.7B, BF16, standard DistributedOptimizer, DP2 / TP1 / PP1 / CP1, synchronous saving. The final implementation was tested with overlap off/on in two separate runs: HF/Bridge model save/load"
+  ],
+  "nums": [
+   "2 \u00d7"
+  ],
+  "files": [
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 8246,
+  "title": "[model, fsdp, rollout, vllm] feat: Step-5-Preview FP8 GRPO with LoRA on FSDP2",
+  "age": 13,
+  "draft": true,
+  "author": "aoshen02",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 10,
+  "score": 2.0,
+  "lines": 2162,
+  "nfiles": 21,
+  "has_tests": false,
+  "claims": [],
+  "nums": [
+   "41%",
+   "18%",
+   "1%",
+   "2.7%",
+   "1x"
+  ],
+  "files": [
+   "verl/models/transformers/step5/__init__.py",
+   "verl/models/transformers/step5/loading.py",
+   "verl/models/transformers/step5/lora.py",
+   "verl/models/transformers/step5/modeling_step5.py",
+   "verl/models/transformers/step5/register.py",
+   "verl/third_party/vllm/__init__.py",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/engine/fsdp.yaml"
+  ]
+ },
+ {
+  "number": 8100,
+  "title": "[trainer] fix: preserve session grouping for vectorized GRPO",
+  "age": 25,
+  "draft": false,
+  "author": "Zethan06",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 77,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/ppo/v1/utils.py"
+  ]
+ },
+ {
+  "number": 8090,
+  "title": "[model] fix: triton fused output shape",
+  "age": 27,
+  "draft": false,
+  "author": "kylemontgomery1",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 43,
+  "nfiles": 6,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/dense_common.py",
+   "verl/models/transformers/glm4v.py",
+   "verl/models/transformers/qwen2_vl.py",
+   "verl/models/transformers/qwen3_5.py",
+   "verl/models/transformers/qwen3_vl.py"
+  ]
+ },
+ {
+  "number": 8018,
+  "title": "[npu] fix Qwen3-VL activation offload deepstack views",
+  "age": 33,
+  "draft": false,
+  "author": "LZC-BELIEVER",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 84,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/models/transformers/npu_patch.py",
+   "verl/models/transformers/qwen3_vl.py"
+  ]
+ },
+ {
+  "number": 7972,
+  "title": "[uv, ci] fix: use persistent cache in CI",
+  "age": 37,
+  "draft": true,
+  "author": "ETOgaosion",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 25,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": []
+ },
+ {
+  "number": 7961,
+  "title": "[training_utils] feat: add memray memory profiler",
+  "age": 38,
+  "draft": false,
+  "author": "ji-huazhong",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 579,
+  "nfiles": 18,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/actor/actor.yaml",
+   "verl/trainer/config/critic/critic.yaml",
+   "verl/trainer/config/ppo_trainer.yaml",
+   "verl/trainer/config/profiler/profiler.yaml"
+  ]
+ },
+ {
+  "number": 7840,
+  "title": "[BREAKING] [single_controller] feat: add backend-neutral Runtime with Ray and Monarch",
+  "age": 47,
+  "draft": false,
+  "author": "DarkHighness",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 6,
+  "score": 2.0,
+  "lines": 7043,
+  "nfiles": 100,
+  "has_tests": true,
+  "claims": [
+   "Performance runs two ten-step repetitions on 1x8 and 2x8 H20 and discards Steps 1\u20132 as warmup. It uses vLLM's default optimization level, `max_num_seqs=1024`, chunked prefill, and CUDA graphs, with full determinism disab"
+  ],
+  "nums": [
+   "1x",
+   "1x",
+   "2x",
+   "1x",
+   "2x",
+   "1x",
+   "2x",
+   "1x"
+  ],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/kimi_checkpoint_engine.py",
+   "verl/checkpoint_engine/mooncake_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py",
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py"
+  ]
+ },
+ {
+  "number": 7835,
+  "title": "[fsdp] fix: keep FSDP2 meta init for tied-embedding models, and re-tie after to_empty",
+  "age": 48,
+  "draft": false,
+  "author": "inin-zou",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 14,
+  "score": 2.0,
+  "lines": 126,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "~180 GB I derived from the 8-rank OOM in #7834 \u2014 that derivation had folded in",
+   "16-20 GB per GPU \u2014 and then sat with every rank in a futex wait and flat memory",
+   "memory.peak == memory.max GPU never above 3.5 GB (CUDA context only)"
+  ],
+  "nums": [
+   "61 GB",
+   "1437 GB",
+   "1511 GB",
+   "2x",
+   "80GB",
+   "61 GB",
+   "4x",
+   "80GB"
+  ],
+  "files": [
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7749,
+  "title": "[fsdp, recipe] feat: support BF16 LoRA training for Qwen3.8-Flash-Next",
+  "age": 54,
+  "draft": false,
+  "author": "aoshen02",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 2.0,
+  "lines": 591,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "**Regression caught during simplification:** retaining a separate approximately 95.37 GiB frozen CPU embedding per rank caused host-memory exhaustion during the initial rollout sleep. Each inference rank additionally bac",
+   "This follow-up experiment completed **159 global training steps**. On held-out AIME2024, accuracy increased from **11/30 (36.7%) at step 0** to **21/30 (70.0%) at the latest evaluation, step 150**, a **33.3 percentage-po",
+   "The axis and annotations both show mean test reward: step 0 = -0.2667, step 140 = 0.5333, and step 150 = 0.4000. These correspond to 36.7%, 76.7%, and 70.0% accuracy via `accuracy = (reward + 1) / 2`. Markers are recorde"
+  ],
+  "nums": [
+   "95.37 GiB",
+   "90.30 GiB",
+   "1929.21 GiB",
+   "98%",
+   "36.7%",
+   "70.0%",
+   "76.7%",
+   "36.7%"
+  ],
+  "files": [
+   "verl/utils/fsdp_utils.py",
+   "verl/utils/tensordict_utils.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7698,
+  "title": "[megatron] fix: CPU-offload Megatron-FSDP wrappers without treating the factory as a type",
+  "age": 56,
+  "draft": false,
+  "author": "madScientist10",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 135,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/megatron_utils.py"
+  ]
+ },
+ {
+  "number": 7686,
+  "title": "[megatron] feat: project LM head only for response tokens",
+  "age": 56,
+  "draft": false,
+  "author": "qiangyupei",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 44,
+  "score": 2.0,
+  "lines": 576,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "- Benefits diminish as the active-row fraction approaches 100%; selection/restoration adds some overhead.",
+   "The figure shows means across steps 3\u201312; time error bars are sample SD. In the 16K\u21924K workload, response-only lowers cached-step time by **7.94% unfused / 15.96% fused** and actor-update time by **7.07% / 15.01%**. For ",
+   "Unfused response-only lowers the reported memory metric by **5.13 GiB / 15.43%** for 16K\u21924K and **3.52 GiB / 11.20%** for 8K\u21928K. Fusion alone reaches a lower memory metric than unfused response-only in these runs; adding",
+   "The existing Triton fused head increases actor-update time by approximately 20\u201322% relative to unfused in this configuration. Its tiled reductions and backward recomputation trade storage for computation, but these runs ",
+   "| Fused baseline vs fused response-only | 0.126% | 2.011% |",
+   "| Unfused baseline vs fused baseline | 0.537% | 6.779% |"
+  ],
+  "nums": [
+   "100%",
+   "7.94%",
+   "15.96%",
+   "7.07%",
+   "15.01%",
+   "1.25%",
+   "5.72%",
+   "1.55%"
+  ],
+  "files": [
+   "verl/models/mcore/model_forward.py",
+   "verl/models/mcore/model_forward_fused.py",
+   "verl/models/mcore/response_only_lm_head.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/engine/megatron.yaml",
+   "verl/utils/kernel/kernels.py",
+   "verl/workers/config/engine.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7621,
+  "title": "[rollout] FlexKV KV cache offload for dynamic resource",
+  "age": 58,
+  "draft": false,
+  "author": "DylanChen-NV",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 1211,
+  "nfiles": 21,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/experimental/fully_async_policy/dynamic_schedule/base.py",
+   "verl/experimental/fully_async_policy/dynamic_schedule/default_policy.py",
+   "verl/experimental/fully_async_policy/dynamic_schedule/dynamic_resource_controller.py",
+   "verl/experimental/fully_async_policy/dynamic_schedule/fixed_ratio_policy.py",
+   "verl/experimental/fully_async_policy/fully_async_main.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py"
+  ]
+ },
+ {
+  "number": 7439,
+  "title": "fix(kernel): stabilize fused entropy for negative logits",
+  "age": 73,
+  "draft": false,
+  "author": "WangBD2023hdu",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 139,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/kernel/kernels.py"
+  ]
+ },
+ {
+  "number": 7415,
+  "title": "[rollout, trainer] feat: add pluggable rollout data backends",
+  "age": 75,
+  "draft": true,
+  "author": "zxpdemonio",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 6,
+  "score": 2.0,
+  "lines": 2680,
+  "nfiles": 25,
+  "has_tests": true,
+  "claims": [
+   "Mooncake PUT is 1.50x to 3.34x faster across these sample counts. The 8-sample Mooncake GET has about 6.3 ms of additional fixed overhead; GET reaches parity at 64 samples and is 1.49x and 2.48x faster at 256 and 1024 sa"
+  ],
+  "nums": [
+   "12.44 MiB",
+   "3.11 MiB",
+   "12.44 MiB",
+   "1.50x",
+   "3.34x faster",
+   "1.49x",
+   "2.48x faster"
+  ],
+  "files": [
+   "verl/protocol.py",
+   "verl/single_controller/base/worker.py",
+   "verl/single_controller/ray/base.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/ppo_trainer.yaml"
+  ]
+ },
+ {
+  "number": 7342,
+  "title": "fix(megatron): fall back to non-pinned CPU copy when pin_memory() fails on resume",
+  "age": 79,
+  "draft": false,
+  "author": "shotsan",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 7,
+  "score": 2.0,
+  "lines": 132,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/megatron_utils.py"
+  ]
+ },
+ {
+  "number": 7312,
+  "title": "[trainer, ray] feat: support worker-scoped environment variables",
+  "age": 82,
+  "draft": false,
+  "author": "YolandaLyj",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 2.0,
+  "lines": 73,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "Changing 20 to 128 reduced the measured allocator cleanup overhead by 82.1%, while released memory and peak reserved memory remained statistically equivalent. These numbers measure the `empty_cache` portion of the actor "
+  ],
+  "nums": [
+   "8 x",
+   "89.066 GB",
+   "89.437 GB",
+   "89.408 GB",
+   "82.1%",
+   "82%"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/ppo_trainer.yaml",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/utils.py",
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ]
+ },
+ {
+  "number": 7286,
+  "title": "[ckpt] fix: load FSDP checkpoint shards onto CPU instead of the saved device",
+  "age": 83,
+  "draft": false,
+  "author": "jackychris",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 27,
+  "score": 2.0,
+  "lines": 6,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [
+   "memory: 79.25 GiB total, 78.84 GiB free",
+   "-> torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.00 GiB."
+  ],
+  "nums": [
+   "4.64 GiB",
+   "79.33 GiB",
+   "1.11 GiB",
+   "34 GiB",
+   "80GB",
+   "79.25 GiB",
+   "78.84 GiB",
+   "2.00 GiB"
+  ],
+  "files": [
+   "verl/utils/checkpoint/fsdp_checkpoint_manager.py"
+  ]
+ },
+ {
+  "number": 7192,
+  "title": "[megatron, model, trainer] feat: support Nemotron 3.5 Lightning and Super VL MTP",
+  "age": 91,
+  "draft": true,
+  "author": "Phlip79",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 6,
+  "score": 2.0,
+  "lines": 2497,
+  "nfiles": 22,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "80 GB",
+   "4\u00d7"
+  ],
+  "files": [
+   "verl/models/mcore/model_forward.py",
+   "verl/models/mcore/mtp_support.py",
+   "verl/models/mcore/util.py",
+   "verl/utils/dataset/multiturn_sft_dataset.py",
+   "verl/utils/megatron_utils.py",
+   "verl/utils/tokenizer/tokenizer.py",
+   "verl/workers/config/model.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7182,
+  "title": "[fsdp] fix: make ref model CPUOffload configurable instead of hardcoded",
+  "age": 92,
+  "draft": false,
+  "author": "Shadowking912",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 19,
+  "score": 2.0,
+  "lines": 27,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "This forces CPU\u0393\u00e5\u00f6GPU parameter transfers on every reference forward micro-batch, even when the model fits entirely in GPU memory, leading to significant performance overhead (40-70x slower ref forward than actor forward",
+   "**Motivation:** When a reference/reward model is small enough to fit in GPU memory (e.g., 4B parameters on H100 with 140GB), CPU offloading becomes pure overhead. The hardcoded offload forces unnecessary parameter swaps ",
+   "- Reference forward latency drops from 8.7-25.4s to 0.2s per micro-batch",
+   "- Training proceeds correctly with no increase in peak GPU memory usage (stays at 140GB)"
+  ],
+  "nums": [
+   "70x",
+   "140GB",
+   "3x speedup",
+   "140GB",
+   "25.4s to 0.2s",
+   "140GB"
+  ],
+  "files": [
+   "verl/workers/config/engine.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 7131,
+  "title": "[gemma4] Support attn_implementation=flash_attention_2 (global layers fall back to SDPA)",
+  "age": 97,
+  "draft": false,
+  "author": "nanastassacos",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 2.0,
+  "lines": 638,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "| throughput (mean) | 1150 tok/s | 2131 tok/s \u2014 **1.85\u00d7** |",
+   "| peak memory allocated | 75.2 GB | 75.1 GB |"
+  ],
+  "nums": [
+   "0.5\u00d7",
+   "1150 tok/s",
+   "2131 tok/s",
+   "1.85\u00d7",
+   "1.88\u00d7",
+   "75.2 GB",
+   "75.1 GB"
+  ],
+  "files": [
+   "verl/models/transformers/gemma4.py",
+   "verl/models/transformers/monkey_patch.py"
+  ]
+ },
+ {
+  "number": 6850,
+  "title": "[misc] feat: support fsspec (gs:// , s3://) sources in copy_to_local",
+  "age": 125,
+  "draft": false,
+  "author": "dkondoetsy",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 6,
+  "score": 2.0,
+  "lines": 124,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/fs.py"
+  ]
+ },
+ {
+  "number": 6533,
+  "title": "[rollout] feat: load-balance away from sticky sessions under imbalance",
+  "age": 152,
+  "draft": true,
+  "author": "aoshen02",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 2.0,
+  "lines": 180,
+  "nfiles": 9,
+  "has_tests": true,
+  "claims": [
+   "**Setup**: Qwen3.5-35B-A3B, 8 vLLM replicas (TP=1) on 2\u00d7 GB300 trays + 2 training trays (EP=8); 32 prompts \u00d7 GRPO n=16 = **512 SWE-bench Verified multi-turn trajectories** (Modal sandboxes, \u2264300 turns, 128K response cap,",
+   "\u00b9 abs=8/abs=4 runs were measured to 511/512 finishes; p95/p99 are unaffected. The abs=16 run completed all 512. Run-to-run noise floor (established by the abs=16 run, whose 28 rebalances cannot move tail latency): **\u00b14% ",
+   "The KV-aware filter fully removes the +18% regression (p95 6m20s faster than stock at identical thresholds) and is the only config of the six measured whose p95, p99 **and** complete wall time (34m00s vs the baseline's 3"
+  ],
+  "nums": [
+   "1.5x",
+   "2\u00d7",
+   "0.05%",
+   "3.7%",
+   "8.4%",
+   "1.3%",
+   "0.8%",
+   "10%"
+  ],
+  "files": [
+   "verl/experimental/teacher_loop/teacher_model.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/workers/config/rollout.py",
+   "verl/workers/rollout/llm_server.py"
+  ]
+ },
+ {
+  "number": 6133,
+  "title": "[dataset] feat: estimate vision tokens for faster prompt filtering",
+  "age": 187,
+  "draft": false,
+  "author": "tongxiao2002",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 92,
+  "nfiles": 1,
+  "has_tests": false,
+  "claims": [],
+  "nums": [
+   "90%"
+  ],
+  "files": [
+   "verl/utils/dataset/rl_dataset.py"
+  ]
+ },
+ {
+  "number": 5855,
+  "title": "[ray] chore: Enhance Ray subprocess error handling system",
+  "age": 210,
+  "draft": false,
+  "author": "abeiabeiqq",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 2.0,
+  "lines": 630,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "RayCommunicationError: ray::RemoteWorker.run() (pid=12345, ip=10.0.0.1)\\nRuntimeError: CUDA out of memory. Tried to allocate 20.00 MiB...",
+   "Detailed error: CUDA out of memory. Tried to allocate 20.00 MiB (GPU 0; 15.90 GiB total capacity; 15.12 GiB already allocated; 6.25 MiB free; 15.13 GiB reserved in total by PyTorch)"
+  ],
+  "nums": [
+   "20.00 MiB",
+   "20.00 MiB",
+   "15.90 GiB",
+   "15.12 GiB",
+   "6.25 MiB",
+   "15.13 GiB"
+  ],
+  "files": [
+   "verl/single_controller/base/worker.py",
+   "verl/single_controller/ray/base.py"
+  ]
+ },
+ {
+  "number": 5751,
+  "title": "[megatron, ckpt] fix: reclaim host memory leaked by dist_checkpointin\u2026",
+  "age": 217,
+  "draft": true,
+  "author": "Superjomn",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 290,
+  "nfiles": 5,
+  "has_tests": false,
+  "claims": [],
+  "nums": [
+   "13GB",
+   "13GB"
+  ],
+  "files": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/checkpoint/megatron_checkpoint_manager.py",
+   "verl/utils/checkpoint/memory_reclaim.py",
+   "verl/workers/megatron_workers.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py"
+  ]
+ },
+ {
+  "number": 5398,
+  "title": "[Feature]: enable kv cache sharing using lmcache",
+  "age": 245,
+  "draft": false,
+  "author": "kilig917",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 566,
+  "nfiles": 11,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/workers/config/rollout.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ]
+ },
+ {
+  "number": 3852,
+  "title": "[fsdp] feat: Restructure logprobs_from_logits impl and always compile the naive impl",
+  "age": 372,
+  "draft": false,
+  "author": "StrongerXi",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 30,
+  "score": 2.0,
+  "lines": 88,
+  "nfiles": 3,
+  "has_tests": true,
+  "claims": [
+   "Memory consumed by logits: 2147.61 MB",
+   "Naive method time: 0.005133 sec, Memory peak: 4295.16 MB",
+   "Method 1 time: 0.008121 sec, Memory peak: 4295.36 MB",
+   "Method 2 time: 0.004993 sec, Memory peak: 2416.24 MB",
+   "Method 3 time: 0.009120 sec, Memory peak: 2282.10 MB",
+   "Efficient method time: 0.008911 sec, Memory peak: 2282.23 MB"
+  ],
+  "nums": [
+   "8x",
+   "139.55gb",
+   "115.91gb",
+   "129.19gb",
+   "115.91gb",
+   "2147.61 MB",
+   "4295.16 MB",
+   "4295.36 MB"
+  ],
+  "files": [
+   "verl/utils/torch_functional.py"
+  ]
+ },
+ {
+  "number": 2875,
+  "title": "feat: Enhanced Reward Manager API - Solve 3 Key Pain Points in VERL Reward System",
+  "age": 452,
+  "draft": false,
+  "author": "Tingberer",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 8,
+  "score": 2.0,
+  "lines": 1336,
+  "nfiles": 8,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "100%"
+  ],
+  "files": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/reward_score/__init__.py",
+   "verl/utils/reward_score/result.py",
+   "verl/workers/reward_manager/__init__.py",
+   "verl/workers/reward_manager/enhanced.py"
+  ]
+ },
+ {
+  "number": 2854,
+  "title": "[recipe] feat: asynchronous reward agent with mini-batch pipeline and one-step off-policy training",
+  "age": 453,
+  "draft": false,
+  "author": "haolinyan",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 9,
+  "score": 2.0,
+  "lines": 7846,
+  "nfiles": 17,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "30.85%",
+   "30.85%",
+   "28.44%",
+   "23.08%",
+   "23.08%"
+  ],
+  "files": []
+ },
+ {
+  "number": 1295,
+  "title": "Optimizer-in-backward Fusion Implementation",
+  "age": 548,
+  "draft": false,
+  "author": "tinuademargaret",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 6,
+  "score": 2.0,
+  "lines": 401,
+  "nfiles": 9,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/config/sft_trainer.yaml",
+   "verl/trainer/fsdp_sft_trainer.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/debug/performance.py",
+   "verl/utils/torch_functional.py",
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/critic/dp_critic.py",
+   "verl/workers/fsdp_workers.py"
+  ]
+ },
+ {
+  "number": 956,
+  "title": "Make DAPO rollout faster and more efficient (Refactor ShardingManager)",
+  "age": 569,
+  "draft": false,
+  "author": "sanghyun-son",
+  "perf_tag": false,
+  "title_hit": true,
+  "body_kw": 0,
+  "score": 2.0,
+  "lines": 109,
+  "nfiles": 9,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/sharding_manager/base.py",
+   "verl/workers/sharding_manager/fsdp_sglang.py",
+   "verl/workers/sharding_manager/fsdp_ulysses.py",
+   "verl/workers/sharding_manager/fsdp_vllm.py",
+   "verl/workers/sharding_manager/megatron_vllm.py"
+  ]
+ },
+ {
+  "number": 8416,
+  "title": "[vllm, rollout] fix: fold unquantized MoE refits through backend aliases",
+  "age": 0,
+  "draft": true,
+  "author": "Li-Jicheng",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 86,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/vllm/vllm_unquant_utils.py"
+  ]
+ },
+ {
+  "number": 8405,
+  "title": "examples: add single-GPU 24GB GRPO + LoRA recipe (Qwen2.5-1.5B)",
+  "age": 1,
+  "draft": false,
+  "author": "Rich-Young98",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 102,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [
+   "Users with one 24 GB card (RTX 4090 / L4 / A10) hit OOM in rollout or actor update and have to",
+   "(the defaults OOM or stall on a single 24 GB card)",
+   "- Result: 20-step smoke passes (`step:0`/`step:1` in the logs, peak ~18 GB); also ran a",
+   "600-step GRPO job with the same knobs (peak ~20 GB)."
+  ],
+  "nums": [
+   "24GB",
+   "8x",
+   "24 GB",
+   "24 GB",
+   "24 GB",
+   "24 GB",
+   "18 GB",
+   "20 GB"
+  ],
+  "files": []
+ },
+ {
+  "number": 8403,
+  "title": "[recipe] feat: DeepSeek-V4.1 LoRA with bitwise train/inference log-probs and 262K context on 8 GPUs",
+  "age": 1,
+  "draft": false,
+  "author": "ISEEKYAN",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 676,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [
+   "- Host memory peak 828.9 / 826.1 GiB per node (run under an 850 GiB per-node admission limit);",
+   "351.37 s; actor peak allocated 69.21-73.48 GiB per GPU."
+  ],
+  "nums": [
+   "49.22%",
+   "52.44%",
+   "53.81%",
+   "58.69%",
+   "64.36%",
+   "68.85%",
+   "848 tokens/s",
+   "4 x"
+  ],
+  "files": []
+ },
+ {
+  "number": 8383,
+  "title": "[megatron, vllm, doc] feat: DeepSeek-V4-Pro GRPO example with H100 and GB200 profiles",
+  "age": 2,
+  "draft": false,
+  "author": "linmuchuiyang",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 811,
+  "nfiles": 5,
+  "has_tests": true,
+  "claims": [
+   "- 61-layer Pro, `HW=gb200` profile (64 nodes, PP16 \u00d7 EP16, rollout DP32 \u00d7 EP32, response 8192, R3, Marlin), 3 steps: steady step 960 / 972 s (first 1991 s), `gen` \u2248500 s, `update_weights` \u2248251 s, Pearson 0.9981 / 0.9983 ",
+   "- H100 (64 \u00d7 8 H100 80 GB), verl `main@a4b9354` + #8234, `HW=h100` profile (PP32 \u00d7 EP8, rollout TP8 \u00d7 DP8 \u00d7 EP64, response 4096, R3, Marlin), 3 steps: steady step 692 / 684 s (first step 2585 s with JIT), `gen` \u2248280 s, `"
+  ],
+  "nums": [
+   "64 \u00d7",
+   "80 GB",
+   "32 \u00d7",
+   "8 \u00d7",
+   "8 \u00d7",
+   "64 \u00d7",
+   "16 \u00d7",
+   "32 \u00d7"
+  ],
+  "files": [
+   "verl/models/mcore/patch.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ]
+ },
+ {
+  "number": 8377,
+  "title": "[training_utils] fix: keep confident-label logprobs and gradients in the torch logprob path",
+  "age": 3,
+  "draft": false,
+  "author": "catherinelee274",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 176,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "\u2192 0.98 GiB",
+   "\u2192 0 GiB",
+   "\u2192 0.49 GiB",
+   "\u2192 0 GiB",
+   "\u2192 0.98 GiB",
+   "\u2192 0 GiB",
+   "\u2192 0.98 GiB"
+  ],
+  "files": [
+   "verl/utils/torch_functional.py"
+  ]
+ },
+ {
+  "number": 8353,
+  "title": "[model, fsdp] feat: verl-native MiniMax M3 with NVFP4/MXFP8 activation QAT, R3 and expert LoRA",
+  "age": 5,
+  "draft": false,
+  "author": "aoshen02",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 3204,
+  "nfiles": 18,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "36.3%",
+   "67.5%"
+  ],
+  "files": [
+   "verl/models/transformers/minimax_m3/__init__.py",
+   "verl/models/transformers/minimax_m3/act_quant.py",
+   "verl/models/transformers/minimax_m3/checkpoint.py",
+   "verl/models/transformers/minimax_m3/modeling_minimax_m3.py",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/engine/fsdp.yaml",
+   "verl/utils/fsdp_utils.py",
+   "verl/utils/model.py"
+  ]
+ },
+ {
+  "number": 7964,
+  "title": "[algo] fix: keep rloo_vectorized advantages in the reward dtype",
+  "age": 38,
+  "draft": false,
+  "author": "linhongyu510",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 33,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/ppo/core_algos.py"
+  ]
+ },
+ {
+  "number": 7881,
+  "title": "[megatron] fix: reuse pinned CPU snapshot buffers in Decoupled PPO to stop a host-RAM leak",
+  "age": 42,
+  "draft": false,
+  "author": "theely",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 72,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [
+   "PyTorch's pinned-host allocator does not always reclaim a previous call's freed blocks for reuse, so this pattern leaks host RAM unboundedly: observed on a 70B-parameter model, pinned allocations were an identical ~18 GB",
+   "- Cluster: validated end-to-end on a real 40-node, 70B-parameter training run \u2014 process RSS held flat in a 49-52 GB band across 5 training steps versus an unbounded 40 -> 82 -> 100+ GB climb (and OOM) without this fix."
+  ],
+  "nums": [
+   "18 GB",
+   "40 GB",
+   "100 GB",
+   "52 GB"
+  ],
+  "files": [
+   "verl/experimental/separation/engine_workers.py",
+   "verl/utils/megatron_utils.py"
+  ]
+ },
+ {
+  "number": 6992,
+  "title": "[fsdp, vllm, doc] feat: add experimental W4A8 QAT simulation",
+  "age": 111,
+  "draft": true,
+  "author": "zhangyimi",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 629,
+  "nfiles": 11,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "1 x",
+   "1 x"
+  ],
+  "files": [
+   "verl/trainer/config/actor/actor.yaml",
+   "verl/trainer/config/engine/fsdp.yaml",
+   "verl/utils/kernel/fp8_kernel.py",
+   "verl/utils/qat/__init__.py",
+   "verl/utils/qat/linear.py",
+   "verl/utils/qat/quantizer.py",
+   "verl/utils/qat/vllm_patch.py",
+   "verl/workers/config/engine.py"
+  ]
+ },
+ {
+  "number": 6122,
+  "title": "[rollout] feat: global group-level load balancer",
+  "age": 188,
+  "draft": false,
+  "author": "EricWuji",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 242,
+  "nfiles": 16,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "15.2%",
+   "53.2%"
+  ],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/load_balance.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/teacher_loop/teacher_manager.py",
+   "verl/experimental/teacher_loop/teacher_model.py"
+  ]
+ },
+ {
+  "number": 6107,
+  "title": "[megatron, ckpt] feat: make fully parallel dist checkpoint wrappers configurable",
+  "age": 189,
+  "draft": false,
+  "author": "jmaicher",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 200,
+  "nfiles": 8,
+  "has_tests": true,
+  "claims": [
+   "When training an 8b model on two nodes with 4xgb200 and 1TB RAM each, DP=8,PP=TP=1, and fully_parallel_load=False, we see at least 220 GiB less memory usage and prevent CPU OOMs during fully reshardable checkpoint loadin"
+  ],
+  "nums": [
+   "4x",
+   "220 GiB"
+  ],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/actor/megatron_actor.yaml",
+   "verl/trainer/config/critic/megatron_critic.yaml",
+   "verl/utils/checkpoint/megatron_checkpoint_manager.py",
+   "verl/utils/megatron/dist_checkpointing.py",
+   "verl/workers/config/checkpoint.py"
+  ]
+ },
+ {
+  "number": 5976,
+  "title": "[rollout] feat: trainer-side FP8 weight quantization for colocated and disaggregated modes",
+  "age": 199,
+  "draft": false,
+  "author": "yxs",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 368,
+  "nfiles": 14,
+  "has_tests": true,
+  "claims": [
+   "#### 8. Benchmark: trainer-side FP8 quantization overhead (8\u00d7H200)",
+   "| Memory overhead | 64.8 MB |"
+  ],
+  "nums": [
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7"
+  ],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/kimi_checkpoint_engine.py",
+   "verl/checkpoint_engine/mooncake_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/utils/fp8_utils.py"
+  ]
+ },
+ {
+  "number": 2629,
+  "title": "[rollout, trainer] feat: Enabling Request Skewness Scheduler towards near-equal generated token in rollout",
+  "age": 466,
+  "draft": false,
+  "author": "Tyizhanshen",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 1562,
+  "nfiles": 10,
+  "has_tests": false,
+  "claims": [],
+  "nums": [
+   "25%"
+  ],
+  "files": [
+   "verl/protocol.py",
+   "verl/single_controller/base/decorator.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py",
+   "verl/workers/sharding_manager/fsdp_vllm.py"
+  ]
+ },
+ {
+  "number": 2466,
+  "title": "[rollout] feat: implemented the persistable replay buffer feature",
+  "age": 475,
+  "draft": false,
+  "author": "Xunmei-liu",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 5,
+  "score": 1.7,
+  "lines": 1598,
+  "nfiles": 17,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/replay_buffer/__init__.py",
+   "verl/experimental/replay_buffer/persistable_client.py",
+   "verl/experimental/replay_buffer/persistable_util/__init__.py",
+   "verl/experimental/replay_buffer/persistable_util/hdfs_backup_manager.py",
+   "verl/experimental/replay_buffer/persistable_util/lru_cache.py",
+   "verl/experimental/replay_buffer/persistable_util/util.py",
+   "verl/experimental/replay_buffer/replay_buffer_client.py",
+   "verl/experimental/replay_buffer/samplers/__init__.py"
+  ]
+ },
+ {
+  "number": 8323,
+  "title": "[rollout, vllm, sglang, trtllm, cfg] feat: salt external KV caches by weight version instead of resetting them",
+  "age": 6,
+  "draft": false,
+  "author": "daegyu94",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 897,
+  "nfiles": 20,
+  "has_tests": true,
+  "claims": [],
+  "nums": [
+   "1x"
+  ],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/workers/config/rollout.py",
+   "verl/workers/rollout/replica.py"
+  ]
+ },
+ {
+  "number": 8273,
+  "title": "[vllm, rollout, ckpt] feat: preserve requests across weight updates",
+  "age": 10,
+  "draft": false,
+  "author": "cr-gao",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 980,
+  "nfiles": 17,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/checkpoint_engine/base.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/rollout/rollout.yaml",
+   "verl/workers/config/rollout.py"
+  ]
+ },
+ {
+  "number": 8032,
+  "title": "[rollout] feat: release LoRA base weights on sleep via lora.resync_base",
+  "age": 31,
+  "draft": false,
+  "author": "HollowMan6",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 139,
+  "nfiles": 12,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/trainer/config/_generated_ppo_megatron_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_trainer.yaml",
+   "verl/trainer/config/_generated_ppo_veomni_trainer.yaml",
+   "verl/trainer/config/model/hf_model.yaml",
+   "verl/workers/engine_workers.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ]
+ },
+ {
+  "number": 7806,
+  "title": "[algo, trainer, rollout, vllm] feat: add reverse KL top-k with fixed-token prefill scoring",
+  "age": 49,
+  "draft": false,
+  "author": "YichenZW",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 431,
+  "nfiles": 14,
+  "has_tests": false,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/teacher_loop/teacher_manager.py",
+   "verl/trainer/config/distillation/distillation.yaml",
+   "verl/trainer/distillation/fsdp/losses.py",
+   "verl/trainer/distillation/losses.py",
+   "verl/trainer/distillation/megatron/losses.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/agent_loop_tq.py"
+  ]
+ },
+ {
+  "number": 7676,
+  "title": "[ckpt, megatron, sglang] fix: preserve DSv4 FP8 delta fidelity",
+  "age": 56,
+  "draft": false,
+  "author": "ChangyiYang",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 3784,
+  "nfiles": 24,
+  "has_tests": true,
+  "claims": [
+   "| `delta_sharded` | 12568 | 35.173 s | **14.66x faster** |",
+   "The raw wall-time reduction is **10.33%**. Normalizing the padded run linearly to the P2P run's useful payload gives 33.426957 s, so the payload-normalized reduction is **8.56%** (9.37% higher effective throughput). The ",
+   "At job 16334's changed-element count, the int32 baseline projects to 121,832.30 MiB and 26.351 s. The packed format therefore reduces useful payload by **19.97%**, lowers normalized wall time by **8.90%**, and raises eff"
+  ],
+  "nums": [
+   "128x",
+   "267.6 GB",
+   "267.6 GB",
+   "8.976%",
+   "506.35 MiB",
+   "1.00x",
+   "14.66x faster",
+   "93.2% reduction"
+  ],
+  "files": [
+   "verl/checkpoint_engine/delta_checkpoint_engine.py",
+   "verl/checkpoint_engine/delta_sync/__init__.py",
+   "verl/checkpoint_engine/delta_sync/encode.py",
+   "verl/checkpoint_engine/delta_sync/sparse_gather.py",
+   "verl/utils/fp8_ckpt_dtypes.py",
+   "verl/utils/fp8_sharded.py",
+   "verl/utils/fusion_groups.py",
+   "verl/utils/sglang/sglang_fp8_utils.py"
+  ]
+ },
+ {
+  "number": 7400,
+  "title": "[data] fix: avoid retaining image bytes after decoding",
+  "age": 76,
+  "draft": false,
+  "author": "leooop-al",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 26,
+  "nfiles": 2,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/dataset/rl_dataset.py"
+  ]
+ },
+ {
+  "number": 7371,
+  "title": "[hardware, fsdp, vllm] feat: add Intel GPU (XPU) support",
+  "age": 77,
+  "draft": false,
+  "author": "kahlun",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 1252,
+  "nfiles": 22,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/plugin/platform/platform_manager.py",
+   "verl/plugin/platform/platform_xpu.py",
+   "verl/trainer/sft_trainer.py",
+   "verl/utils/attention_utils.py",
+   "verl/utils/torch_functional.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine_workers.py"
+  ]
+ },
+ {
+  "number": 7336,
+  "title": "[megatron] feat: add Qwen3.5 THD (packed sequence) Megatron SFT example",
+  "age": 79,
+  "draft": false,
+  "author": "gaohongkui",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 169,
+  "nfiles": 2,
+  "has_tests": false,
+  "claims": [],
+  "nums": [
+   "42.93 GB",
+   "51.85 GB"
+  ],
+  "files": []
+ },
+ {
+  "number": 7108,
+  "title": "[ckpt, sglang, megatron] feat: P2P checkpoint engine for trainer-to-rollout weight sync via Mooncake RDMA",
+  "age": 99,
+  "draft": false,
+  "author": "AkiRusProd",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 3418,
+  "nfiles": 31,
+  "has_tests": true,
+  "claims": [
+   "- Fast at scale: in production use of the original implementation (internal verl fork), syncing a ~700B MoE model took **~5 s** with the p2p backend vs **~6.5 min** with the NCCL checkpoint engine on the same setup (~78\u00d7"
+  ],
+  "nums": [
+   "78\u00d7 faster"
+  ],
+  "files": [
+   "verl/checkpoint_engine/__init__.py",
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/p2p/__init__.py",
+   "verl/checkpoint_engine/p2p/checkpoint_engine.py",
+   "verl/checkpoint_engine/p2p/trainer_updater.py",
+   "verl/checkpoint_engine/p2p/transfer_utils.py",
+   "verl/checkpoint_engine/p2p/weight_checker.py",
+   "verl/experimental/fully_async_policy/detach_utils.py"
+  ]
+ },
+ {
+  "number": 7102,
+  "title": "[trainer] feat: add V1 trainer support for the RemoteBackend plugin abstraction",
+  "age": 99,
+  "draft": false,
+  "author": "sfc-gh-kganesan",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 1040,
+  "nfiles": 19,
+  "has_tests": true,
+  "claims": [
+   "`gen` from ~205 s to ~191 s on 8B/BIRD (~7% inference speedup, 4-step"
+  ],
+  "nums": [
+   "8\u00d7",
+   "2.30\u00d7",
+   "0.96\u00d7",
+   "0.98\u00d7",
+   "1.67\u00d7",
+   "7%"
+  ],
+  "files": [
+   "verl/checkpoint_engine/__init__.py",
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/remote_backend.py",
+   "verl/remote_backend/__init__.py",
+   "verl/remote_backend/base.py",
+   "verl/remote_backend/worker_utils.py",
+   "verl/single_controller/ray/base.py",
+   "verl/trainer/config/ppo_trainer.yaml"
+  ]
+ },
+ {
+  "number": 5600,
+  "title": "[feat][training_utils] State-based metrics",
+  "age": 227,
+  "draft": false,
+  "author": "JacobHelwig",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 501,
+  "nfiles": 4,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/utils/metric/utils.py",
+   "verl/utils/py_functional.py",
+   "verl/workers/utils/losses.py"
+  ]
+ },
+ {
+  "number": 5541,
+  "title": "[vllm, rollout] feat: per-request TTFT/TPOT metrics and standalone rollout benchmark",
+  "age": 232,
+  "draft": false,
+  "author": "Siritao",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 880,
+  "nfiles": 7,
+  "has_tests": true,
+  "claims": [],
+  "nums": [],
+  "files": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ]
+ },
+ {
+  "number": 3479,
+  "title": "[RFC]Implements Group Filtering Policy Optimization",
+  "age": 408,
+  "draft": false,
+  "author": "jianfeng-Liu",
+  "perf_tag": false,
+  "title_hit": false,
+  "body_kw": 4,
+  "score": 1.3,
+  "lines": 440,
+  "nfiles": 6,
+  "has_tests": false,
+  "claims": [
+   "- **Training Speed**: actor-update takes 40-41 s for DAPO versus 10-11 s for GFPO, yielding a 4\u00d7 speed-up and saving roughly 50 s per step, which scales to dozens of NPU hours over thousands of steps."
+  ],
+  "nums": [
+   "2.4\u00d7",
+   "4\u00d7 speed-up"
+  ],
+  "files": [
+   "verl/trainer/config/ppo_trainer.yaml",
+   "verl/trainer/ppo/core_algos.py",
+   "verl/version/version"
+  ]
+ }
+]

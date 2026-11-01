@@ -1,0 +1,41 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## N=1024 P=2048 L=8192 dp_size=8
+dense batch payload: 0.54 GB
+attention_mask.sum(-1) over N x S                                      median        0.5 ms   min        0.5 ms   (n=3)
+KK partitions, TENSOR input (as trainers call it), dp=8                median       20.2 ms   min       19.8 ms   (n=3)
+KK partitions, LIST input, dp=8                                        median        1.4 ms   min        1.4 ms   (n=3)
+per-partition sort, tensor indexing (ray_trainer.py:1234-1237)         median        6.5 ms   min        5.9 ms   (n=3)
+per-partition sort, list indexing                                      median        0.1 ms   min        0.1 ms   (n=3)
+log_seqlen_unbalance                                                   median        0.1 ms   min        0.1 ms   (n=3)
+DataProto.reorder(global_idx) full copy                                median       22.4 ms   min        8.5 ms   (n=2)
+
+## N=4096 P=2048 L=8192 dp_size=32
+dense batch payload: 2.15 GB
+attention_mask.sum(-1) over N x S                                      median        1.7 ms   min        1.6 ms   (n=3)
+KK partitions, TENSOR input (as trainers call it), dp=32               median       90.1 ms   min       83.9 ms   (n=3)
+KK partitions, LIST input, dp=32                                       median        5.0 ms   min        4.8 ms   (n=3)
+per-partition sort, tensor indexing (ray_trainer.py:1234-1237)         median       22.1 ms   min       21.4 ms   (n=3)
+per-partition sort, list indexing                                      median        0.4 ms   min        0.4 ms   (n=3)
+log_seqlen_unbalance                                                   median        0.2 ms   min        0.2 ms   (n=3)
+DataProto.reorder(global_idx) full copy                                median       60.6 ms   min       31.7 ms   (n=2)
+
+## N=4096 P=2048 L=8192 dp_size=128
+dense batch payload: 2.15 GB
+attention_mask.sum(-1) over N x S                                      median        1.8 ms   min        1.7 ms   (n=3)
+KK partitions, TENSOR input (as trainers call it), dp=128              median       78.1 ms   min       74.6 ms   (n=3)
+KK partitions, LIST input, dp=128                                      median        4.2 ms   min        3.8 ms   (n=3)
+per-partition sort, tensor indexing (ray_trainer.py:1234-1237)         median       16.8 ms   min       16.1 ms   (n=3)
+per-partition sort, list indexing                                      median        0.4 ms   min        0.4 ms   (n=3)
+log_seqlen_unbalance                                                   median        0.2 ms   min        0.2 ms   (n=3)
+DataProto.reorder(global_idx) full copy                                median       27.2 ms   min       26.0 ms   (n=2)
+
+## N=4096 P=2048 L=32768 dp_size=32
+dense batch payload: 7.78 GB
+attention_mask.sum(-1) over N x S                                      median        5.6 ms   min        5.3 ms   (n=3)
+KK partitions, TENSOR input (as trainers call it), dp=32               median       80.7 ms   min       79.8 ms   (n=3)
+KK partitions, LIST input, dp=32                                       median        5.8 ms   min        4.7 ms   (n=3)
+per-partition sort, tensor indexing (ray_trainer.py:1234-1237)         median       23.2 ms   min       22.0 ms   (n=3)
+per-partition sort, list indexing                                      median        0.5 ms   min        0.5 ms   (n=3)
+log_seqlen_unbalance                                                   median        0.2 ms   min        0.2 ms   (n=3)
+DataProto.reorder(global_idx) full copy                                median      163.0 ms   min      105.2 ms   (n=2)

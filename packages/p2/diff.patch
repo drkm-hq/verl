@@ -1,0 +1,2686 @@
+diff --git a/docs/examples/config.rst b/docs/examples/config.rst
+index e8c93b43..5a4d2919 100644
+--- a/docs/examples/config.rst
++++ b/docs/examples/config.rst
+@@ -140,6 +140,7 @@ Actor/Rollout/Reference Policy
+       ppo_epochs: 1
+       data_loader_seed: null
+       shuffle: False
++      skip_old_log_prob_when_on_policy: False
+       ulysses_sequence_parallel_size: 1 # sp size
+       optim:
+         lr: 1e-6
+@@ -312,6 +313,16 @@ Actor/Rollout/Reference Policy
+ - ``actor_rollout_ref.actor.shuffle``: Whether to shuffle data when
+   there are multiple epochs
+ 
++- ``actor_rollout_ref.actor.skip_old_log_prob_when_on_policy``: Skip the
++  separate old-log-prob forward pass when the actor update is strictly
++  on-policy (``ppo_epochs=1``, ``ppo_mini_batch_size`` equal to the sampled
++  batch, no shuffle, nothing reading ``old_log_probs`` before the update,
++  FSDP engines only, an actor free of dropout and other train-mode-only
++  behaviour after overrides and LoRA adapter): the update pass then computes
++  the old log-probs itself. Rejected at config validation otherwise, and again
++  on the built actor module; see the Performance Tuning Guide.
++  Default ``False``.
++
+ - ``actor_rollout_ref.actor.optim``: Actor's optimizer parameters
+ 
+ - ``actor_rollout_ref.actor.fsdp_config``: FSDP config for actor
+diff --git a/docs/perf/perf_tuning.rst b/docs/perf/perf_tuning.rst
+index 174ba5e7..945455e3 100644
+--- a/docs/perf/perf_tuning.rst
++++ b/docs/perf/perf_tuning.rst
+@@ -1,7 +1,7 @@
+ Performance Tuning Guide
+ ==============================
+ 
+-Last updated: 10/22/2026.
++Last updated: 10/29/2026.
+ 
+ Author: `Guangming Sheng <https://github.com/PeterSH6>`_, `Jiali Zheng <https://github.com/CurryRice233>`_
+ 
+@@ -137,6 +137,76 @@ Therefore, users may need to tune the ``*micro_batch_size_per_gpu`` to accelerat
+    buffers are capped by ``actor_rollout_ref.actor.veomni.activation_offload_host_cache_limit_gb``
+    (default 4.0 GB).
+ 
++Skip the old-log-prob pass when strictly on-policy
++--------------------------------------------------
++
++The actor forward runs over the sampled batch several times per step: the old-log-prob pass
++(``timing_s/old_log_prob``), the optional reference pass and the update pass. When the whole sampled
++batch is updated in **one** optimizer step, i.e. ``actor_rollout_ref.actor.ppo_epochs=1`` and
++``actor_rollout_ref.actor.ppo_mini_batch_size`` equal to ``data.train_batch_size`` (the shape the
++shipped Qwen3.5 / DeepSeek-V4 / gpt-oss GRPO examples use), every micro-batch of the update pass is
++evaluated at the sampling weights: gradient accumulation does not touch the parameters before the
++single optimizer step. The log-probs the update pass computes are then exactly the old log-probs,
++and the separate pass only recomputes them.
++
++``actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True`` (default ``False``) removes that
++pass:
++
++- ``timing_s/old_log_prob`` drops to the TransferQueue bookkeeping: one actor forward over the batch
++  less per step. The update pass computes the entropy metric instead (under ``no_grad`` unless
++  ``entropy_coeff != 0``, so it adds no backward-time tensor), a small fraction of one forward.
++- ``ppo_loss`` uses the current log-probs, detached, as ``old_log_prob``: the ratio is exactly 1, so
++  ``actor/pg_clipfrac`` and ``actor/ppo_kl`` are 0 by construction (without the skip they are 1 plus
++  the kernel noise between the two passes' micro-batch shapes).
++- The update pass returns its per-token log-probs and entropy through TransferQueue, so
++  ``actor/entropy``, the ``training/rollout_*`` and the ``rollout_corr/*`` diagnostics keep their
++  definitions; they are logged after the update instead of before it. Without an entropy bonus
++  (``entropy_coeff=0``) ``actor/entropy_loss`` is not reported (the entropy is a metric, not a loss term).
++  Critic-warmup steps have no actor update and run the old-log-prob pass as before.
++
++What changes semantically: the stored old log-probs are the update pass's **train-mode** values (the
++old-log-prob pass runs in eval mode). For the dropout-free models verl trains this is the same number.
++An actor whose forward depends on the mode is rejected twice: at config validation from the *effective*
++model, i.e. the HF config after ``override_config`` (every nested sub-config included) scanned for
++dropout, MoE router jitter (Mixtral's ``router_jitter_noise``, DBRX's ``moe_jitter_eps``), layer drop and
++drop path, plus a ``lora_adapter_path`` adapter's train-mode settings (``lora_rank > 0``: only
++``peft_type=LORA`` adapters are accepted, LoHa / LoKr ``rank_dropout`` / ``module_dropout`` being train-mode
++rates, and ``lora_dropout`` must be 0; verl's own ``LoraConfig`` sets none); and again on every rank when the
++actor is built, by walking the module for ``nn.Dropout`` modules with ``p > 0`` (peft's ``lora_dropout``
++included), BatchNorm / InstanceNorm with running statistics, DropPath / StochasticDepth modules and modules
++carrying a dropout / jitter / layerdrop rate > 0 (dict-valued rates included), which lists the offending
++module paths. When the config cannot be loaded at validation time a warning says so. The walk rejects every
++train-mode-dependent module or rate that is visible structurally (dropout modules and rates, DropPath /
++StochasticDepth, router jitter, layerdrop, BatchNorm); behaviour hidden in forward code (a hard-coded
++``F.dropout(p)``, a rate read from the config inside ``forward``) is not detectable, so for custom
++(``trust_remote_code``) models the skip remains the user's assertion.
++With ``use_fused_kernels=True`` the fused kernel's entropy stays attached to the
++graph, so that path saves no memory (it saves the forward only).
++
++The flag is rejected at config validation (and again when the trainer is built), naming every
++violated condition, whenever the skip would not be exact: ``ppo_epochs != 1``;
++``ppo_mini_batch_size != train_batch_size / parameter_sync_step`` (only the first mini-batch runs at
++the sampling weights, so multi-mini-batch configurations gain nothing); ``actor.shuffle=True``;
++``algorithm.use_kl_in_reward=True``; a ``rollout_correction`` with ``bypass_mode``, ``rollout_is`` or
++``rollout_rs`` set (they read ``old_log_probs`` before the update; ``bypass_mode`` already avoids the
++pass by using the rollout engine's log-probs, a different estimator); the ``optimal_token_baseline``
++estimators; ``calculate_sum_pi_squared``; distillation; router replay ``R2``; the ``separate_async``
++trainer mode (it restores the old policy from a CPU snapshot); the legacy trainer
++(``trainer.use_v1=False``); dropout or another train-mode-only setting in the effective model config or
++the LoRA adapter (see above); W4A4 QAT (``actor.fsdp_config.qat.enable=True`` with ``mode=w4a4``: its
++activation observers update the quantization scale in train mode only, so the two passes would quantize
++with different scales; W4A16 is weight-only and accepted, but untested with the skip); and every engine other than the FSDP family (``actor.strategy``
++fsdp, fsdp2 and fsdp_turbo, which shares the FSDP engine's forward and output path; megatron, veomni,
++torchtitan and automodel are rejected: their update-pass output path exists but is unverified, and
++Megatron's update-pass entropy would add a (T, V) logits copy).
++
++The one-mini-batch condition is also enforced per step on the rows the worker trains: after
++``_balance_batch`` pads the batch to a multiple of ``ppo_mini_batch_size * rollout.n``, the batch must be
++exactly that many rows (padding rows included). Agent loops that return a varying number of
++trajectories per session change the row count and pad to a second mini-batch, which would be trained
++after the optimizer step; the trainer (before any forward) and the worker (before any optimizer step)
++refuse such a step with an error naming the row counts instead of training it silently.
++
+ Tuning for Dynamic Batch Size
+ -----------------------------
+ 
+diff --git a/tests/trainer/ppo/test_skip_old_log_prob_legacy_trainer_on_cpu.py b/tests/trainer/ppo/test_skip_old_log_prob_legacy_trainer_on_cpu.py
+new file mode 100644
+index 00000000..339e2355
+--- /dev/null
++++ b/tests/trainer/ppo/test_skip_old_log_prob_legacy_trainer_on_cpu.py
+@@ -0,0 +1,51 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""The legacy ``RayPPOTrainer`` never implements ``actor.skip_old_log_prob_when_on_policy``. A run that builds it
++with the flag set (``main_ppo_v0.py`` with the shipped default ``trainer.use_v1=true`` passes ``validate_config``)
++must fail at construction, naming the flag and ``trainer.use_v1``, instead of silently keeping the old-log-prob
++pass."""
++
++from pathlib import Path
++
++import pytest
++from hydra import compose, initialize_config_dir
++
++from verl.trainer.ppo.ray_trainer import RayPPOTrainer
++from verl.utils.config import _validate_skip_old_log_prob_config
++
++_CONFIG_DIR = Path(__file__).resolve().parents[3] / "verl" / "trainer" / "config"
++
++
++def test_legacy_trainer_refuses_the_flag_it_does_not_implement():
++    overrides = [
++        "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
++        "data.train_batch_size=8",
++        "actor_rollout_ref.actor.ppo_mini_batch_size=8",
++        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.rollout.n=2",
++        "algorithm.adv_estimator=grpo",
++    ]
++    with initialize_config_dir(version_base=None, config_dir=str(_CONFIG_DIR)):
++        config = compose(config_name="ppo_trainer", overrides=overrides)
++    assert config.trainer.use_v1  # the shipped default: the config-level validator accepts this config
++    _validate_skip_old_log_prob_config(config)
++
++    with pytest.raises(ValueError, match="trainer.use_v1=True") as excinfo:
++        RayPPOTrainer(config=config, tokenizer=None, role_worker_mapping={}, resource_pool_manager=None)
++    assert "skip_old_log_prob_when_on_policy=True" in str(excinfo.value)
++
++    # with the flag off the constructor gets past the check (and stops later on the empty role mapping, as before)
++    config.actor_rollout_ref.actor.skip_old_log_prob_when_on_policy = False
++    with pytest.raises(AssertionError, match="role_worker_mapping"):
++        RayPPOTrainer(config=config, tokenizer=None, role_worker_mapping={}, resource_pool_manager=None)
+diff --git a/tests/trainer/ppo/v1/test_skip_old_log_prob_on_cpu.py b/tests/trainer/ppo/v1/test_skip_old_log_prob_on_cpu.py
+new file mode 100644
+index 00000000..0c1893c3
+--- /dev/null
++++ b/tests/trainer/ppo/v1/test_skip_old_log_prob_on_cpu.py
+@@ -0,0 +1,299 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""V1 trainer wiring of ``actor.skip_old_log_prob_when_on_policy``.
++
++``_compute_old_log_prob`` runs no forward; ``_update_actor`` asks the worker for the update pass's
++per-token outputs, reads the actor metrics off the returned KVBatchMeta and stores the response
++part of those outputs as ``old_log_probs``/``entropy`` exactly as the old-log-prob pass would have
++(same ``actor/entropy`` and ``training/rollout_*`` definitions). TransferQueue is replaced by an
++in-memory stand-in and the worker group by a mock, so no ray or GPU is needed.
++"""
++
++from pathlib import Path
++from unittest.mock import MagicMock
++
++import pytest
++import torch
++from omegaconf import OmegaConf
++from transfer_queue import KVBatchMeta
++
++from verl.trainer.ppo.v1 import trainer_base
++from verl.trainer.ppo.v1.trainer_base import PPOTrainer
++from verl.utils import tensordict_utils as tu
++
++PROMPT_LENS, RESP_LENS = [3, 2], [2, 3]
++
++
++class _StubTrainer(PPOTrainer):
++    def on_step_end(self):
++        pass
++
++    def on_sample_end(self):
++        pass
++
++
++class _FakeTransferQueue:
++    """``kv_batch_get`` / ``kv_batch_put`` over one in-memory TensorDict."""
++
++    def __init__(self, store):
++        self.store = store
++        self.puts = []
++
++    def kv_batch_get(self, keys, partition_id, select_fields):
++        present = [field for field in select_fields if field in self.store.keys()]  # TQ drops unknown fields
++        return self.store.select(*present)
++
++    def kv_batch_put(self, keys, partition_id, fields):
++        self.store.update(fields)
++        self.puts.append(sorted(fields.keys()))
++        return KVBatchMeta(keys=list(keys), tags=[{}] * len(keys), partition_id=partition_id)
++
++
++def _nested(rows):
++    return torch.nested.as_nested_tensor(list(rows), layout=torch.jagged)
++
++
++def _store():
++    torch.manual_seed(0)
++    return tu.get_tensordict(
++        tensor_dict={
++            "log_probs": _nested(-torch.rand(p + r) for p, r in zip(PROMPT_LENS, RESP_LENS, strict=True)),
++            "entropy": _nested(torch.rand(p + r) for p, r in zip(PROMPT_LENS, RESP_LENS, strict=True)),
++            "response_mask": _nested(torch.ones(r, dtype=torch.long) for r in RESP_LENS),
++            "responses": _nested(torch.randint(0, 10, (r,)) for r in RESP_LENS),
++            "rollout_log_probs": _nested(-torch.rand(r) for r in RESP_LENS),
++        }
++    )
++
++
++def _trainer(skip: bool, entropy_coeff: float = 0.0, rollout_correction=None, critic_warmup: int = 0):
++    trainer = _StubTrainer.__new__(_StubTrainer)
++    trainer.global_steps = 1
++    trainer.config = OmegaConf.create(
++        {
++            "trainer": {"critic_warmup": critic_warmup},
++            "actor_rollout_ref": {
++                "actor": {
++                    "ppo_mini_batch_size": 2,
++                    "calculate_entropy": False,
++                    "entropy_coeff": entropy_coeff,
++                    "ppo_epochs": 1,
++                    "data_loader_seed": 1,
++                    "shuffle": False,
++                    "loss_agg_mode": "token-mean",
++                    "loss_scale_factor": None,
++                    "skip_old_log_prob_when_on_policy": skip,
++                    "policy_loss": {},
++                },
++                "rollout": {"n": 1, "temperature": 1.0, "calculate_log_probs": True},
++            },
++            "algorithm": {"rollout_correction": rollout_correction},
++        }
++    )
++    trainer.actor_rollout_wg = MagicMock()
++    return trainer
++
++
++def _batch(num_rows: int = 2, num_padding: int = 0):
++    keys = [f"s{i}" for i in range(num_rows)]
++    tags = [{"is_padding": i >= num_rows - num_padding} for i in range(num_rows)]
++    return KVBatchMeta(keys=keys, tags=tags, partition_id="train")
++
++
++def _update_output(batch):
++    # what the TQ bridge hands back for a batch-sized update_actor output: a KVBatchMeta whose extra_info
++    # carries one metrics dict per collecting rank (rank 0 first)
++    return KVBatchMeta(
++        keys=list(batch.keys),
++        tags=[{}] * len(batch.keys),
++        partition_id=batch.partition_id,
++        extra_info={"metrics": [{"mfu": 0.5, "pg_loss": [1.0]}, {"mfu": 0.7, "pg_loss": [9.0]}]},
++    )
++
++
++def _check_stored(fake: _FakeTransferQueue, metrics: dict):
++    """old_log_probs/entropy are the response slices of the full-sequence outputs (response token r is
++    predicted by sequence position prompt_len - 1 + r) and the metrics are computed from them."""
++    assert fake.puts == [["entropy", "old_log_probs"]]
++    expected = {}
++    pristine = _store()  # the full-sequence outputs as the worker wrote them (seeded, so identical)
++    for key, out in (("old_log_probs", "log_probs"), ("entropy", "entropy")):
++        rows = pristine[out].unbind()
++        expected[key] = [row[p - 1 : p - 1 + r] for row, p, r in zip(rows, PROMPT_LENS, RESP_LENS, strict=True)]
++        stored = fake.store[key]
++        assert [t.shape[0] for t in stored.unbind()] == RESP_LENS
++        assert torch.equal(stored.values(), torch.cat(expected[key]))
++    assert metrics["actor/entropy"] == pytest.approx(torch.cat(expected["entropy"]).mean().item())
++    assert metrics["training/rollout_probs_diff_valid"] == 1
++    assert "training/rollout_logprobs_diff_max" in metrics
++
++
++def test_compute_old_log_prob_runs_no_forward_under_the_skip(monkeypatch):
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=True)
++    batch, metrics = _batch(), {}
++
++    assert trainer._compute_old_log_prob(batch, metrics) is batch
++
++    trainer.actor_rollout_wg.compute_log_prob.assert_not_called()
++    assert metrics == {} and fake.puts == [] and "old_log_probs" not in fake.store.keys()
++
++
++def test_compute_old_log_prob_without_the_flag_still_runs_the_pass(monkeypatch):
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=False)
++    batch, metrics = _batch(), {}
++    trainer.actor_rollout_wg.compute_log_prob.return_value = _batch()
++
++    trainer._compute_old_log_prob(batch, metrics)
++
++    trainer.actor_rollout_wg.compute_log_prob.assert_called_once()
++    assert batch.extra_info["calculate_entropy"] is True and batch.extra_info["compute_loss"] is False
++    _check_stored(fake, metrics)
++
++
++@pytest.mark.parametrize("entropy_coeff", [0.0, 0.01])
++def test_update_actor_requests_and_stores_the_update_pass_outputs(monkeypatch, entropy_coeff):
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=True, entropy_coeff=entropy_coeff)
++    batch, metrics = _batch(), {}
++    extra = {}
++
++    def update_actor(meta):
++        extra.update(meta.extra_info)  # what the worker saw (the skip keys are removed after the call)
++        return _update_output(meta)
++
++    trainer.actor_rollout_wg.update_actor.side_effect = update_actor
++
++    assert trainer._update_actor(batch, metrics) is batch
++
++    assert extra["calculate_entropy"] is True
++    assert extra["entropy_requires_grad"] is (entropy_coeff != 0.0)
++    assert extra["return_model_output"] is True
++    assert extra["on_policy_skip_old_log_prob"] is True
++    # rank 0's metrics, as on the TensorDict path
++    assert metrics["perf/mfu/actor"] == 0.5 and metrics["actor/pg_loss"] == 1.0
++    _check_stored(fake, metrics)
++
++
++def test_update_actor_without_the_flag_is_unchanged(monkeypatch):
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=False)
++    batch, metrics = _batch(), {}
++    trainer.actor_rollout_wg.update_actor.return_value = {"metrics": {"mfu": 0.5, "pg_loss": [2.0]}}
++
++    trainer._update_actor(batch, metrics)
++
++    for key in ("return_model_output", "on_policy_skip_old_log_prob", "entropy_requires_grad"):
++        assert key not in batch.extra_info
++    assert batch.extra_info["calculate_entropy"] is False
++    assert metrics["actor/pg_loss"] == 2.0 and metrics["perf/mfu/actor"] == 0.5
++    assert fake.puts == []
++
++
++def test_skip_keys_do_not_linger_in_extra_info_after_the_update(monkeypatch):
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=True)
++    batch = _batch()
++    trainer.actor_rollout_wg.update_actor.return_value = _update_output(batch)
++
++    trainer._update_actor(batch, {})
++
++    sent = trainer.actor_rollout_wg.update_actor.call_args.args[0]
++    assert sent is batch  # the keys travelled with the call ...
++    for key in ("return_model_output", "on_policy_skip_old_log_prob", "entropy_requires_grad"):
++        assert key not in batch.extra_info  # ... and are gone afterwards
++
++
++@pytest.mark.parametrize(("num_rows", "num_padding"), [(4, 2), (4, 0), (3, 1)])
++def test_a_batch_that_is_not_exactly_one_mini_batch_is_refused(monkeypatch, num_rows, num_padding):
++    """ppo_mini_batch_size x n = 2 rows: a padded batch of 4 rows would be two optimizer steps, the second
++    one after the weights moved; the skip must refuse before any forward, naming the row counts."""
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=True)
++    batch = _batch(num_rows, num_padding)
++
++    with pytest.raises(ValueError, match="exactly one mini-batch") as excinfo:
++        trainer._compute_old_log_prob(batch, {})
++    assert f"{num_rows} rows ({num_rows - num_padding} sampled + {num_padding} padding)" in str(excinfo.value)
++    trainer.actor_rollout_wg.compute_log_prob.assert_not_called()
++
++    with pytest.raises(ValueError, match="exactly one mini-batch"):
++        trainer._update_actor(batch, {})
++    trainer.actor_rollout_wg.update_actor.assert_not_called()
++    assert fake.puts == []
++
++
++def test_critic_warmup_steps_run_the_old_log_prob_pass(monkeypatch):
++    """No actor update during critic warmup, so there is no update pass to take the log-probs from: the
++    old pass runs as before and actor/entropy, training/rollout_* keep being logged."""
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=True, critic_warmup=5)
++    batch, metrics = _batch(), {}
++    trainer.actor_rollout_wg.compute_log_prob.return_value = _batch()
++
++    trainer._compute_old_log_prob(batch, metrics)
++
++    trainer.actor_rollout_wg.compute_log_prob.assert_called_once()
++    _check_stored(fake, metrics)
++
++
++def test_trainer_init_validates_the_flag_itself(monkeypatch):
++    """A trainer built outside main_ppo (recipes, custom mains) must still refuse an inexact configuration."""
++    from hydra import compose, initialize_config_dir
++
++    config_dir = Path(__file__).resolve().parents[4] / "verl" / "trainer" / "config"
++    with initialize_config_dir(version_base=None, config_dir=str(config_dir)):
++        config = compose(
++            config_name="ppo_trainer",
++            overrides=[
++                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
++                "actor_rollout_ref.actor.ppo_epochs=2",
++                "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
++            ],
++        )
++    monkeypatch.setattr(trainer_base, "build_checkpoint_callback", lambda config: None)
++    monkeypatch.setattr(trainer_base, "RolloutMoELoadBalanceMetricsAccumulator", lambda **kwargs: None)
++    monkeypatch.setattr(_StubTrainer, "_build_replay_buffer", lambda self: None)
++
++    with pytest.raises(ValueError, match="actor.ppo_epochs=2"):
++        _StubTrainer(config)
++
++
++def test_metrics_only_rollout_correction_is_logged_after_the_update(monkeypatch):
++    rollout_correction = {
++        "rollout_is": None,
++        "rollout_is_threshold": 2.0,
++        "rollout_is_batch_normalize": False,
++        "rollout_rs": None,
++        "rollout_rs_threshold": None,
++        "bypass_mode": False,
++    }
++    fake = _FakeTransferQueue(_store())
++    monkeypatch.setattr(trainer_base, "tq", fake)
++    trainer = _trainer(skip=True, rollout_correction=rollout_correction)
++    batch, metrics = _batch(), {}
++    trainer.actor_rollout_wg.update_actor.return_value = _update_output(batch)
++
++    trainer._update_actor(batch, metrics)
++
++    assert any(key.startswith("rollout_corr/") for key in metrics)
++    _check_stored(fake, metrics)  # and nothing but old_log_probs/entropy was written back
+diff --git a/tests/utils/test_skip_old_log_prob_config_on_cpu.py b/tests/utils/test_skip_old_log_prob_config_on_cpu.py
+new file mode 100644
+index 00000000..88c47967
+--- /dev/null
++++ b/tests/utils/test_skip_old_log_prob_config_on_cpu.py
+@@ -0,0 +1,239 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Config validation of ``actor.skip_old_log_prob_when_on_policy``: the skip is exact only for one
++optimizer step per sampled batch at the sampling weights with nothing reading ``old_log_probs``
++before the update; every other configuration must be rejected loudly, naming the condition."""
++
++import copy
++from pathlib import Path
++
++import pytest
++from hydra import compose, initialize_config_dir
++from omegaconf import OmegaConf
++
++from verl.utils import config as config_module
++from verl.utils.config import _hf_config_dropouts, _validate_skip_old_log_prob_config, validate_config
++
++_CONFIG_DIR = Path(__file__).resolve().parents[2] / "verl" / "trainer" / "config"
++
++
++@pytest.fixture(scope="module")
++def on_policy_config():
++    """The shipped ppo_trainer config with the flag on and the single-mini-batch shape."""
++    overrides = [
++        "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
++        "data.train_batch_size=8",
++        "actor_rollout_ref.actor.ppo_mini_batch_size=8",
++        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.rollout.n=2",
++        "algorithm.adv_estimator=grpo",
++    ]
++    with initialize_config_dir(version_base=None, config_dir=str(_CONFIG_DIR)):
++        return compose(config_name="ppo_trainer", overrides=overrides)
++
++
++def _with(config, **updates):
++    config = copy.deepcopy(config)
++    for key, value in updates.items():
++        OmegaConf.update(config, key.replace("__", "."), value, force_add=True)
++    return config
++
++
++def test_single_mini_batch_on_policy_config_is_accepted(on_policy_config):
++    _validate_skip_old_log_prob_config(on_policy_config)
++    # the shipped default rollout_correction group is metrics-only and therefore compatible
++    assert on_policy_config.algorithm.rollout_correction.rollout_is is None
++    # and the check is wired into the entry-point validation
++    validate_config(on_policy_config, use_reference_policy=False, use_critic=False)
++
++
++@pytest.mark.parametrize(
++    ("updates", "expected"),
++    [
++        ({"actor_rollout_ref.actor.ppo_epochs": 2}, "actor.ppo_epochs=2"),
++        (
++            {"actor_rollout_ref.actor.ppo_mini_batch_size": 4},
++            "actor.ppo_mini_batch_size=4 != data.train_batch_size / parameter_sync_step = 8",
++        ),
++        ({"actor_rollout_ref.actor.shuffle": True}, "actor.shuffle=True"),
++        ({"actor_rollout_ref.actor.calculate_sum_pi_squared": True}, "actor.calculate_sum_pi_squared=True"),
++        ({"algorithm.use_kl_in_reward": True}, "algorithm.use_kl_in_reward=True"),
++        ({"algorithm.rollout_correction.bypass_mode": True}, "rollout_correction has bypass_mode"),
++        ({"algorithm.rollout_correction.rollout_is": "token"}, "rollout_correction has bypass_mode"),
++        ({"algorithm.rollout_correction.rollout_rs": "token"}, "rollout_correction has bypass_mode"),
++        ({"algorithm.adv_estimator": "optimal_token_baseline"}, "adv_estimator=optimal_token_baseline"),
++        ({"algorithm.adv_estimator": "tir_optimal_token_baseline"}, "adv_estimator=tir_optimal_token_baseline"),
++        ({"trainer.v1.trainer_mode": "separate_async"}, "trainer_mode=separate_async"),
++        ({"trainer.use_v1": False}, "trainer.use_v1=False"),
++        ({"distillation.enabled": True}, "distillation.enabled=True"),
++        ({"actor_rollout_ref.actor.engine.router_replay.mode": "R2"}, "router_replay.mode=R2"),
++        ({"actor_rollout_ref.actor.strategy": "megatron"}, "actor.strategy=megatron"),
++        ({"actor_rollout_ref.actor.strategy": "veomni"}, "actor.strategy=veomni"),
++        ({"actor_rollout_ref.actor.strategy": "torchtitan"}, "actor.strategy=torchtitan"),
++        (
++            {
++                "actor_rollout_ref.actor.fsdp_config.qat.enable": True,
++                "actor_rollout_ref.actor.fsdp_config.qat.mode": "w4a4",
++            },
++            "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True",
++        ),
++    ],
++)
++def test_each_inexact_condition_is_rejected_by_name(on_policy_config, updates, expected):
++    config = _with(on_policy_config, **updates)
++    with pytest.raises(ValueError, match="requires a strictly on-policy update") as excinfo:
++        _validate_skip_old_log_prob_config(config)
++    assert expected in str(excinfo.value)
++
++
++def test_every_violated_condition_is_listed_at_once(on_policy_config):
++    config = _with(
++        on_policy_config, **{"actor_rollout_ref.actor.ppo_epochs": 3, "actor_rollout_ref.actor.shuffle": True}
++    )
++    with pytest.raises(ValueError) as excinfo:
++        _validate_skip_old_log_prob_config(config)
++    message = str(excinfo.value)
++    assert "actor.ppo_epochs=3" in message and "actor.shuffle=True" in message
++
++
++def test_separate_async_sample_batch_uses_parameter_sync_step(on_policy_config):
++    """train_batch_size is spread over parameter_sync_step local updates: the mini-batch condition is
++    stated against the per-update sampled batch, not the global train_batch_size."""
++    config = _with(
++        on_policy_config,
++        **{"trainer.v1.trainer_mode": "separate_async", "trainer.v1.separate_async.parameter_sync_step": 4},
++    )
++    with pytest.raises(ValueError) as excinfo:
++        _validate_skip_old_log_prob_config(config)
++    assert "actor.ppo_mini_batch_size=8 != data.train_batch_size / parameter_sync_step = 2" in str(excinfo.value)
++
++
++def test_flag_off_never_validates(on_policy_config):
++    config = _with(
++        on_policy_config,
++        **{"actor_rollout_ref.actor.skip_old_log_prob_when_on_policy": False, "actor_rollout_ref.actor.ppo_epochs": 2},
++    )
++    _validate_skip_old_log_prob_config(config)
++
++
++def test_megatron_engine_is_rejected_from_its_own_config_group():
++    """The Megatron data path is untested with the skip (and dynamic context parallel drops the training
++    outputs): the composed megatron config is rejected by strategy, with or without dynamic CP."""
++    with initialize_config_dir(version_base=None, config_dir=str(_CONFIG_DIR)):
++        config = compose(
++            config_name="ppo_trainer",
++            overrides=[
++                "model_engine=megatron",
++                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
++                "data.train_batch_size=8",
++                "actor_rollout_ref.actor.ppo_mini_batch_size=8",
++                "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
++                "actor_rollout_ref.rollout.n=2",
++            ],
++        )
++    assert config.actor_rollout_ref.actor.strategy == "megatron"
++    with pytest.raises(ValueError, match="actor.strategy=megatron"):
++        _validate_skip_old_log_prob_config(config)
++    with pytest.raises(ValueError, match="actor.strategy=megatron"):
++        _validate_skip_old_log_prob_config(
++            _with(config, **{"actor_rollout_ref.actor.megatron.dynamic_context_parallel": True})
++        )
++
++
++def test_dropout_in_the_model_config_is_rejected(on_policy_config, monkeypatch):
++    monkeypatch.setattr(config_module, "_hf_config_dropouts", lambda model_config: [("attention_dropout", 0.1)])
++    with pytest.raises(ValueError, match="attention_dropout=0.1"):
++        _validate_skip_old_log_prob_config(on_policy_config)
++    # a dropout-free config passes; an unloadable config only warns (the shipped default path does not exist here)
++    monkeypatch.setattr(config_module, "_hf_config_dropouts", lambda model_config: [])
++    _validate_skip_old_log_prob_config(on_policy_config)
++    monkeypatch.setattr(config_module, "_hf_config_dropouts", lambda model_config: None)
++    _validate_skip_old_log_prob_config(on_policy_config)
++
++
++def test_hf_config_dropouts_reads_a_saved_config(tmp_path):
++    from transformers import Qwen3Config
++
++    Qwen3Config(attention_dropout=0.1, num_hidden_layers=1, hidden_size=8, intermediate_size=8).save_pretrained(
++        tmp_path / "with_dropout"
++    )
++    Qwen3Config(num_hidden_layers=1, hidden_size=8, intermediate_size=8).save_pretrained(tmp_path / "no_dropout")
++    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "with_dropout")})) == [
++        ("attention_dropout", 0.1)
++    ]
++    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "no_dropout")})) == []
++    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "missing")})) is None
++    assert _hf_config_dropouts(OmegaConf.create({"path": None})) is None
++
++
++def test_hf_config_dropouts_scans_every_nested_sub_config(tmp_path):
++    """A VLM actor runs its vision tower in train mode during the update as well: dropout there perturbs
++    the image features and hence the log-probs exactly like text dropout does (review finding R1)."""
++    from transformers import CLIPVisionConfig, LlamaConfig, LlavaConfig
++
++    text_only = LlavaConfig(
++        text_config=LlamaConfig(attention_dropout=0.2, hidden_size=8, num_attention_heads=1, num_key_value_heads=1)
++    )
++    text_only.save_pretrained(tmp_path / "text")
++    assert ("attention_dropout", 0.2) in _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "text")}))
++
++    vision_only = LlavaConfig(
++        text_config=LlamaConfig(attention_dropout=0.0, hidden_size=8, num_attention_heads=1, num_key_value_heads=1),
++        vision_config=CLIPVisionConfig(attention_dropout=0.1, hidden_size=8, num_attention_heads=1),
++    )
++    vision_only.save_pretrained(tmp_path / "vision")
++    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "vision")})) == [("attention_dropout", 0.1)]
++
++    clean = LlavaConfig(
++        text_config=LlamaConfig(attention_dropout=0.0, hidden_size=8, num_attention_heads=1, num_key_value_heads=1),
++        vision_config=CLIPVisionConfig(attention_dropout=0.0, hidden_size=8, num_attention_heads=1),
++    )
++    clean.save_pretrained(tmp_path / "clean")
++    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "clean")})) == []
++
++
++@pytest.mark.parametrize("strategy", ["fsdp", "fsdp2", "fsdp_turbo"])
++def test_every_fsdp_family_strategy_is_accepted(on_policy_config, strategy):
++    """fsdp_turbo subclasses the FSDP engine and inherits its forward / output path (fsdp_turbo_impl.py)."""
++    _validate_skip_old_log_prob_config(_with(on_policy_config, **{"actor_rollout_ref.actor.strategy": strategy}))
++
++
++def test_w4a4_qat_is_rejected_for_its_train_mode_observers_and_w4a16_is_accepted(on_policy_config):
++    """the AI follow-up review R2-01: verl's ``QATLinear`` updates its activation quantization scale only in
++    train mode (``_fake_quantize_activation`` runs the observer under ``self.training``), so the update pass and
++    the eval-mode old-log-prob pass would quantize with different scales. W4A16 is weight-only (no activation
++    observer branch): accepted, untested rather than proven."""
++    qat = "actor_rollout_ref.actor.fsdp_config.qat"
++    with pytest.raises(ValueError) as excinfo:
++        _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": "w4a4"}))
++    assert (
++        "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the activation "
++        "quantization scale in train mode only, so the update pass would quantize with different scales than the "
++        "eval-mode old-log-prob pass; W4A16 is weight-only and accepted, but untested with the skip)"
++    ) in str(excinfo.value)
++    _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": "w4a16"}))
++    _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{qat}.enable": False, f"{qat}.mode": "w4a4"}))
++    # a programmatic DictConfig can carry the enum itself (verl's QATMode is a str Enum; apply_qat lowercases it):
++    # the validator compares the enum's value, not str(enum) == "qatmode.w4a4"
++    from enum import Enum
++
++    class _QATMode(str, Enum):
++        W4A4 = "w4a4"
++
++    with pytest.raises(ValueError, match="actor.fsdp_config.qat.mode=w4a4 with qat.enable=True"):
++        _validate_skip_old_log_prob_config(
++            _with(on_policy_config, **{f"{qat}.enable": True, f"{qat}.mode": _QATMode.W4A4})
++        )
+diff --git a/tests/utils/test_skip_old_log_prob_effective_config_on_cpu.py b/tests/utils/test_skip_old_log_prob_effective_config_on_cpu.py
+new file mode 100644
+index 00000000..5a7e9e3e
+--- /dev/null
++++ b/tests/utils/test_skip_old_log_prob_effective_config_on_cpu.py
+@@ -0,0 +1,197 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""``actor.skip_old_log_prob_when_on_policy`` validates the EFFECTIVE actor model, not the saved base HF
++config: ``override_config`` is applied first, every train-mode-only setting counts (dropout, MoE router
++jitter, layer drop, drop path) and a loaded LoRA adapter's ``lora_dropout`` is read from its
++``adapter_config.json``. The three configurations of the AI review (override dropout, saved
++Mixtral router jitter, nonzero adapter dropout) are rejected by name; an override that disables a saved
++dropout is accepted (the effective config wins)."""
++
++import copy
++from pathlib import Path
++
++import pytest
++import torch
++from hydra import compose, initialize_config_dir
++from omegaconf import OmegaConf
++from peft import LoraConfig, TaskType, get_peft_model
++from transformers import BartConfig, Dinov2Config, MixtralConfig, Qwen3Config, Qwen3ForCausalLM
++
++from verl.utils.config import _hf_config_dropouts, _validate_skip_old_log_prob_config
++
++_CONFIG_DIR = Path(__file__).resolve().parents[2] / "verl" / "trainer" / "config"
++MODEL = "actor_rollout_ref.model"
++
++
++@pytest.fixture(scope="module")
++def on_policy_config():
++    overrides = [
++        "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=true",
++        "data.train_batch_size=8",
++        "actor_rollout_ref.actor.ppo_mini_batch_size=8",
++        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.rollout.n=2",
++        "algorithm.adv_estimator=grpo",
++    ]
++    with initialize_config_dir(version_base=None, config_dir=str(_CONFIG_DIR)):
++        return compose(config_name="ppo_trainer", overrides=overrides)
++
++
++def _with(config, **updates):
++    config = copy.deepcopy(config)
++    for key, value in updates.items():
++        OmegaConf.update(config, key, value, force_add=True)
++    return config
++
++
++def qwen3_config(**kwargs):
++    return Qwen3Config(
++        vocab_size=64, hidden_size=32, intermediate_size=64, num_hidden_layers=1, num_attention_heads=2,
++        num_key_value_heads=2, head_dim=16, attn_implementation="eager", architectures=["Qwen3ForCausalLM"], **kwargs,
++    )  # fmt: skip
++
++
++def mixtral_config(**kwargs):
++    return MixtralConfig(
++        vocab_size=64, hidden_size=32, intermediate_size=64, num_hidden_layers=1, num_attention_heads=4,
++        num_key_value_heads=2, num_local_experts=2, num_experts_per_tok=2, attention_dropout=0.0,
++        attn_implementation="eager", architectures=["MixtralForCausalLM"], **kwargs,
++    )  # fmt: skip
++
++
++def save_adapter(path, lora_dropout):
++    """A LoRA adapter on the dropout-free tiny Qwen3, written with peft as the review's probe does."""
++    lora = LoraConfig(
++        r=4, lora_alpha=4, lora_dropout=lora_dropout, target_modules=["q_proj", "v_proj"], task_type=TaskType.CAUSAL_LM
++    )
++    model = get_peft_model(Qwen3ForCausalLM(qwen3_config()), lora)
++    for name, param in model.named_parameters():  # peft zero-inits lora_B: give the adapter an effect
++        if "lora_B" in name:
++            torch.nn.init.normal_(param, std=0.05)
++    model.save_pretrained(path)
++    return str(path)
++
++
++def _rejected(config, *fragments):
++    with pytest.raises(ValueError, match="requires a strictly on-policy update") as excinfo:
++        _validate_skip_old_log_prob_config(config)
++    for fragment in fragments:
++        assert fragment in str(excinfo.value)
++
++
++@pytest.mark.parametrize("key", ["override_config.attention_dropout", "override_config.model_config.attention_dropout"])
++def test_dropout_enabled_through_override_config_is_rejected(on_policy_config, tmp_path, key):
++    """Review case 1: a dropout-free saved Qwen3 with attention dropout enabled by override_config (the plain
++    key and the Megatron-style ``model_config`` sub-key both reach ``HFModelConfig.__post_init__``)."""
++    qwen3_config().save_pretrained(tmp_path / "clean")
++    config = _with(on_policy_config, **{f"{MODEL}.path": str(tmp_path / "clean"), f"{MODEL}.{key}": 0.5})
++    assert _hf_config_dropouts(config.actor_rollout_ref.model) == [("attention_dropout", 0.5)]
++    _rejected(config, "attention_dropout=0.5", "after override_config")
++
++
++def test_saved_router_jitter_is_rejected(on_policy_config, tmp_path):
++    """Review case 3: Mixtral's ``router_jitter_noise`` multiplies the hidden states by uniform noise when
++    ``self.training``; it is not a dropout key."""
++    mixtral_config(router_jitter_noise=0.1).save_pretrained(tmp_path / "mixtral")
++    config = _with(on_policy_config, **{f"{MODEL}.path": str(tmp_path / "mixtral")})
++    assert _hf_config_dropouts(config.actor_rollout_ref.model) == [("router_jitter_noise", 0.1)]
++    _rejected(config, "router_jitter_noise=0.1")
++    mixtral_config(router_jitter_noise=0.0).save_pretrained(tmp_path / "quiet")
++    _validate_skip_old_log_prob_config(_with(on_policy_config, **{f"{MODEL}.path": str(tmp_path / "quiet")}))
++
++
++def test_loaded_lora_adapter_dropout_is_rejected(on_policy_config, tmp_path):
++    """Review case 2: a dropout-free base with ``lora_rank > 0`` and a ``lora_adapter_path`` whose
++    adapter_config.json has ``lora_dropout=0.3`` (peft builds an nn.Dropout for it)."""
++    qwen3_config().save_pretrained(tmp_path / "base")
++    base = {f"{MODEL}.path": str(tmp_path / "base"), f"{MODEL}.lora_rank": 4}
++    adapter = save_adapter(tmp_path / "adapter", 0.3)
++    config = _with(on_policy_config, **base, **{f"{MODEL}.lora_adapter_path": adapter})
++    assert _hf_config_dropouts(config.actor_rollout_ref.model) == [("lora_dropout", 0.3)]
++    _rejected(config, "lora_dropout=0.3", "LoRA adapter")
++    # accepted: an adapter without dropout, and verl's own LoraConfig (no adapter path: peft's default 0.0)
++    zero = _with(on_policy_config, **base, **{f"{MODEL}.lora_adapter_path": save_adapter(tmp_path / "zero", 0.0)})
++    assert _hf_config_dropouts(zero.actor_rollout_ref.model) == []
++    _validate_skip_old_log_prob_config(zero)
++    _validate_skip_old_log_prob_config(_with(on_policy_config, **base))
++    # the adapter is only read when LoRA is on
++    off = _with(on_policy_config, **{f"{MODEL}.path": str(tmp_path / "base"), f"{MODEL}.lora_adapter_path": adapter})
++    assert _hf_config_dropouts(off.actor_rollout_ref.model) == []
++
++
++def test_override_that_disables_a_saved_dropout_is_accepted(on_policy_config, tmp_path):
++    """The effective config wins in both directions: a saved ``attention_dropout=0.1`` overridden to 0 is clean."""
++    qwen3_config(attention_dropout=0.1).save_pretrained(tmp_path / "dropout")
++    saved = _with(on_policy_config, **{f"{MODEL}.path": str(tmp_path / "dropout")})
++    _rejected(saved, "attention_dropout=0.1")
++    disabled = _with(saved, **{f"{MODEL}.override_config.attention_dropout": 0.0})
++    assert _hf_config_dropouts(disabled.actor_rollout_ref.model) == []
++    _validate_skip_old_log_prob_config(disabled)
++
++
++def test_unreadable_adapter_or_config_warns_that_the_worker_enforces_the_rule(on_policy_config, tmp_path, capsys):
++    qwen3_config().save_pretrained(tmp_path / "base")
++    missing = {f"{MODEL}.lora_rank": 4, f"{MODEL}.lora_adapter_path": str(tmp_path / "missing-adapter")}
++    config = _with(on_policy_config, **{f"{MODEL}.path": str(tmp_path / "base")}, **missing)
++    assert _hf_config_dropouts(config.actor_rollout_ref.model) is None
++    _validate_skip_old_log_prob_config(config)
++    out = capsys.readouterr().out
++    assert "could not load the model's HF config" in out and "enforced on the built actor module" in out
++
++
++def test_layerdrop_and_drop_path_keys_are_detected(tmp_path):
++    """The other train-mode-only keys transformers 5.16 configs declare: layer drop (BART-style encoders and
++    decoders) and stochastic depth (``drop_path_rate`` on the vision towers)."""
++    BartConfig(
++        encoder_layerdrop=0.1, decoder_layerdrop=0.2, d_model=8, encoder_layers=1, decoder_layers=1,
++        encoder_attention_heads=1, decoder_attention_heads=1, encoder_ffn_dim=8, decoder_ffn_dim=8, vocab_size=16,
++    ).save_pretrained(tmp_path / "bart")  # fmt: skip
++    found = _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "bart")}))
++    assert ("encoder_layerdrop", 0.1) in found and ("decoder_layerdrop", 0.2) in found
++    Dinov2Config(drop_path_rate=0.2, hidden_size=8, num_hidden_layers=1, num_attention_heads=1).save_pretrained(
++        tmp_path / "dinov2"
++    )
++    assert _hf_config_dropouts(OmegaConf.create({"path": str(tmp_path / "dinov2")})) == [("drop_path_rate", 0.2)]
++
++
++def save_loha_adapter(path, rank_dropout):
++    """A peft LoHa adapter (lycoris family): verl's loader accepts any peft_type, and peft keeps its train-mode
++    rate ``rank_dropout`` as a dict on the layer, not as an nn.Dropout (round-2 re-review D1)."""
++    from peft import LoHaConfig
++
++    torch.manual_seed(0)
++    loha = LoHaConfig(
++        r=4, alpha=4, rank_dropout=rank_dropout, target_modules=["q_proj", "v_proj"], task_type=TaskType.CAUSAL_LM
++    )
++    model = get_peft_model(Qwen3ForCausalLM(qwen3_config()), loha)
++    for name, param in model.named_parameters():
++        if "hada_w" in name:
++            torch.nn.init.normal_(param, std=0.05)
++    model.save_pretrained(path)
++    return str(path)
++
++
++def test_non_lora_peft_adapter_is_rejected_by_type_and_rate(on_policy_config, tmp_path):
++    qwen3_config().save_pretrained(tmp_path / "base")
++    base = {f"{MODEL}.path": str(tmp_path / "base"), f"{MODEL}.lora_rank": 4}
++    loha = save_loha_adapter(tmp_path / "loha", 0.5)
++    config = _with(on_policy_config, **base, **{f"{MODEL}.lora_adapter_path": loha})
++    assert _hf_config_dropouts(config.actor_rollout_ref.model) == [("peft_type", "LOHA"), ("rank_dropout", 0.5)]
++    _rejected(config, "peft_type=LOHA", "rank_dropout=0.5", "only a peft_type=LORA adapter")
++    # without rank dropout the type alone rejects it: LoHa / LoKr keep other train-mode rates, are not LoRA
++    quiet = _with(
++        on_policy_config, **base, **{f"{MODEL}.lora_adapter_path": save_loha_adapter(tmp_path / "loha0", 0.0)}
++    )
++    assert _hf_config_dropouts(quiet.actor_rollout_ref.model) == [("peft_type", "LOHA")]
++    _rejected(quiet, "peft_type=LOHA")
+diff --git a/tests/workers/test_engine_workers_return_model_output_on_cpu.py b/tests/workers/test_engine_workers_return_model_output_on_cpu.py
+new file mode 100644
+index 00000000..cdbe4c95
+--- /dev/null
++++ b/tests/workers/test_engine_workers_return_model_output_on_cpu.py
+@@ -0,0 +1,212 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""The update pass hands back its per-token model outputs when ``return_model_output`` is set
++(``actor.skip_old_log_prob_when_on_policy``): ``train_batch`` keeps the engine's ``model_output``
++instead of popping it, and ``train_mini_batch`` returns one row per input sample, in input order,
++next to the metrics. Driven with mocked engines, as test_engine_workers_mini_batch_trace_on_cpu.py.
++"""
++
++from contextlib import nullcontext
++from types import SimpleNamespace
++from unittest.mock import MagicMock
++
++import pytest
++import torch
++from tensordict import TensorDict
++
++from verl.utils import tensordict_utils as tu
++from verl.utils.metric.utils import Metric
++from verl.workers.engine_workers import TrainingWorker
++
++
++def _nested(rows):
++    return torch.nested.as_nested_tensor(list(rows), layout=torch.jagged)
++
++
++def _engine(**overrides):
++    engine = SimpleNamespace(
++        train_mode=lambda **kwargs: nullcontext(),
++        is_mp_src_rank_with_outputs=lambda: True,
++        get_data_parallel_rank=lambda: 0,
++        get_data_parallel_size=lambda: 1,
++        get_data_parallel_group=lambda: None,
++    )
++    for key, value in overrides.items():
++        setattr(engine, key, value)
++    return engine
++
++
++def _worker(engine):
++    worker = SimpleNamespace(
++        engine=engine,
++        engine_config=SimpleNamespace(
++            forward_only=False,
++            use_dynamic_bsz=False,
++            max_token_len_per_gpu=128,
++            micro_batch_size_per_gpu=1,
++            use_fused_kernels=False,
++        ),
++        model_config={},
++        loss_fn=lambda: None,
++        profiler=MagicMock(),
++    )
++
++    def _postprocess_output(output, *, global_token_num, delta_time, forward_only, images_seqlens):
++        # the tail of TrainingWorker._postprocess_output (the metric all-gather and memory stats need a device)
++        return tu.get_tensordict(
++            tensor_dict=output.pop("model_output", {}), non_tensor_dict={"metrics": output["metrics"]}
++        )
++
++    worker._postprocess_output = _postprocess_output
++    return worker
++
++
++@pytest.mark.parametrize("return_model_output", [False, True])
++def test_train_batch_keeps_model_output_only_when_asked(return_model_output):
++    rows = [-torch.rand(5), -torch.rand(3)]
++    engine = _engine(
++        train_batch=lambda data, loss_function: {
++            "model_output": {"log_probs": _nested(rows)},
++            "loss": [0.5],
++            "metrics": {"pg_loss": [1.0]},
++        }
++    )
++    worker = _worker(engine)
++    worker.profiler = None
++    data = TensorDict({}, batch_size=[2])
++    tu.assign_non_tensor(data, global_token_num=[5, 3])
++    if return_model_output:
++        tu.assign_non_tensor(data, return_model_output=True)
++
++    output = TrainingWorker.train_batch(worker, data)
++
++    assert tu.get(output, "metrics")["pg_loss"] == [1.0]
++    assert ("log_probs" in output.keys()) is return_model_output
++    if return_model_output:
++        assert output.batch_size[0] == 2
++        assert torch.equal(output["log_probs"].values(), torch.cat(rows))
++    else:
++        assert len(output.batch_size) == 0
++
++
++def _mini_batch_outputs(rows, pg_losses):
++    return [
++        tu.get_tensordict(
++            tensor_dict={"log_probs": _nested(chunk)},
++            non_tensor_dict={"metrics": {"pg_loss": [Metric(aggregation="mean", value=pg_loss)]}},
++        )
++        for chunk, pg_loss in zip(rows, pg_losses, strict=True)
++    ]
++
++
++def test_train_mini_batch_returns_row_aligned_model_output(monkeypatch):
++    rows = [-torch.rand(4), -torch.rand(6), -torch.rand(5), -torch.rand(3)]
++    monkeypatch.setattr(tu, "make_iterator", lambda data, **kwargs: iter([TensorDict({}, batch_size=[2])] * 2))
++    worker = _worker(_engine())
++    worker.train_batch = MagicMock(side_effect=_mini_batch_outputs([rows[:2], rows[2:]], [1.0, 3.0]))
++    data = TensorDict({}, batch_size=[4])
++    tu.assign_non_tensor(data, mini_batch_size=2, return_model_output=True)
++
++    output = TrainingWorker.train_mini_batch(worker, data)
++
++    assert output.batch_size[0] == 4
++    assert [row.shape[0] for row in output["log_probs"].unbind()] == [4, 6, 5, 3]
++    assert torch.equal(output["log_probs"].values(), torch.cat(rows))
++    # the metrics still travel next to the outputs, one entry per mini-batch as before
++    assert tu.get(output, "metrics")["pg_loss"] == [1.0, 3.0]
++
++
++def test_train_mini_batch_without_the_flag_returns_metrics_only(monkeypatch):
++    monkeypatch.setattr(tu, "make_iterator", lambda data, **kwargs: iter([TensorDict({}, batch_size=[2])] * 2))
++    worker = _worker(_engine())
++    worker.train_batch = MagicMock(
++        side_effect=[
++            tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": {"pg_loss": [Metric("mean", value=v)]}})
++            for v in (1.0, 3.0)
++        ]
++    )
++    data = TensorDict({}, batch_size=[4])
++    tu.assign_non_tensor(data, mini_batch_size=2)
++
++    output = TrainingWorker.train_mini_batch(worker, data)
++
++    assert len(output.batch_size) == 0
++    assert tu.get(output, "metrics")["pg_loss"] == [1.0, 3.0]
++
++
++@pytest.mark.parametrize("extra", [{"epochs": 2}, {"dataloader_kwargs": {"shuffle": True}}])
++def test_train_mini_batch_refuses_model_output_when_rows_would_not_align(monkeypatch, extra):
++    rows = [-torch.rand(4), -torch.rand(6), -torch.rand(5), -torch.rand(3)]
++    monkeypatch.setattr(tu, "make_iterator", lambda data, **kwargs: iter([TensorDict({}, batch_size=[2])] * 2))
++    worker = _worker(_engine())
++    worker.train_batch = MagicMock(side_effect=_mini_batch_outputs([rows[:2], rows[2:]], [1.0, 3.0]))
++    data = TensorDict({}, batch_size=[4])
++    tu.assign_non_tensor(data, mini_batch_size=2, return_model_output=True, **extra)
++
++    with pytest.raises(AssertionError, match="input order"):
++        TrainingWorker.train_mini_batch(worker, data)
++
++
++def _recording_worker():
++    """train_batch stand-in that records the rows of every optimizer step (one per call)."""
++    worker = _worker(_engine())
++    steps = []
++
++    def train_batch(mini_batch_td):
++        steps.append(mini_batch_td["row"].tolist())
++        rows = [-torch.rand(3) for _ in range(mini_batch_td.batch_size[0])]
++        return tu.get_tensordict(
++            tensor_dict={"log_probs": _nested(rows)},
++            non_tensor_dict={"metrics": {"pg_loss": [Metric(aggregation="mean", value=1.0)]}},
++        )
++
++    worker.train_batch = train_batch
++    worker.steps = steps
++    return worker
++
++
++def _rows(num_rows, **non_tensor):
++    data = TensorDict({"row": torch.arange(num_rows)}, batch_size=[num_rows])
++    tu.assign_non_tensor(data, epochs=1, dataloader_kwargs={"shuffle": False}, **non_tensor)
++    return data
++
++
++def test_two_mini_batches_under_the_skip_are_refused_before_any_step():
++    """The second mini-batch would be trained after the first optimizer step, with ratio 1 and no clipping;
++    the worker refuses the whole update (real tu.make_iterator)."""
++    worker = _recording_worker()
++    data = _rows(4, mini_batch_size=2, return_model_output=True, on_policy_skip_old_log_prob=True)
++
++    with pytest.raises(AssertionError, match="one optimizer step"):
++        TrainingWorker.train_mini_batch(worker, data)
++    assert worker.steps == []
++
++
++def test_one_mini_batch_under_the_skip_is_accepted():
++    worker = _recording_worker()
++    data = _rows(4, mini_batch_size=4, return_model_output=True, on_policy_skip_old_log_prob=True)
++
++    output = TrainingWorker.train_mini_batch(worker, data)
++
++    assert worker.steps == [[0, 1, 2, 3]]
++    assert output.batch_size[0] == 4
++
++
++def test_two_mini_batches_without_the_skip_still_run():
++    worker = _recording_worker()
++    data = _rows(4, mini_batch_size=2)
++
++    TrainingWorker.train_mini_batch(worker, data)
++
++    assert worker.steps == [[0, 1], [2, 3]]
+diff --git a/tests/workers/test_fsdp_entropy_requires_grad_on_cpu.py b/tests/workers/test_fsdp_entropy_requires_grad_on_cpu.py
+new file mode 100644
+index 00000000..0c405ba7
+--- /dev/null
++++ b/tests/workers/test_fsdp_entropy_requires_grad_on_cpu.py
+@@ -0,0 +1,131 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""``entropy_requires_grad`` in ``FSDPEngineWithLMHead.prepare_model_outputs``.
++
++When the entropy is only a metric (the update pass under ``actor.skip_old_log_prob_when_on_policy``
++with ``entropy_coeff=0``) it is computed under ``torch.no_grad``: same values, no graph, no
++checkpoint, and the in-place cross-entropy backward stays enabled on the remove-padding path.
++The default (``True``) is today's behaviour.
++"""
++
++import types
++from types import SimpleNamespace
++
++import pytest
++import torch
++
++import verl.utils.torch_functional as verl_F
++from verl.utils import tensordict_utils as tu
++from verl.workers.engine.fsdp import transformer_impl
++from verl.workers.engine.fsdp.transformer_impl import FSDPEngine, FSDPEngineWithLMHead
++
++V = 16
++LENS = [5, 3]
++_LOGPROBS_FROM_LOGITS = transformer_impl.logprobs_from_logits  # the real one, whatever a test patches in
++
++
++def _engine(entropy_checkpointing=False):
++    engine = SimpleNamespace(
++        engine_config=SimpleNamespace(
++            entropy_checkpointing=entropy_checkpointing,
++            entropy_from_logits_with_chunking=False,
++            entropy_from_logits_chunk_size=2048,
++        ),
++        compute_entropy_from_logits=verl_F.entropy_from_logits,
++        use_ulysses_sp=False,
++    )
++    engine._gather_and_unpad_packed = types.MethodType(FSDPEngine._gather_and_unpad_packed, engine)
++    return engine
++
++
++def _inputs(use_remove_padding: bool, entropy_requires_grad: bool | None):
++    torch.manual_seed(0)
++    ids = [torch.randint(0, V, (n,)) for n in LENS]
++    micro_batch = tu.get_tensordict(tensor_dict={"input_ids": torch.nested.as_nested_tensor(ids, layout=torch.jagged)})
++    tu.assign_non_tensor(
++        micro_batch, use_remove_padding=use_remove_padding, use_fused_kernels=False, calculate_entropy=True
++    )
++    if entropy_requires_grad is not None:
++        tu.assign_non_tensor(micro_batch, entropy_requires_grad=entropy_requires_grad)
++    rolled = torch.cat([torch.roll(x, -1) for x in ids])
++    if use_remove_padding:
++        total = sum(LENS)
++        output = SimpleNamespace(logits=torch.randn(1, total, V, requires_grad=True))
++        output_args = {
++            "input_ids_rmpad_rolled": rolled,
++            "temperature_rmpad": torch.ones(total),
++            "pad_size": 0,
++            "temperature_is_one": True,
++        }
++    else:
++        output = SimpleNamespace(logits=torch.randn(len(LENS), max(LENS), V, requires_grad=True))
++        output_args = {
++            "temperature": torch.ones(len(LENS)),
++            "input_ids_rmpad_rolled": rolled,
++            "temperature_is_one": True,
++        }
++    return output, output_args, micro_batch
++
++
++def _run(monkeypatch, use_remove_padding, entropy_requires_grad, entropy_checkpointing=False):
++    calls = {"inplace_backward": [], "checkpoint": 0}
++
++    def logprobs_from_logits(logits, labels, inplace_backward=True):
++        calls["inplace_backward"].append(inplace_backward)
++        return _LOGPROBS_FROM_LOGITS(logits, labels, inplace_backward=inplace_backward)
++
++    def checkpoint(fn, *args, **kwargs):
++        calls["checkpoint"] += 1
++        return fn(*args)
++
++    monkeypatch.setattr(transformer_impl, "logprobs_from_logits", logprobs_from_logits)
++    monkeypatch.setattr(torch.utils.checkpoint, "checkpoint", checkpoint)
++    output, output_args, micro_batch = _inputs(use_remove_padding, entropy_requires_grad)
++    model_output = FSDPEngineWithLMHead.prepare_model_outputs(
++        _engine(entropy_checkpointing), output, output_args, micro_batch, logits_processor_func=None
++    )
++    return model_output, calls
++
++
++@pytest.mark.parametrize("use_remove_padding", [True, False])
++def test_no_grad_entropy_has_the_same_values_and_no_graph(monkeypatch, use_remove_padding):
++    with_grad, calls_grad = _run(monkeypatch, use_remove_padding, entropy_requires_grad=True)
++    no_grad, calls_no_grad = _run(monkeypatch, use_remove_padding, entropy_requires_grad=False)
++
++    assert with_grad["entropy"].requires_grad is True
++    assert no_grad["entropy"].requires_grad is False
++    assert torch.equal(with_grad["entropy"].values(), no_grad["entropy"].values())
++    assert with_grad["log_probs"].requires_grad and no_grad["log_probs"].requires_grad
++    assert torch.equal(with_grad["log_probs"].values(), no_grad["log_probs"].values())
++    if use_remove_padding:
++        # the entropy graph is what forces the out-of-place cross-entropy backward
++        assert calls_grad["inplace_backward"] == [False]
++        assert calls_no_grad["inplace_backward"] == [True]
++    else:
++        # this path already computes the log-probs on a copy of the logits
++        assert calls_grad["inplace_backward"] == calls_no_grad["inplace_backward"] == [True]
++
++
++def test_default_is_entropy_with_grad(monkeypatch):
++    model_output, calls = _run(monkeypatch, use_remove_padding=True, entropy_requires_grad=None)
++    assert model_output["entropy"].requires_grad is True
++    assert calls["inplace_backward"] == [False]
++
++
++@pytest.mark.parametrize("use_remove_padding", [True, False])
++def test_no_grad_entropy_skips_entropy_checkpointing(monkeypatch, use_remove_padding):
++    _, with_grad = _run(monkeypatch, use_remove_padding, entropy_requires_grad=True, entropy_checkpointing=True)
++    _, no_grad = _run(monkeypatch, use_remove_padding, entropy_requires_grad=False, entropy_checkpointing=True)
++    assert with_grad["checkpoint"] == 1
++    assert no_grad["checkpoint"] == 0
+diff --git a/tests/workers/test_ppo_loss_on_policy_skip_on_cpu.py b/tests/workers/test_ppo_loss_on_policy_skip_on_cpu.py
+new file mode 100644
+index 00000000..2152eff9
+--- /dev/null
++++ b/tests/workers/test_ppo_loss_on_policy_skip_on_cpu.py
+@@ -0,0 +1,236 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""``actor.skip_old_log_prob_when_on_policy``: the exactness proof, through verl's real ``ppo_loss``.
++
++With one mini-batch per sampled batch and ``ppo_epochs=1`` every micro-batch forward of the actor
++update runs before the single optimizer step, so the log-probs the update pass computes are the
++old log-probs. ``ppo_loss`` then uses ``log_prob.detach()`` as ``old_log_prob``
++(``on_policy_skip_old_log_prob``) instead of the field a separate old-log-prob forward would
++have written. This test checks, on a tiny Qwen3 in fp32:
++
++* the update pass's response log-probs equal a separate eval/no-grad old-log-prob forward
++  bitwise, although the two passes micro-batch the data differently (2/2/2/2 vs 3/3/2) and the
++  update pass accumulates gradients;
++* the accumulated gradient with ``old_log_prob = log_prob.detach()`` equals the gradient
++  against the stored old log-probs bitwise, and ``pg_clipfrac`` / ``ppo_kl`` are exactly 0;
++* negative control: after one optimizer step (a second mini-batch) the equality is gone, which
++  is why the config gate only accepts the single-mini-batch case.
++"""
++
++import pytest
++import torch
++from transformers import Qwen3Config, Qwen3ForCausalLM
++
++from verl.utils import tensordict_utils as tu
++from verl.utils.torch_functional import logprobs_from_logits
++from verl.workers.config import ActorConfig
++from verl.workers.utils.losses import ppo_loss
++
++B, P, R, V = 8, 12, 20, 512  # batch, prompt length, max response length, vocab
++RESP_LENS = [20, 14, 17, 11, 20, 13, 19, 16]  # ragged responses
++
++
++def _make_model():
++    cfg = Qwen3Config(
++        vocab_size=V,
++        hidden_size=64,
++        intermediate_size=128,
++        num_hidden_layers=2,
++        num_attention_heads=4,
++        num_key_value_heads=2,
++        head_dim=16,
++        max_position_embeddings=256,
++        attention_dropout=0.0,
++        tie_word_embeddings=False,
++    )
++    return Qwen3ForCausalLM(cfg).float()
++
++
++def _make_data():
++    """Right-padded inputs of a fixed length P + R, so every micro-batch has the same sequence shape and
++    only the batch dimension varies between the two passes (as in verl, where shapes come from the
++    micro-batching, not from the sample)."""
++    input_ids = torch.randint(0, V, (B, P + R))
++    attention_mask = torch.ones(B, P + R, dtype=torch.long)
++    for i, r in enumerate(RESP_LENS):
++        attention_mask[i, P + r :] = 0
++    position_ids = (attention_mask.cumsum(-1) - 1).clamp(min=0)
++    rows = {
++        "prompts": [input_ids[i, :P] for i in range(B)],
++        "responses": [input_ids[i, P : P + r] for i, r in enumerate(RESP_LENS)],
++        "response_mask": [torch.ones(r, dtype=torch.long) for r in RESP_LENS],
++        "advantages": [torch.randn(r) for r in RESP_LENS],
++    }
++    return input_ids, attention_mask, position_ids, rows
++
++
++def _nested(rows):
++    return torch.nested.as_nested_tensor(list(rows), layout=torch.jagged)
++
++
++class _Setup:
++    def __init__(self, entropy_coeff: float = 0.0):
++        torch.manual_seed(0)
++        self.model = _make_model()
++        self.input_ids, self.attention_mask, self.position_ids, self.rows = _make_data()
++        self.config = ActorConfig(
++            strategy="fsdp",
++            rollout_n=1,
++            ppo_micro_batch_size_per_gpu=2,
++            clip_ratio=0.2,
++            clip_ratio_low=0.2,
++            clip_ratio_high=0.2,
++            clip_ratio_c=3.0,
++            entropy_coeff=entropy_coeff,
++            use_kl_loss=False,
++        )
++        self.total_response_tokens = sum(RESP_LENS)
++
++    def full_log_probs(self, idx: list[int]) -> torch.Tensor:
++        """The engine's ``model_output["log_probs"]``: a nested (bsz, prompt_len + response_len) tensor where
++        position t holds log p(token_{t+1} | tokens <= t)."""
++        out = self.model(
++            input_ids=self.input_ids[idx],
++            attention_mask=self.attention_mask[idx],
++            position_ids=self.position_ids[idx],
++            use_cache=False,
++        )
++        rows = []
++        for j, i in enumerate(idx):
++            length = P + RESP_LENS[i]
++            labels = torch.roll(self.input_ids[i, :length], shifts=-1)
++            rows.append(logprobs_from_logits(out.logits[j, :length].float(), labels))
++        return _nested(rows)
++
++    def micro_batch_data(self, idx: list[int], old_log_probs: list[torch.Tensor] | None, on_policy: bool):
++        tensors = {key: _nested(rows[i] for i in idx) for key, rows in self.rows.items()}
++        if old_log_probs is not None:
++            tensors["old_log_probs"] = _nested(old_log_probs[i] for i in idx)
++        data = tu.get_tensordict(tensor_dict=tensors)
++        # the loss is normalised by the global token count, so the micro-batch losses add up to the
++        # batch loss and the accumulated gradient is the batch gradient (as in the engine)
++        tu.assign_non_tensor(data, dp_size=1, batch_num_tokens=self.total_response_tokens, global_batch_size=B)
++        if on_policy:
++            tu.assign_non_tensor(data, on_policy_skip_old_log_prob=True)
++        return data
++
++    def old_log_prob_pass(self, micro_sizes):
++        """The old-log-prob pass as verl runs it: eval mode, no grad, its own micro-batching."""
++        self.model.eval()
++        rows = []
++        with torch.no_grad():
++            for idx in _chunks(micro_sizes):
++                full = self.full_log_probs(idx)
++                rows.extend(_response_rows(full, idx))
++        return rows
++
++    def update_pass(self, micro_sizes, old_log_probs, on_policy: bool):
++        """One mini-batch == the whole batch, micro-batched with gradient accumulation, no optimizer step."""
++        self.model.train()
++        self.model.zero_grad(set_to_none=True)
++        rows, clipfracs, kls = [], [], []
++        for idx in _chunks(micro_sizes):
++            full = self.full_log_probs(idx)
++            data = self.micro_batch_data(idx, None if on_policy else old_log_probs, on_policy)
++            loss, metrics = ppo_loss(self.config, {"log_probs": full}, data)
++            loss.backward()
++            rows.extend(_response_rows(full.detach(), idx))
++            clipfracs.append(metrics["actor/pg_clipfrac"].aggregate())
++            kls.append(abs(metrics["actor/ppo_kl"].aggregate()))
++        grads = [p.grad.detach().clone() for p in self.model.parameters() if p.grad is not None]
++        return rows, grads, max(clipfracs), max(kls)
++
++
++def _chunks(sizes):
++    start, out = 0, []
++    for size in sizes:
++        out.append(list(range(start, start + size)))
++        start += size
++    assert start == B
++    return out
++
++
++def _response_rows(full: torch.Tensor, idx: list[int]) -> list[torch.Tensor]:
++    # response token r is predicted by sequence position P - 1 + r (what no_padding_2_padding slices)
++    return [row[P - 1 : P - 1 + RESP_LENS[i]] for row, i in zip(full.unbind(), idx, strict=True)]
++
++
++def test_update_pass_log_probs_and_gradient_match_the_old_log_prob_pass_bitwise():
++    setup = _Setup()
++    old = setup.old_log_prob_pass([2, 2, 2, 2])
++
++    # PPO as on main: the stored old log-probs, micro-batched 3/3/2 with gradient accumulation
++    rows_main, grads_main, clip_main, kl_main = setup.update_pass([3, 3, 2], old, on_policy=False)
++    # the skip: old_log_prob = log_prob.detach(), same micro-batching
++    rows_skip, grads_skip, clip_skip, kl_skip = setup.update_pass([3, 3, 2], None, on_policy=True)
++
++    for a, b in zip(rows_main, old, strict=True):
++        assert torch.equal(a, b), "update-pass log-probs differ from the old-log-prob pass"
++    for a, b in zip(rows_skip, old, strict=True):
++        assert torch.equal(a, b)
++    assert len(grads_main) == len(grads_skip) > 0
++    for a, b in zip(grads_main, grads_skip, strict=True):
++        assert torch.equal(a, b), "the on-policy gradient differs from the stored-old-log-prob gradient"
++    assert clip_skip == 0.0 and kl_skip == 0.0
++    assert clip_main == 0.0 and kl_main == 0.0
++
++
++def test_a_second_mini_batch_is_not_on_policy():
++    """After one AdamW step the next mini-batch's log-probs are no longer the old ones: only the
++    single-mini-batch configuration is exact, which is what validate_config enforces."""
++    setup = _Setup()
++    old = setup.old_log_prob_pass([2, 2, 2, 2])
++    optimizer = torch.optim.AdamW(setup.model.parameters(), lr=1e-4)
++
++    setup.model.train()
++    setup.model.zero_grad(set_to_none=True)
++    first = list(range(4))
++    full = setup.full_log_probs(first)
++    loss, _ = ppo_loss(setup.config, {"log_probs": full}, setup.micro_batch_data(first, old, on_policy=False))
++    loss.backward()
++    optimizer.step()
++
++    second = list(range(4, 8))
++    with torch.no_grad():
++        rows = _response_rows(setup.full_log_probs(second), second)
++    max_diff = max((a - old[i]).abs().max().item() for a, i in zip(rows, second, strict=True))
++    assert max_diff > 1e-5, "the second mini-batch unexpectedly still matches the sampling weights"
++
++
++@pytest.mark.parametrize(
++    ("on_policy", "entropy_coeff", "expect_entropy_loss"),
++    [(True, 0.0, False), (True, 0.01, True), (False, 0.0, True)],
++)
++def test_entropy_is_a_loss_term_only_when_it_carries_a_coefficient_or_the_flag_is_off(
++    on_policy, entropy_coeff, expect_entropy_loss
++):
++    """Under the skip with entropy_coeff=0 the entropy is computed (without grad) only for the trainer's
++    actor/entropy metric: no actor/entropy_loss, nothing added to the loss. Flag off: unchanged."""
++    setup = _Setup(entropy_coeff=entropy_coeff)
++    old = setup.old_log_prob_pass([2, 2, 2, 2])
++    idx = list(range(3))
++    setup.model.train()
++    full = setup.full_log_probs(idx)
++    with torch.no_grad():
++        entropy = _nested(torch.rand(P + RESP_LENS[i]) for i in idx)
++    data = setup.micro_batch_data(idx, None if on_policy else old, on_policy)
++
++    loss, metrics = ppo_loss(setup.config, {"log_probs": full, "entropy": entropy}, data)
++    pg_loss, _ = ppo_loss(setup.config, {"log_probs": full}, data)
++
++    assert ("actor/entropy_loss" in metrics) is expect_entropy_loss
++    if entropy_coeff == 0.0:
++        assert torch.equal(loss, pg_loss)
++    else:
++        assert not torch.equal(loss, pg_loss)
+diff --git a/tests/workers/test_skip_old_log_prob_module_walk_on_cpu.py b/tests/workers/test_skip_old_log_prob_module_walk_on_cpu.py
+new file mode 100644
+index 00000000..e1deaec7
+--- /dev/null
++++ b/tests/workers/test_skip_old_log_prob_module_walk_on_cpu.py
+@@ -0,0 +1,301 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""The worker-side guarantee of ``actor.skip_old_log_prob_when_on_policy``: once the actor is built,
++``ActorRolloutRefWorker._check_actor_for_on_policy_skip`` walks the module
++(``verl.utils.model.find_train_mode_dependent_modules``) and refuses the flag when a sub-module's forward
++depends on train/eval mode, on every rank and before any update. The three configurations of the
++independent review are caught on real tiny models, the LoRA one through the engine's real
++``_build_lora_module`` loader; each flagged model has a measurable train/eval log-prob gap at identical
++weights, the clean one none."""
++
++from types import SimpleNamespace
++
++import pytest
++import torch
++from omegaconf import OmegaConf
++from peft import LoraConfig, TaskType, get_peft_model
++from torch import nn
++from transformers import MixtralConfig, MixtralForCausalLM, Qwen3Config, Qwen3ForCausalLM
++
++from verl.utils.model import find_train_mode_dependent_modules
++from verl.workers.config.model import HFModelConfig
++from verl.workers.engine.fsdp.transformer_impl import FSDPEngineWithLMHead
++from verl.workers.engine_workers import ActorRolloutRefWorker
++
++
++def qwen3_config(**kwargs):
++    return Qwen3Config(
++        vocab_size=64, hidden_size=32, intermediate_size=64, num_hidden_layers=1, num_attention_heads=2,
++        num_key_value_heads=2, head_dim=16, attn_implementation="eager", architectures=["Qwen3ForCausalLM"], **kwargs,
++    )  # fmt: skip
++
++
++def mixtral_config(**kwargs):
++    return MixtralConfig(
++        vocab_size=64, hidden_size=32, intermediate_size=64, num_hidden_layers=1, num_attention_heads=4,
++        num_key_value_heads=2, num_local_experts=2, num_experts_per_tok=2, attention_dropout=0.0,
++        attn_implementation="eager", architectures=["MixtralForCausalLM"], **kwargs,
++    )  # fmt: skip
++
++
++def save_adapter(path, lora_dropout):
++    lora = LoraConfig(
++        r=4, lora_alpha=4, lora_dropout=lora_dropout, target_modules=["q_proj", "v_proj"], task_type=TaskType.CAUSAL_LM
++    )
++    model = get_peft_model(Qwen3ForCausalLM(qwen3_config()), lora)
++    for name, param in model.named_parameters():  # peft zero-inits lora_B: give the adapter an effect
++        if "lora_B" in name:
++            torch.nn.init.normal_(param, std=0.05)
++    model.save_pretrained(path)
++    return str(path)
++
++
++def _train_eval_gap(model):
++    tokens = torch.arange(1, 7).unsqueeze(0)
++    with torch.no_grad():
++        model.eval()
++        old = model(tokens).logits.log_softmax(-1)
++        model.train()
++        new = model(tokens).logits.log_softmax(-1)
++    return (old - new).abs().max().item()
++
++
++def test_functional_attention_dropout_is_found():
++    torch.manual_seed(0)
++    dropout = Qwen3ForCausalLM(qwen3_config(attention_dropout=0.5))
++    assert find_train_mode_dependent_modules(dropout) == [("model.layers.0.self_attn", "attention_dropout=0.5")]
++    assert _train_eval_gap(dropout) > 1e-3
++    clean = Qwen3ForCausalLM(qwen3_config())
++    assert find_train_mode_dependent_modules(clean) == []
++    assert _train_eval_gap(clean) == 0.0
++
++
++def test_mixtral_router_jitter_is_found():
++    torch.manual_seed(0)
++    model = MixtralForCausalLM(mixtral_config(router_jitter_noise=0.1))
++    assert find_train_mode_dependent_modules(model) == [("model.layers.0.mlp", "jitter_noise=0.1")]
++    assert _train_eval_gap(model) > 1e-6
++    assert find_train_mode_dependent_modules(MixtralForCausalLM(mixtral_config())) == []
++
++
++def _lora_engine(**model_config):
++    engine = FSDPEngineWithLMHead.__new__(FSDPEngineWithLMHead)
++    engine.model_config = SimpleNamespace(use_shm=False, **model_config)
++    return engine
++
++
++def test_loaded_lora_dropout_is_found_through_the_real_loader(tmp_path):
++    torch.manual_seed(0)
++    engine = _lora_engine(lora_adapter_path=save_adapter(tmp_path / "adapter", 0.3))
++    loaded = engine._build_lora_module(Qwen3ForCausalLM(qwen3_config()))
++    assert loaded.peft_config["default"].lora_dropout == 0.3
++    found = find_train_mode_dependent_modules(loaded)
++    assert [path.split(".")[-3:] for path, _ in found] == [
++        ["q_proj", "lora_dropout", "default"],
++        ["v_proj", "lora_dropout", "default"],
++    ]
++    assert {reason for _, reason in found} == {"Dropout(p=0.3)"}
++    assert _train_eval_gap(loaded) > 1e-3
++    # an adapter without dropout loads an nn.Identity; verl's own LoraConfig never sets lora_dropout (peft's 0.0)
++    engine = _lora_engine(lora_adapter_path=save_adapter(tmp_path / "zero", 0.0))
++    assert find_train_mode_dependent_modules(engine._build_lora_module(Qwen3ForCausalLM(qwen3_config()))) == []
++    engine = _lora_engine(
++        lora_adapter_path=None, lora_rank=4, lora_alpha=8, target_modules=["q_proj", "v_proj"],
++        target_parameters=None, exclude_modules=None,
++    )  # fmt: skip
++    own = engine._build_lora_module(Qwen3ForCausalLM(qwen3_config()))
++    assert own.peft_config["default"].lora_dropout == 0.0
++    assert find_train_mode_dependent_modules(own) == []
++
++
++def test_the_module_built_from_the_effective_config_is_what_gets_walked(tmp_path):
++    """``HFModelConfig`` applies override_config: dropout switched on by an override is found on the built
++    module, dropout switched off by an override is gone (the effective config wins, in both directions)."""
++    qwen3_config().save_pretrained(tmp_path / "clean")
++    qwen3_config(attention_dropout=0.1).save_pretrained(tmp_path / "dropout")
++    on = {"attention_dropout": 0.5, "attn_implementation": "eager"}
++    switched_on = HFModelConfig(path=str(tmp_path / "clean"), load_tokenizer=False, override_config=on)
++    assert find_train_mode_dependent_modules(Qwen3ForCausalLM(switched_on.hf_config)) == [
++        ("model.layers.0.self_attn", "attention_dropout=0.5")
++    ]
++    off = {"attention_dropout": 0.0, "attn_implementation": "eager"}
++    switched_off = HFModelConfig(path=str(tmp_path / "dropout"), load_tokenizer=False, override_config=off)
++    assert find_train_mode_dependent_modules(Qwen3ForCausalLM(switched_off.hf_config)) == []
++
++
++class _DropPath(nn.Module):
++    def __init__(self, drop_prob):
++        super().__init__()
++        self.drop_prob = drop_prob
++
++    def forward(self, x):
++        return x
++
++
++def test_dropout_modules_drop_path_and_pipeline_chunks():
++    model = nn.Sequential(
++        nn.Dropout(0.0), nn.Dropout(0.1), nn.AlphaDropout(0.2), nn.Dropout2d(0.0), _DropPath(0.0), _DropPath(0.3),
++        nn.Linear(2, 2),
++    )  # fmt: skip
++    assert find_train_mode_dependent_modules(model) == [
++        ("1", "Dropout(p=0.1)"),
++        ("2", "AlphaDropout(p=0.2)"),
++        ("5", "_DropPath(p=0.3)"),
++    ]
++    chunks = [nn.Sequential(nn.Linear(2, 2)), nn.Sequential(nn.Dropout(0.5))]
++    assert find_train_mode_dependent_modules(chunks) == [("[1].0", "Dropout(p=0.5)")]
++    assert find_train_mode_dependent_modules(nn.Dropout(0.5)) == [("", "Dropout(p=0.5)")]
++
++
++def _worker(module, flag=True):
++    config = OmegaConf.create({"actor": {"skip_old_log_prob_when_on_policy": flag}})
++    return SimpleNamespace(config=config, actor=SimpleNamespace(engine=SimpleNamespace(module=module)))
++
++
++def test_worker_refuses_a_train_mode_dependent_actor_and_names_up_to_five_modules():
++    check = ActorRolloutRefWorker._check_actor_for_on_policy_skip
++    with pytest.raises(ValueError, match="model.layers.0.self_attn: attention_dropout=0.5"):
++        check(_worker(Qwen3ForCausalLM(qwen3_config(attention_dropout=0.5))))
++    check(_worker(Qwen3ForCausalLM(qwen3_config())))  # clean: accepted
++    check(_worker(Qwen3ForCausalLM(qwen3_config(attention_dropout=0.5)), flag=False))  # flag off: no walk
++    with pytest.raises(ValueError) as excinfo:
++        check(_worker(nn.Sequential(*[nn.Dropout(0.1) for _ in range(7)])))
++    message = str(excinfo.value)
++    assert "7 train-mode-dependent sub-module(s)" in message and "4: Dropout(p=0.1)" in message
++    assert "5: Dropout" not in message and message.endswith("; +2 more")
++    with pytest.raises(ValueError, match="exposes no `module`"):
++        check(_worker(None))
++
++
++def test_loha_adapter_dict_valued_rank_dropout_is_found_through_the_real_loader(tmp_path):
++    """peft keeps a LoHa / LoKr layer's rank_dropout as {adapter_name: rate}, not as an nn.Dropout (round-2
++    re-review D1); the loader accepts any peft_type."""
++    from peft import LoHaConfig
++
++    torch.manual_seed(0)
++    loha = LoHaConfig(r=4, alpha=4, rank_dropout=0.5, target_modules=["q_proj", "v_proj"], task_type=TaskType.CAUSAL_LM)
++    model = get_peft_model(Qwen3ForCausalLM(qwen3_config()), loha)
++    for name, param in model.named_parameters():
++        if "hada_w" in name:
++            torch.nn.init.normal_(param, std=0.05)
++    model.save_pretrained(tmp_path / "loha")
++    loaded = _lora_engine(lora_adapter_path=str(tmp_path / "loha"))._build_lora_module(Qwen3ForCausalLM(qwen3_config()))
++    assert loaded.base_model.model.model.layers[0].self_attn.q_proj.rank_dropout == {"default": 0.5}
++    found = find_train_mode_dependent_modules(loaded)
++    assert [reason for _, reason in found] == ["rank_dropout[default]=0.5"] * 2
++    assert [path.rsplit(".", 1)[-1] for path, _ in found] == ["q_proj", "v_proj"]
++    assert _train_eval_gap(loaded) > 1e-5
++
++
++def test_batchnorm_and_instancenorm_with_running_stats_are_found():
++    """Batch statistics in train mode, running statistics in eval mode (round-2 re-review D3); without
++    running statistics both modes normalise with the batch and the walk stays quiet."""
++    model = nn.Sequential(
++        nn.BatchNorm1d(4),
++        nn.BatchNorm1d(4, track_running_stats=False),
++        nn.InstanceNorm1d(4),
++        nn.InstanceNorm1d(4, track_running_stats=True),
++        nn.LayerNorm(4),
++    )
++    assert find_train_mode_dependent_modules(model) == [
++        ("0", "BatchNorm1d(track_running_stats=True)"),
++        ("3", "InstanceNorm1d(track_running_stats=True)"),
++    ]
++    torch.manual_seed(0)
++    bn = nn.Sequential(nn.Linear(4, 4), nn.BatchNorm1d(4))
++    x = torch.randn(8, 4)
++    bn.train()
++    y_train = bn(x)
++    bn.eval()
++    assert not torch.allclose(bn(x), y_train)
++
++
++class _HardCodedDropout(nn.Module):
++    """A train-mode branch written into forward: no module, no rate attribute."""
++
++    def __init__(self):
++        super().__init__()
++        self.proj = nn.Linear(4, 4)
++
++    def forward(self, x):
++        return torch.nn.functional.dropout(self.proj(x), 0.5, self.training)
++
++
++def test_hard_coded_functional_dropout_is_outside_the_walk():
++    """The walk is structural (documented limit, round-2 re-review D2): behaviour hidden in forward code is not
++    detectable, so for custom models the skip remains the user's assertion."""
++    torch.manual_seed(0)
++    module = _HardCodedDropout()
++    x = torch.randn(2, 4)
++    module.eval()
++    y_eval = module(x)
++    module.train()
++    assert not torch.equal(module(x), y_eval)
++    assert find_train_mode_dependent_modules(module) == []
++
++
++def _qat_classes():
++    """verl's unmodified ``QATMode`` / ``QATLinear`` class definitions loaded from source without the Triton kernels,
++    the CUDA quantizer replaced by a spy (the trick of the independent follow-up probe, R2-01)."""
++    import ast
++    from enum import Enum
++    from pathlib import Path
++    from typing import Optional
++
++    import torch.nn.functional as F
++
++    import verl
++
++    source = Path(verl.__file__).resolve().parent / "utils" / "qat" / "linear.py"
++    nodes = [
++        node
++        for node in ast.parse(source.read_text()).body
++        if isinstance(node, ast.ClassDef) and node.name in {"QATMode", "QATLinear"}
++    ]
++    assert len(nodes) == 2
++
++    class QuantizerSpy:
++        seen_amax = []
++
++        @staticmethod
++        def apply(x, global_amax, group_size):
++            QuantizerSpy.seen_amax.append(global_amax.detach().clone())
++            return x
++
++    scope = dict(torch=torch, nn=nn, F=F, Enum=Enum, Optional=Optional, FP4_E2M1_MAX=6.0, FP8_E4M3_MAX=448.0)
++    scope["STEFP4QuantTriton"] = QuantizerSpy
++    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), scope)
++    return scope["QATMode"], scope["QATLinear"], QuantizerSpy
++
++
++def test_w4a4_qat_linear_is_found_and_the_worker_refuses_it():
++    """R2-01: the W4A4 activation observer runs only in train mode, so eval and train quantize the same input with
++    different scales; the walk flags the module by its ``mode`` attribute. W4A16 (weight-only) is not flagged."""
++    QATMode, QATLinear, spy = _qat_classes()
++    module = QATLinear(16, 16, mode=QATMode.W4A4, activation_observer="static_minmax")
++    module.input_amax.fill_(1.0)
++    module.input_global_scale.fill_(6.0 * 448.0)
++    reason = "QATLinear(mode=w4a4): the activation observer updates input_global_scale in train mode only"
++    assert find_train_mode_dependent_modules(module) == [("", reason)]
++    with pytest.raises(ValueError, match=r"QATLinear\(mode=w4a4\)"):
++        ActorRolloutRefWorker._check_actor_for_on_policy_skip(_worker(module))
++    x = torch.full((1, 16), 2.0)
++    module.eval()
++    module._fake_quantize_activation(x)
++    eval_scale = module.input_global_scale.item()
++    module.train()
++    module._fake_quantize_activation(x)
++    assert module.input_global_scale.item() != eval_scale
++    assert not torch.equal(spy.seen_amax[0], spy.seen_amax[1])
++    assert find_train_mode_dependent_modules(QATLinear(16, 16, mode=QATMode.W4A16)) == []
+diff --git a/verl/trainer/config/_generated_ppo_megatron_trainer.yaml b/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
+index e8ab900f..f01c8f6d 100644
+--- a/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
+@@ -132,6 +132,7 @@ actor_rollout_ref:
+     kl_loss_type: low_var_kl
+     ppo_epochs: 1
+     shuffle: false
++    skip_old_log_prob_when_on_policy: false
+     data_loader_seed: 42
+     checkpoint:
+       _target_: verl.trainer.config.CheckpointConfig
+diff --git a/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml b/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
+index b8605dc1..fca8591c 100644
+--- a/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
+@@ -88,6 +88,7 @@ actor_rollout_ref:
+     kl_loss_type: low_var_kl
+     ppo_epochs: 1
+     shuffle: false
++    skip_old_log_prob_when_on_policy: false
+     data_loader_seed: 42
+     checkpoint:
+       _target_: verl.trainer.config.CheckpointConfig
+diff --git a/verl/trainer/config/_generated_ppo_trainer.yaml b/verl/trainer/config/_generated_ppo_trainer.yaml
+index 58af8e1b..5af65c2c 100644
+--- a/verl/trainer/config/_generated_ppo_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_trainer.yaml
+@@ -110,6 +110,7 @@ actor_rollout_ref:
+     kl_loss_type: low_var_kl
+     ppo_epochs: 1
+     shuffle: false
++    skip_old_log_prob_when_on_policy: false
+     data_loader_seed: 42
+     checkpoint:
+       _target_: verl.trainer.config.CheckpointConfig
+diff --git a/verl/trainer/config/_generated_ppo_veomni_trainer.yaml b/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
+index 29f46158..08856dc2 100644
+--- a/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
+@@ -107,6 +107,7 @@ actor_rollout_ref:
+     kl_loss_type: low_var_kl
+     ppo_epochs: 1
+     shuffle: false
++    skip_old_log_prob_when_on_policy: false
+     data_loader_seed: 42
+     checkpoint:
+       _target_: verl.trainer.config.CheckpointConfig
+diff --git a/verl/trainer/config/actor/actor.yaml b/verl/trainer/config/actor/actor.yaml
+index 3f3e0dbe..ac9deada 100644
+--- a/verl/trainer/config/actor/actor.yaml
++++ b/verl/trainer/config/actor/actor.yaml
+@@ -121,6 +121,16 @@ ppo_epochs: 1
+ # Shuffle training data across PPO epochs
+ shuffle: false
+ 
++# Skip the separate old-log-prob forward pass when the actor update is strictly on-policy, i.e. one
++# optimizer step per sampled batch (ppo_epochs=1, ppo_mini_batch_size=train_batch_size, shuffle=false).
++# Every micro-batch of that single mini-batch is then evaluated at the sampling weights, so the
++# log-probs the update pass computes are the old log-probs: the loss uses them detached (ratio 1,
++# clipping inert; actor/pg_clipfrac and actor/ppo_kl are 0 by construction) and the update pass
++# returns them so actor/entropy and the training/rollout_* metrics keep their definitions.
++# The config is rejected unless the skip is exact; see verl/utils/config.py (validate_config).
++# Megatron/other engines compute the entropy metric with grad as before. V1 trainer only.
++skip_old_log_prob_when_on_policy: false
++
+ # The seed used to construct mini-batch
+ data_loader_seed: 42
+ 
+diff --git a/verl/trainer/ppo/ray_trainer.py b/verl/trainer/ppo/ray_trainer.py
+index 9352bcfa..45f46bd0 100644
+--- a/verl/trainer/ppo/ray_trainer.py
++++ b/verl/trainer/ppo/ray_trainer.py
+@@ -330,6 +330,13 @@ class RayPPOTrainer:
+         self.processor = processor
+         self.config = config
+ 
++        if config.actor_rollout_ref.actor.get("skip_old_log_prob_when_on_policy", False):
++            raise ValueError(
++                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True is implemented by the V1 trainer only "
++                "(trainer.use_v1=True); the legacy RayPPOTrainer always runs the old-log-prob pass, so the flag "
++                "would be a silent no-op here"
++            )
++
+         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
+         assert self.hybrid_engine, "Currently, only support hybrid engine"
+ 
+diff --git a/verl/trainer/ppo/v1/trainer_base.py b/verl/trainer/ppo/v1/trainer_base.py
+index 117c1a98..6f62fa39 100644
+--- a/verl/trainer/ppo/v1/trainer_base.py
++++ b/verl/trainer/ppo/v1/trainer_base.py
+@@ -75,7 +75,7 @@ from verl.trainer.ppo.v1.replay_buffer import DAPO_FILTERED_REWARD_COUNTS_KEY, R
+ from verl.trainer.ppo.v1.utils import MetricsAggregator, compute_advantage_for_multi_trajectories
+ from verl.utils import tensordict_utils as tu
+ from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
+-from verl.utils.config import omega_conf_to_dataclass
++from verl.utils.config import _validate_skip_old_log_prob_config, omega_conf_to_dataclass
+ from verl.utils.dataset.rl_dataset import collate_fn
+ from verl.utils.debug import marked_timer
+ from verl.utils.debug.metrics import calculate_debug_metrics
+@@ -129,6 +129,15 @@ class PPOTrainer(ABC):
+ 
+         self.trainer_mode = self.config.trainer.v1.trainer_mode
+         self.parameter_sync_step = self.config.trainer.v1.get(self.trainer_mode, {}).get("parameter_sync_step", 1)
++        if self.skip_old_log_prob:
++            # the trainer owns this exactness invariant: check the config here too, not only in the entry
++            # point's validate_config (recipes and custom mains may build the trainer directly)
++            _validate_skip_old_log_prob_config(self.config)
++            logger.info(
++                "actor.skip_old_log_prob_when_on_policy=True: the old-log-prob pass is skipped; old_log_probs, "
++                "actor/entropy and the training/rollout_* metrics come from the update pass, and "
++                "actor/pg_clipfrac and actor/ppo_kl are 0 by construction"
++            )
+         self.replay_buffer = self._build_replay_buffer()
+         self._rollout_moe_lb_metrics_accumulator = RolloutMoELoadBalanceMetricsAccumulator(
+             model_config=self.config.actor_rollout_ref.model
+@@ -1632,8 +1641,50 @@ class PPOTrainer(ABC):
+         metrics.update(global_balance_stats)
+         return batch
+ 
++    @property
++    def skip_old_log_prob(self) -> bool:
++        """Strictly on-policy update: the old-log-prob pass is skipped and the update pass hands back its
++        log-probs instead (``actor.skip_old_log_prob_when_on_policy``, exactness conditions enforced by
++        ``verl.utils.config.validate_config``)."""
++        return bool(self.config.actor_rollout_ref.actor.get("skip_old_log_prob_when_on_policy", False))
++
++    def _skip_old_log_prob_this_step(self) -> bool:
++        """The skip applies to steps that update the actor; a critic-warmup step runs the old-log-prob pass
++        as before (there is no update pass to take the log-probs from, so there is nothing to save)."""
++        return self.skip_old_log_prob and self.config.trainer.critic_warmup <= self.global_steps
++
++    def _check_single_mini_batch(self, batch: KVBatchMeta) -> None:
++        """The skip is exact only if the worker takes ONE optimizer step over the rows it receives, i.e. the
++        update pass is exactly one mini-batch: ``len(batch) == ppo_mini_batch_size * rollout.n`` rows AFTER
++        ``_balance_batch`` (its padding rows are trained too, at the same weights; agent loops that return
++        several trajectories per session add rows beyond ``train_batch_size * n``, which would pad the batch
++        to a second mini-batch trained after the optimizer step). The config gate compares prompt counts;
++        this is the row count the worker actually iterates."""
++        actor_config, rollout_config = self.config.actor_rollout_ref.actor, self.config.actor_rollout_ref.rollout
++        mini_batch_rows = actor_config.ppo_mini_batch_size * rollout_config.n
++        num_rows = len(batch)
++        if num_rows == mini_batch_rows:
++            return
++        num_padding = sum(bool(tag.get("is_padding", False)) for tag in batch.tags)
++        raise ValueError(
++            "actor.skip_old_log_prob_when_on_policy: the actor update must be exactly one mini-batch of "
++            f"ppo_mini_batch_size x rollout.n = {mini_batch_rows} rows, so that every row is trained in the single "
++            f"optimizer step at the sampling weights, but this step's batch has {num_rows} rows "
++            f"({num_rows - num_padding} sampled + {num_padding} padding), i.e. {num_rows // mini_batch_rows} optimizer "
++            "step(s). The skip needs exactly train_batch_size x rollout.n rows per step: it cannot be used when the "
++            "agent loop returns a varying number of trajectories per session."
++        )
++
+     def _compute_old_log_prob(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
+         """Compute the old log prob of the batch."""
++        if self._skip_old_log_prob_this_step():
++            # The update pass runs every micro-batch of its single mini-batch at these same weights, so it
++            # computes exactly these log-probs; _update_actor stores them as old_log_probs afterwards and
++            # nothing before the update reads them (validate_config). Fail here, before the step is spent,
++            # if the batch is not exactly one mini-batch.
++            self._check_single_mini_batch(batch)
++            return batch
++
+         # Operating Mode Selection:
+         # - Bypass mode: Sets old_log_probs = rollout_log_probs (2 policies: π_rollout, π_θ)
+         # - Decoupled mode: Recomputes old_log_probs as proximal anchor (3 policies: π_rollout, π_old, π_θ)
+@@ -1658,7 +1709,12 @@ class PPOTrainer(ABC):
+         )
+         output: KVBatchMeta = self.actor_rollout_wg.compute_log_prob(batch)
+         assert len(output) == len(batch)
++        return self._store_actor_log_prob(batch, metrics)
+ 
++    def _store_actor_log_prob(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
++        """Turn the actor's per-token ``log_probs``/``entropy`` in TransferQueue (written by the old-log-prob
++        pass, or by the update pass under ``skip_old_log_prob_when_on_policy``) into the response-only
++        ``old_log_probs``/``entropy`` fields; log ``actor/entropy`` and the rollout-vs-actor metrics."""
+         fields = ["entropy", "log_probs", "response_mask"]
+         if self.config.actor_rollout_ref.rollout.calculate_log_probs:
+             fields.extend(["responses", "rollout_log_probs"])
+@@ -1690,6 +1746,16 @@ class PPOTrainer(ABC):
+         # 4. calculate rollout vs actor logprobs diff
+         if self.config.actor_rollout_ref.rollout.calculate_log_probs:
+             metrics.update(calculate_debug_metrics(data))
++            rollout_corr_config = self.config.algorithm.get("rollout_correction", None)
++            if (
++                self._skip_old_log_prob_this_step()
++                and rollout_corr_config is not None
++                and "rollout_log_probs" in data.batch
++            ):
++                # metrics-only rollout correction, deferred from _compute_advantage: the same function of the
++                # same tensors, so the rollout_corr/* metrics keep their values; nothing is written back
++                _, rollout_corr_metrics = compute_rollout_correction_and_add_to_batch(data, rollout_corr_config)
++                metrics.update(rollout_corr_metrics)
+ 
+         return batch
+ 
+@@ -1768,6 +1834,10 @@ class PPOTrainer(ABC):
+         rollout_correction = (
+             rollout_corr_config is not None and "rollout_log_probs" in data.batch and not bypass_recomputing_logprobs
+         )
++        if rollout_correction and self._skip_old_log_prob_this_step():
++            # Only the metrics-only mode is allowed with the skip (validate_config), and old_log_probs exist
++            # only after the update: _store_actor_log_prob logs the rollout_corr/* metrics from there.
++            rollout_correction = False
+         if rollout_correction:
+             data, is_metrics = compute_rollout_correction_and_add_to_batch(data, rollout_corr_config)
+             metrics.update(is_metrics)
+@@ -1827,6 +1897,8 @@ class PPOTrainer(ABC):
+ 
+     def _update_actor(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
+         """Update the actor network."""
++        if self.skip_old_log_prob:
++            self._check_single_mini_batch(batch)
+         ppo_mini_batch_size = self.config.actor_rollout_ref.actor.ppo_mini_batch_size
+         ppo_mini_batch_size = ppo_mini_batch_size * self.config.actor_rollout_ref.rollout.n
+         calculate_entropy = self.config.actor_rollout_ref.actor.calculate_entropy or (
+@@ -1860,10 +1932,41 @@ class PPOTrainer(ABC):
+             "dataloader_kwargs": {"shuffle": self.config.actor_rollout_ref.actor.shuffle},
+             "temperature": self.config.actor_rollout_ref.rollout.temperature,
+         }
++        skip_keys = {
++            # actor/entropy is read off this pass now; without an entropy loss it needs no graph
++            "calculate_entropy": True,
++            "entropy_requires_grad": self.config.actor_rollout_ref.actor.entropy_coeff != 0.0,
++            # the engine keeps the per-token log_probs/entropy and the worker returns them
++            "return_model_output": True,
++            # ppo_loss: old_log_prob = log_prob.detach()
++            "on_policy_skip_old_log_prob": True,
++        }
++        if self.skip_old_log_prob:
++            extra_info.update(skip_keys)
+         batch.extra_info.update(extra_info)
+ 
+-        output: TensorDict = self.actor_rollout_wg.update_actor(batch)
+-        output = rename_dict(output["metrics"], "actor/")
++        try:
++            output = self.actor_rollout_wg.update_actor(batch)
++        finally:
++            if self.skip_old_log_prob:
++                # the meta carries extra_info to every later worker call: do not let the skip keys linger
++                for key in skip_keys:
++                    if key != "calculate_entropy":
++                        batch.extra_info.pop(key, None)
++        if self.skip_old_log_prob:
++            # The worker returned the update pass's log_probs/entropy as a batch-sized TensorDict: the TQ
++            # bridge wrote them to TransferQueue and handed back a KVBatchMeta whose extra_info carries one
++            # metrics dict per collecting rank, in rank order (BatchData.concat); rank 0's is what the
++            # TensorDict path returns too (concat_tensordict_with_none_bsz), and every rank's dict is already
++            # DP-aggregated by the worker.
++            assert len(output) == len(batch)
++            actor_output = output.extra_info["metrics"]
++            assert isinstance(actor_output, list) and actor_output, f"expected per-rank metrics, got {actor_output!r}"
++            actor_output = actor_output[0]
++            self._store_actor_log_prob(batch, metrics)
++        else:
++            actor_output = output["metrics"]
++        output = rename_dict(actor_output, "actor/")
+         output["perf/mfu/actor"] = output.pop("actor/mfu")
+         actor_metrics = reduce_metrics(output)
+         metrics.update(actor_metrics)
+diff --git a/verl/utils/config.py b/verl/utils/config.py
+index 83ca7e72..256dec56 100644
+--- a/verl/utils/config.py
++++ b/verl/utils/config.py
+@@ -12,6 +12,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import json
++import os
+ from dataclasses import is_dataclass
+ from typing import Any, Optional
+ 
+@@ -85,6 +87,228 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
+         )
+ 
+ 
++# Settings of an HF config that make the forward depend on ``module.training`` (the update pass runs in train
++# mode, the old-log-prob pass in eval mode): every numeric key > 0 whose name contains one of these fragments.
++# In transformers 5.16's configuration classes that covers the dropout keys (``attention_dropout``,
++# ``hidden_dropout``, ``dropout``, ``resid_pdrop``, ``embd_pdrop``, ``attn_pdrop``, ``hidden_dropout_prob``,
++# ``attention_probs_dropout_prob``, ``activation_dropout``, ``ffn_dropout``, ...), MoE router jitter
++# (``router_jitter_noise``: Mixtral, PhiMoE, MiniMax, Llama4, DeepSeek-V4, Switch; ``moe_jitter_eps``: DBRX),
++# layer drop (``layerdrop``, ``encoder_layerdrop``, ``decoder_layerdrop``) and stochastic depth
++# (``drop_path_rate``). ``jitter_noise`` and ``stochastic_depth_prob`` exist there only as module attributes;
++# the module walk in the worker (``verl.utils.model.find_train_mode_dependent_modules``) covers them.
++_TRAIN_MODE_KEY_FRAGMENTS = ("dropout", "pdrop", "drop_path", "drop_prob", "drop_rate", "layerdrop", "jitter")
++
++
++def _is_positive_rate(value: Any) -> bool:
++    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
++
++
++def _effective_hf_config(model_config: DictConfig):
++    """The actor's HF config as ``HFModelConfig.__post_init__`` builds it: the saved config with
++    ``override_config`` applied (the Megatron-style ``model_config`` sub-key and ``update_model_config``
++    included). None when it cannot be loaded here (missing path, offline hub, custom loader)."""
++    path = model_config.get("hf_config_path", None) or model_config.get("path", None)
++    if not path:
++        return None
++    try:
++        from transformers import AutoConfig
++
++        from verl.utils.fs import copy_to_local
++        from verl.utils.model import update_model_config
++
++        hf_config = AutoConfig.from_pretrained(
++            copy_to_local(path), trust_remote_code=model_config.get("trust_remote_code", False)
++        )
++        override_config = model_config.get("override_config", None) or {}
++        if isinstance(override_config, DictConfig):
++            override_config = OmegaConf.to_container(override_config, resolve=True)
++        if "model_config" in override_config:
++            override_config = override_config["model_config"]
++        update_model_config(hf_config, override_config_kwargs=dict(override_config))
++    except Exception:
++        return None
++    return hf_config
++
++
++def _lora_adapter_dropout(model_config: DictConfig) -> Optional[list[tuple[str, Any]]]:
++    """The train-mode settings of a pre-trained peft adapter (``adapter_config.json`` under ``lora_adapter_path``)
++    when ``lora_rank > 0``. ``_build_lora_module`` loads ANY ``peft_type`` through ``PeftModel.from_pretrained``,
++    so the type itself is checked: only ``LORA`` is supported (LoHa / LoKr keep ``rank_dropout`` /
++    ``module_dropout`` as train-mode rates, and the rollout LoRA sync expects LoRA tensors); then every numeric
++    rate key > 0 of the adapter config (``lora_dropout``: peft builds an ``nn.Dropout`` for it, active in train
++    mode only). Without an adapter path verl's ``_build_lora_module`` builds the ``LoraConfig`` without
++    ``lora_dropout``, so peft's default 0.0 (an ``nn.Identity``) applies. None when the adapter config cannot be
++    read here."""
++    if int(model_config.get("lora_rank", 0) or 0) <= 0:
++        return []
++    adapter_path = model_config.get("lora_adapter_path", None)
++    if not adapter_path:
++        return []
++    try:
++        from verl.utils.fs import copy_to_local
++
++        with open(os.path.join(copy_to_local(adapter_path), "adapter_config.json")) as f:
++            adapter = json.load(f)
++    except Exception:
++        return None
++    found: list[tuple[str, Any]] = []
++    peft_type = adapter.get("peft_type", None)
++    if peft_type != "LORA":
++        found.append(("peft_type", peft_type))
++    for key, value in adapter.items():
++        if any(fragment in key for fragment in _TRAIN_MODE_KEY_FRAGMENTS) and _is_positive_rate(value):
++            found.append((key, float(value)))
++    return found
++
++
++def _hf_config_dropouts(model_config: DictConfig) -> Optional[list[tuple[str, Any]]]:
++    """The train-mode-dependent settings > 0 of the EFFECTIVE actor model, as ``(key, value)``: dropout, MoE
++    router jitter, layer drop and drop path in the HF config after ``override_config`` (the top level and
++    every nested sub-config: a VLM's towers run in train mode during the update as well) and a loaded peft
++    adapter's type and rates (``peft_type`` must be LORA; ``lora_dropout``). None when the config or the adapter
++    cannot be read here; the worker then enforces the same rule on the built module
++    (``ActorRolloutRefWorker.init_model``)."""
++    hf_config = _effective_hf_config(model_config)
++    if hf_config is None:
++        return None
++    from transformers import PretrainedConfig
++
++    found: list[tuple[str, Any]] = []
++    seen: set[int] = set()
++
++    def scan(cfg) -> None:
++        if id(cfg) in seen:
++            return
++        seen.add(id(cfg))
++        for key, value in vars(cfg).items():
++            if key.startswith("_"):
++                continue
++            if isinstance(value, PretrainedConfig):
++                scan(value)
++            elif any(fragment in key for fragment in _TRAIN_MODE_KEY_FRAGMENTS) and _is_positive_rate(value):
++                if (key, float(value)) not in found:
++                    found.append((key, float(value)))
++
++    scan(hf_config)
++    lora = _lora_adapter_dropout(model_config)
++    if lora is None:
++        return None
++    return found + lora
++
++
++def _validate_skip_old_log_prob_config(config: DictConfig) -> None:
++    """``actor.skip_old_log_prob_when_on_policy`` is exact only when the whole sampled batch is updated in one
++    optimizer step at the sampling weights and nothing before the update reads ``old_log_probs``. Reject every
++    configuration where that does not hold, naming all violated conditions; there is no silent fallback."""
++    actor = config.actor_rollout_ref.actor
++    if not actor.get("skip_old_log_prob_when_on_policy", False):
++        return
++    trainer = config.trainer
++    v1 = trainer.get("v1", None) or {}
++    trainer_mode = v1.get("trainer_mode", None)
++    parameter_sync_step = (v1.get(trainer_mode, None) or {}).get("parameter_sync_step", 1) if trainer_mode else 1
++    sample_batch_size = config.data.train_batch_size // max(int(parameter_sync_step), 1)
++    algorithm = config.algorithm
++    distillation = config.get("distillation", None)
++
++    violations = []
++    if not trainer.get("use_v1", True):
++        violations.append("trainer.use_v1=False (the legacy trainer does not implement the skip)")
++    strategy = actor.get("strategy", None)
++    if strategy not in ("fsdp", "fsdp2", "fsdp_turbo"):
++        violations.append(
++            f"actor.strategy={strategy} (the skip is implemented and verified for the FSDP engines only, fsdp / "
++            "fsdp2 / fsdp_turbo; Megatron, VeOmni, TorchTitan and automodel keep the old-log-prob pass: their "
++            "update-pass output path is untested, Megatron's update-pass entropy would add a (T, V) logits copy "
++            "and its dynamic context parallel drops the training outputs)"
++        )
++    dropouts = _hf_config_dropouts(config.actor_rollout_ref.model)
++    if dropouts is None:
++        print(
++            "WARNING: actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True could not load the model's HF "
++            "config (or the LoRA adapter config) to check for dropout and other train-mode-only settings here; the "
++            "check is enforced on the built actor module in the worker (ActorRolloutRefWorker.init_model), which "
++            "refuses the flag before any update for every structurally visible train-mode mechanism (dropout modules "
++            "and rates, DropPath, router jitter, layerdrop, BatchNorm)."
++        )
++    elif dropouts:
++        message = (
++            "the effective actor model (HF config after override_config, LoRA adapter) has train-mode-only settings ("
++            + ", ".join(f"{key}={value}" for key, value in dropouts)
++            + "): the update pass runs in train mode, so its log-probs would be dropout- or noise-sampled instead "
++            "of the eval-mode old log-probs"
++        )
++        if any(key == "peft_type" for key, _ in dropouts):
++            message += (
++                "; only a peft_type=LORA adapter is supported at lora_adapter_path (its lora_dropout is checked; "
++                "LoHa / LoKr rank_dropout and module_dropout are train-mode rates)"
++            )
++        violations.append(message)
++    # the FSDP engine reads engine_config.qat; ActorConfig.__post_init__ aliases engine = fsdp_config
++    qat = (
++        (actor.get("fsdp_config", None) or {}).get("qat", None)
++        or (actor.get("engine", None) or {}).get("qat", None)
++        or {}
++    )
++    qat_mode = qat.get("mode", "")
++    # a programmatic DictConfig can carry the QATMode enum itself; compare its value, as apply_qat and the walk do
++    if qat.get("enable", False) and str(getattr(qat_mode, "value", qat_mode)).lower() == "w4a4":
++        violations.append(
++            "actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the "
++            "activation quantization scale in train mode only, so the update pass would quantize with different "
++            "scales than the eval-mode old-log-prob pass; W4A16 is weight-only and accepted, but untested with "
++            "the skip)"
++        )
++    if trainer_mode == "separate_async":
++        violations.append(
++            "trainer.v1.trainer_mode=separate_async (it restores pi_old from a CPU snapshot, so the update "
++            "pass does not run at the sampling weights)"
++        )
++    if actor.ppo_epochs != 1:
++        violations.append(
++            f"actor.ppo_epochs={actor.ppo_epochs} (needs 1: the second epoch runs after an optimizer step)"
++        )
++    if actor.ppo_mini_batch_size != sample_batch_size:
++        violations.append(
++            f"actor.ppo_mini_batch_size={actor.ppo_mini_batch_size} != data.train_batch_size / parameter_sync_step "
++            f"= {sample_batch_size} (the sampled batch must be one mini-batch, i.e. one optimizer step; only the "
++            "first mini-batch is evaluated at the sampling weights)"
++        )
++    if actor.get("shuffle", False):
++        violations.append("actor.shuffle=True (the returned log-probs must stay row-aligned with the batch)")
++    if actor.get("calculate_sum_pi_squared", False):
++        violations.append("actor.calculate_sum_pi_squared=True (the variance proxy reads old_log_probs)")
++    if algorithm.get("use_kl_in_reward", False):
++        violations.append(
++            "algorithm.use_kl_in_reward=True (the reward KL penalty reads old_log_probs before the update)"
++        )
++    rollout_corr = algorithm.get("rollout_correction", None) or {}
++    if (
++        rollout_corr.get("bypass_mode", False)
++        or rollout_corr.get("rollout_is", None) is not None
++        or rollout_corr.get("rollout_rs", None) is not None
++    ):
++        violations.append(
++            "algorithm.rollout_correction has bypass_mode, rollout_is or rollout_rs set (bypass mode already avoids "
++            "the pass with a different estimator; IS weights and rejection sampling read old_log_probs before the "
++            "update); only the metrics-only default (rollout_is=null, rollout_rs=null, bypass_mode=false) is compatible"
++        )
++    router_replay = (actor.get("engine", None) or {}).get("router_replay", None) or {}
++    if router_replay.get("mode", "disabled") == "R2":
++        violations.append("actor.engine.router_replay.mode=R2 (it records expert routes during the old-log-prob pass)")
++    if algorithm.adv_estimator in ("optimal_token_baseline", "tir_optimal_token_baseline"):
++        violations.append(
++            f"algorithm.adv_estimator={algorithm.adv_estimator} (it reads old_log_probs before the update)"
++        )
++    if distillation is not None and distillation.get("enabled", False):
++        violations.append("distillation.enabled=True (the distillation losses read old_log_probs)")
++    if violations:
++        raise ValueError(
++            "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True requires a strictly on-policy update, "
++            "but: " + "; ".join(violations)
++        )
++
++
+ def _validate_score_centering_config(config: DictConfig) -> None:
+     algorithm_rc = config.algorithm.get("rollout_correction") or {}
+     actor_rc = config.actor_rollout_ref.actor.policy_loss.get("rollout_correction") or {}
+@@ -199,6 +423,7 @@ def validate_config(
+     actor_config.validate(n_gpus, config.data.train_batch_size, config.actor_rollout_ref.model)
+     _validate_router_replay_config(actor_config, config.algorithm.get("rollout_correction", None))
+     _validate_score_centering_config(config)
++    _validate_skip_old_log_prob_config(config)
+ 
+     if not config.actor_rollout_ref.actor.use_dynamic_bsz:
+         if use_reference_policy:
+diff --git a/verl/utils/model.py b/verl/utils/model.py
+index b28e3f6c..a3c9ffb3 100644
+--- a/verl/utils/model.py
++++ b/verl/utils/model.py
+@@ -18,6 +18,7 @@ Utilities to create common models from huggingface
+ import json
+ import os
+ import re
++from collections.abc import Sequence
+ from dataclasses import dataclass
+ from typing import Optional
+ 
+@@ -670,6 +671,80 @@ def get_lora_rank_from_adapter(adapter_path: str | os.PathLike) -> int:
+         raise ValueError(f"Cannot parse LoRA rank from {config_path}: {e}") from e
+ 
+ 
++# Numeric module attributes > 0 that make a forward depend on ``module.training`` without an nn.Dropout module
++# (transformers 5.16, peft 0.19): functional dropout rates (``attention_dropout`` on the Llama / Qwen / Mixtral
++# attention, passed as ``dropout=0.0 if not self.training else self.attention_dropout``; ``dropout``,
++# ``activation_dropout``, ``hidden_dropout``, ``resid_pdrop``, ...), MoE router jitter (``jitter_noise``: Mixtral /
++# MiniMax / Switch; ``router_jitter_noise``: PhiMoE; ``moe_jitter_eps``: DBRX), layer drop (``layerdrop``), stochastic
++# depth (``drop_prob`` on the DropPath modules, ``p`` on torchvision's StochasticDepth) and peft's lycoris layers,
++# which keep ``rank_dropout`` / ``module_dropout`` as ``{adapter_name: rate}`` dicts.
++_TRAIN_MODE_ATTR_FRAGMENTS = ("dropout", "pdrop", "drop_path", "drop_prob", "drop_rate", "layerdrop", "jitter")
++
++
++def _is_positive_rate(value) -> bool:
++    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
++
++
++def _positive_rates(value) -> list[tuple[str, float]]:
++    """``(suffix, rate)`` for the positive rates in a numeric attribute or in a dict / list of them."""
++    if _is_positive_rate(value):
++        return [("", float(value))]
++    if isinstance(value, dict):
++        return [(f"[{key}]", float(rate)) for key, rate in value.items() if _is_positive_rate(rate)]
++    if isinstance(value, list | tuple):
++        return [(f"[{index}]", float(rate)) for index, rate in enumerate(value) if _is_positive_rate(rate)]
++    return []
++
++
++def find_train_mode_dependent_modules(module: nn.Module | Sequence[nn.Module]) -> list[tuple[str, str]]:
++    """Sub-modules of ``module`` whose forward differs between train and eval mode, as ``(path, reason)``:
++    ``nn.Dropout``-family modules with ``p > 0`` (peft's ``lora_dropout`` entries included: an ``nn.Dropout``
++    when the rate is > 0, an ``nn.Identity`` otherwise), BatchNorm / InstanceNorm with running statistics,
++    DropPath / StochasticDepth modules with a rate > 0, and modules carrying a dropout / jitter / layerdrop /
++    drop-path attribute > 0, numeric or a dict / list of numbers (functional dropout, MoE router jitter, peft
++    lycoris ``rank_dropout``), and verl's ``QATLinear`` in W4A4 mode (its activation observer runs in train
++    mode only; W4A16 is weight-only and not flagged). The walk is structural: it rejects every
++    train-mode-dependent module or rate that is visible as a module or a named attribute; a train-mode branch
++    written into a forward (a hard-coded ``F.dropout(p)``, a rate read from the config inside ``forward``) is
++    not detectable. FSDP1-wrapped and
++    FSDP2-sharded modules keep their sub-modules, so the walk sees them. Example:
++    ``[("model.layers.0.self_attn", "attention_dropout=0.5")]``. A list of modules (pipeline chunks) is walked
++    with an ``[i].`` prefix."""
++    roots = list(module) if isinstance(module, list | tuple) else [module]
++    found: list[tuple[str, str]] = []
++    for index, root in enumerate(roots):
++        prefix = f"[{index}]." if len(roots) > 1 else ""
++        for name, sub in root.named_modules():
++            path = prefix + name
++            class_name = type(sub).__name__
++            if isinstance(sub, nn.modules.dropout._DropoutNd):
++                if _is_positive_rate(sub.p):
++                    found.append((path, f"{class_name}(p={sub.p})"))
++                continue
++            if isinstance(sub, nn.modules.batchnorm._NormBase):
++                if sub.track_running_stats:
++                    found.append((path, f"{class_name}(track_running_stats=True)"))
++                continue
++            if "DropPath" in class_name or "StochasticDepth" in class_name:
++                rate = getattr(sub, "drop_prob", getattr(sub, "p", None))
++                if _is_positive_rate(rate):
++                    found.append((path, f"{class_name}(p={rate})"))
++                continue
++            mode = getattr(sub, "mode", None)
++            if hasattr(sub, "_fake_quantize_activation") and getattr(mode, "value", mode) == "w4a4":
++                # verl's QATLinear in W4A4 mode: _fake_quantize_activation runs the activation observer only when
++                # self.training, so train and eval quantize with different input_global_scale values
++                reason = "the activation observer updates input_global_scale in train mode only"
++                found.append((path, f"{class_name}(mode=w4a4): {reason}"))
++                continue
++            for attr, value in vars(sub).items():
++                if attr.startswith("_") or not any(fragment in attr for fragment in _TRAIN_MODE_ATTR_FRAGMENTS):
++                    continue
++                for suffix, rate in _positive_rates(value):
++                    found.append((path, f"{attr}{suffix}={rate}"))
++    return found
++
++
+ @dataclass
+ class CausalLMOutputForPPO(CausalLMOutputWithPast):
+     log_probs: Optional[torch.FloatTensor] = None
+diff --git a/verl/workers/config/actor.py b/verl/workers/config/actor.py
+index 731b26c2..c56a1959 100644
+--- a/verl/workers/config/actor.py
++++ b/verl/workers/config/actor.py
+@@ -131,6 +131,8 @@ class ActorConfig(BaseConfig):
+         kl_loss_type (str): Type of KL loss to use.
+         ppo_epochs (int): Number of PPO epochs per training step.
+         shuffle (bool): Whether to shuffle data during training.
++        skip_old_log_prob_when_on_policy (bool): Skip the separate old-log-prob forward pass when the update is
++            strictly on-policy (one optimizer step per sampled batch); see ``validate_config``.
+         checkpoint (CheckpointConfig): Configuration for checkpointing.
+         optim (OptimizerConfig): Configuration for optimizer.
+         use_fused_kernels (bool): Whether to use custom fused kernels (e.g., FlashAttention, fused MLP).
+@@ -175,6 +177,7 @@ class ActorConfig(BaseConfig):
+     kl_loss_type: str = "low_var_kl"
+     ppo_epochs: int = 1
+     shuffle: bool = False
++    skip_old_log_prob_when_on_policy: bool = False
+     data_loader_seed: int = 42
+     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
+     optim: OptimizerConfig = field(default_factory=OptimizerConfig)
+diff --git a/verl/workers/engine/fsdp/transformer_impl.py b/verl/workers/engine/fsdp/transformer_impl.py
+index fa5d3e89..57306877 100644
+--- a/verl/workers/engine/fsdp/transformer_impl.py
++++ b/verl/workers/engine/fsdp/transformer_impl.py
+@@ -1352,6 +1352,11 @@ class FSDPEngineWithLMHead(FSDPEngine):
+         distillation_use_topk = tu.get_non_tensor_data(data=micro_batch, key="distillation_use_topk", default=False)
+         distillation_only = tu.get_non_tensor_data(data=micro_batch, key="distillation_only", default=False)
+         score_centering = tu.get_non_tensor_data(data=micro_batch, key="score_centering", default=False)
++        # False when the entropy is a metric only (the update pass under actor.skip_old_log_prob_when_on_policy
++        # with entropy_coeff=0): computed under no_grad it saves no (T, V) tensor for the backward and leaves
++        # the in-place cross-entropy backward enabled.
++        entropy_requires_grad = tu.get_non_tensor_data(data=micro_batch, key="entropy_requires_grad", default=True)
++        entropy_grad_ctx = nullcontext() if entropy_requires_grad else torch.no_grad()
+ 
+         if calculate_sum_pi_squared and use_fused_kernels:
+             raise NotImplementedError(
+@@ -1413,18 +1418,20 @@ class FSDPEngineWithLMHead(FSDPEngine):
+                     sum_pi_squared_rmpad = verl_F.calculate_sum_pi_squared_from_logits(logits_rmpad)
+ 
+                 if calculate_entropy:
+-                    if not self.engine_config.entropy_checkpointing:
+-                        if self.engine_config.entropy_from_logits_with_chunking:
+-                            entropy_rmpad = self.compute_entropy_from_logits(
+-                                logits_rmpad,
+-                                chunk_size=self.engine_config.entropy_from_logits_chunk_size,
+-                            )  # ((total_nnz / sp) + pad)
++                    with entropy_grad_ctx:
++                        # without a graph there is nothing to checkpoint
++                        if not self.engine_config.entropy_checkpointing or not entropy_requires_grad:
++                            if self.engine_config.entropy_from_logits_with_chunking:
++                                entropy_rmpad = self.compute_entropy_from_logits(
++                                    logits_rmpad,
++                                    chunk_size=self.engine_config.entropy_from_logits_chunk_size,
++                                )  # ((total_nnz / sp) + pad)
++                            else:
++                                entropy_rmpad = self.compute_entropy_from_logits(logits_rmpad)
+                         else:
+-                            entropy_rmpad = self.compute_entropy_from_logits(logits_rmpad)
+-                    else:
+-                        entropy_rmpad = torch.utils.checkpoint.checkpoint(
+-                            self.compute_entropy_from_logits, logits_rmpad
+-                        )
++                            entropy_rmpad = torch.utils.checkpoint.checkpoint(
++                                self.compute_entropy_from_logits, logits_rmpad
++                            )
+ 
+                 # logits_processor_func return tensors with shape (1, total_nnz/sp_size)
+                 if distillation_use_topk or score_centering:
+@@ -1440,8 +1447,8 @@ class FSDPEngineWithLMHead(FSDPEngine):
+ 
+                 if not distillation_only:
+                     # if use_sp: ((total_nnz / sp) + pad) ; if not use_sp: (batch, seqlen)
+-                    # entropy and the score centering hook reuse the logits in their backward
+-                    inplace_backward = not (calculate_entropy or score_centering)
++                    # entropy (when it carries a graph) and the score centering hook reuse the logits in their backward
++                    inplace_backward = not ((calculate_entropy and entropy_requires_grad) or score_centering)
+                     log_probs = logprobs_from_logits(
+                         logits=logits_rmpad,
+                         labels=input_ids_rmpad_rolled,
+@@ -1504,10 +1511,11 @@ class FSDPEngineWithLMHead(FSDPEngine):
+                 )
+ 
+                 if calculate_entropy:
+-                    if not self.engine_config.entropy_checkpointing:
+-                        entropy = verl_F.entropy_from_logits(logits)
+-                    else:
+-                        entropy = torch.utils.checkpoint.checkpoint(verl_F.entropy_from_logits, logits)
++                    with entropy_grad_ctx:
++                        if not self.engine_config.entropy_checkpointing or not entropy_requires_grad:
++                            entropy = verl_F.entropy_from_logits(logits)
++                        else:
++                            entropy = torch.utils.checkpoint.checkpoint(verl_F.entropy_from_logits, logits)
+ 
+                 if calculate_sum_pi_squared:
+                     sum_pi_squared = verl_F.calculate_sum_pi_squared_from_logits(logits)
+diff --git a/verl/workers/engine_workers.py b/verl/workers/engine_workers.py
+index 902ec168..5425852e 100644
+--- a/verl/workers/engine_workers.py
++++ b/verl/workers/engine_workers.py
+@@ -41,6 +41,7 @@ from verl.utils.flops_counter import FlopsCounter
+ from verl.utils.import_utils import import_external_libs
+ from verl.utils.memory_utils import aggressive_empty_cache
+ from verl.utils.metric.utils import Metric
++from verl.utils.model import find_train_mode_dependent_modules
+ from verl.utils.profiler import DistProfiler, DistProfilerExtension, ProfilerConfig, log_gpu_memory_usage
+ from verl.utils.py_functional import append_to_dict
+ from verl.utils.qat import dispatch_rollout_weight_quantizer
+@@ -302,6 +303,16 @@ class TrainingWorker(Worker, DistProfilerExtension):
+             )
+             mini_batch_size_per_gpu = mini_batch_size // self.engine.get_data_parallel_size()
+ 
++        if tu.get(data, key="on_policy_skip_old_log_prob", default=False):
++            # The update pass stands in for the old-log-prob pass (actor.skip_old_log_prob_when_on_policy):
++            # every row must be trained at the sampling weights, i.e. in the single optimizer step of ONE
++            # mini-batch; a second mini-batch would be trained after that step with ratio 1 and no clipping.
++            assert batch_size_per_dp == mini_batch_size_per_gpu and epochs == 1, (
++                "on_policy_skip_old_log_prob needs exactly one mini-batch and one epoch per update (one optimizer "
++                f"step), got {batch_size_per_dp} rows on this rank for a mini-batch of {mini_batch_size_per_gpu} "
++                f"rows and {epochs=}"
++            )
++
+         # make iterator
+         dataloader = tu.make_iterator(
+             data,
+@@ -366,7 +377,24 @@ class TrainingWorker(Worker, DistProfilerExtension):
+                             )
+                     append_to_dict(metrics, output)
+ 
+-                output = tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": metrics}).cpu()
++                output = tu.get_tensordict(tensor_dict={}, non_tensor_dict={"metrics": metrics})
++                if tu.get(data, key="return_model_output", default=False):
++                    # Also return the per-token model outputs of the update pass (log_probs, entropy, ...),
++                    # one row per input sample in input order: the sequential dataloader yields the
++                    # mini-batches in order and the engine restores each one to its own input order, so
++                    # their concatenation is row-aligned with `data` as long as nothing shuffles.
++                    assert epochs == 1 and not dataloader_kwargs.get("shuffle", False), (
++                        "return_model_output needs the mini-batches in input order (epochs=1, shuffle=False), "
++                        f"got {epochs=} {dataloader_kwargs=}"
++                    )
++                    model_output = tu.concat_tensordict([out.exclude("metrics") for out in output_lst])
++                    assert model_output.batch_size[0] == batch_size_per_dp, (
++                        f"{model_output.batch_size[0]} model output rows for {batch_size_per_dp} samples"
++                    )
++                    output = tu.get_tensordict(
++                        tensor_dict=dict(model_output.items()), non_tensor_dict={"metrics": metrics}
++                    )
++                output = output.cpu()
+             else:
+                 output = None
+         return output
+@@ -411,8 +439,9 @@ class TrainingWorker(Worker, DistProfilerExtension):
+             lr = None
+ 
+         if self.engine.is_mp_src_rank_with_outputs():
+-            # we don't need model_output in training. Maybe we change out mind later
+-            output.pop("model_output")
++            if not tu.get(data, key="return_model_output", default=False):
++                # we don't need model_output in training. Maybe we change out mind later
++                output.pop("model_output")
+             if lr is not None:
+                 output["metrics"]["lr"] = lr
+             final_output = self._postprocess_output(
+@@ -687,6 +716,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
+                 self.loss_fn = partial(ppo_loss, config=actor_config)
+             self.actor = self.actor_worker_cls(config=actor_training_config)
+             self.actor.reset()
++            self._check_actor_for_on_policy_skip()
+             self.actor.set_loss_fn(self.loss_fn)
+             self.set_dispatch_collect(mesh_name="actor", **self.actor.get_dispatch_collect())
+ 
+@@ -743,6 +773,35 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
+         # Free cached GPU memory so colocated vLLM processes can see it via cudaMemGetInfo
+         aggressive_empty_cache(force_sync=True)
+ 
++    def _check_actor_for_on_policy_skip(self) -> None:
++        """``actor.skip_old_log_prob_when_on_policy`` stores the update pass's train-mode log-probs as the old
++        log-probs, so the actor's forward must not depend on the train/eval mode. The config-level check
++        (``verl.utils.config._validate_skip_old_log_prob_config``) inspects the effective HF config and the
++        adapter config; this walk over the built module runs on every rank before any update and rejects every
++        train-mode-dependent module or rate that is visible structurally (dropout modules and rates, LoRA / LoHa
++        dropout, DropPath / StochasticDepth, router jitter, layerdrop, BatchNorm), naming the module paths.
++        Behaviour hidden in forward code is not detectable, so for custom models the skip remains the user's
++        assertion."""
++        if not self.config.actor.get("skip_old_log_prob_when_on_policy", False):
++            return
++        module = getattr(self.actor.engine, "module", None)
++        if module is None:
++            raise ValueError(
++                "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True: the actor engine exposes no `module` "
++                "to check for train-mode-dependent sub-modules"
++            )
++        offenders = find_train_mode_dependent_modules(module)
++        if not offenders:
++            return
++        shown = "; ".join(f"{path or '<root>'}: {reason}" for path, reason in offenders[:5])
++        more = f"; +{len(offenders) - 5} more" if len(offenders) > 5 else ""
++        raise ValueError(
++            "actor_rollout_ref.actor.skip_old_log_prob_when_on_policy=True requires an actor whose forward does not "
++            "depend on train/eval mode (the update pass's train-mode log-probs stand in for the eval-mode old "
++            f"log-probs), but the built actor module has {len(offenders)} train-mode-dependent sub-module(s): "
++            f"{shown}{more}"
++        )
++
+     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="ref"))
+     @DistProfiler.annotate(color="olive", role="ref_compute_log_prob")
+     @_with_routing_replay_flag(enabled=False)
+diff --git a/verl/workers/utils/losses.py b/verl/workers/utils/losses.py
+index aff27653..7e9af433 100644
+--- a/verl/workers/utils/losses.py
++++ b/verl/workers/utils/losses.py
+@@ -94,8 +94,15 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
+ 
+     metrics = {}
+ 
++    # Strictly on-policy update (actor.skip_old_log_prob_when_on_policy): the old-log-prob pass was skipped
++    # because this forward runs at the sampling weights, so the current log-probs, detached, are the old
++    # ones (ratio 1, clipping inert; pg_clipfrac and ppo_kl are 0 by construction).
++    on_policy = tu.get_non_tensor_data(data=data, key="on_policy_skip_old_log_prob", default=False)
++
+     # select fields and convert to padded tensor
+-    fields = ["response_mask", "old_log_probs", "advantages"]
++    fields = ["response_mask", "advantages"]
++    if not on_policy:
++        fields.append("old_log_probs")
+     if "rollout_is_weights" in data:
+         fields.append("rollout_is_weights")
+     if "ref_log_prob" in data:
+@@ -104,7 +111,7 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
+ 
+     response_mask = data["response_mask"].to(bool)
+     # compute policy loss
+-    old_log_prob = data["old_log_probs"]
++    old_log_prob = log_prob.detach() if on_policy else data["old_log_probs"]
+     advantages = data["advantages"]
+     rollout_is_weights = data.get("rollout_is_weights", None)
+ 
+@@ -159,8 +166,9 @@ def ppo_loss(config: ActorConfig, model_output, data: TensorDict, dp_group=None)
+             metrics[f"actor/{key}"] = Metric(value=value, aggregation=aggregation)
+     policy_loss = pg_loss
+ 
+-    # add entropy loss
+-    if entropy is not None:
++    # add entropy loss (under the skip without an entropy bonus the entropy is computed, without grad, only
++    # for the actor/entropy metric the trainer logs: it is not a loss term and not reported as one)
++    if entropy is not None and not (on_policy and config.entropy_coeff == 0.0):
+         entropy_loss = agg_loss(
+             loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode, **config.global_batch_info
+         )

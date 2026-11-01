@@ -1,0 +1,2664 @@
+diff --git a/docs/advance/agent_loop.rst b/docs/advance/agent_loop.rst
+index d5b41ff7..06177bcb 100644
+--- a/docs/advance/agent_loop.rst
++++ b/docs/advance/agent_loop.rst
+@@ -1,7 +1,7 @@
+ Agent Loop
+ ==========
+ 
+-Last updated: 07/17/2025.
++Last updated: 10/28/2026.
+ 
+ .. versionadded:: 0.4.2
+    [status: alpha]
+@@ -230,6 +230,119 @@ they can call ``LLMServerClient.generate`` to generate response_ids.
+            """
+            ...
+ 
++Turn-level rewards, episode done and ``turn_rloo``
++---------------------------------------------------
++
++.. versionadded:: 0.10.0
++
++A ``BaseTool.execute`` already returns a per-call step reward, and ``ToolAgentLoop`` collects every
++step reward of a trajectory in ``extra_fields["tool_rewards"]``. By default that signal never reaches
++training: the trajectory's only reward is the episode score, placed on the last response token.
++Three opt-in pieces turn the step rewards into per-turn credit, the shape an environment loop needs
++(an observation per turn, an action per turn, a reward per cycle, an episode that ends when the
++environment says so):
++
++1. **A tool can end the episode.** ``ToolResponse(text=..., done=True)`` makes the loop append the
++   response as the final observation and terminate instead of generating another turn
++   (``extra_fields["episode_done"]`` records it). The response budget, ``max_assistant_turns`` and
++   ``max_user_turns`` still apply; note that the last allowed assistant turn never executes its tool
++   calls, so an environment of ``K`` steps needs ``max_assistant_turns >= K + 1`` for the final step
++   reward and ``done`` to land. A wall-clock deadline per episode is a planned follow-up.
++
++2. **Every generated turn is located.** With the flag below on, ``extra_fields["generated_turn_spans"]``
++   holds the ``[start, end)`` offsets of each assistant turn within ``response_ids`` (the names of
++   draft PR #8305, so the two can stack), ``extra_fields["turn_rewards"]`` the step rewards of the
++   tool calls each turn made, summed per turn and index-aligned with the spans, and
++   ``extra_fields["episode_done"]`` the ``done`` signal; a ``custom_reward_function`` sees all three
++   in ``extra_info`` under every reward manager when the flag is on (``naive``, ``dapo``, ``gdpo``,
++   ``rate_limited``, ``remote`` then build it with ``RewardManagerBase.extra_info_for_reward_fn``: a copy
++   of the dataset's ``extra_info`` merged with copies of the loop's metadata plus ``num_turns``, the
++   loop's fields overriding dataset keys of the same name; a dataset whose ``extra_info`` is not a
++   mapping is handed over unchanged, with one warning). With the flag off the trajectory metadata and
++   each manager's callback contract are exactly what they are today: ``naive`` / ``remote`` merge the
++   loop's ``tool_extra_fields`` plus ``num_turns`` as before, ``rate_limited`` merges ``tool_extra_fields``
++   as before, ``dapo`` / ``gdpo`` hand the dataset's ``extra_info`` over untouched.
++
++3. **A dense reward tensor** (``actor_rollout_ref.rollout.multi_turn.turn_level_rewards: True``):
++   each turn's reward is written on the *last generated token* of its span and the episode score on
++   the last generated token of the response, never on a tool-response token. GAE and REINFORCE++
++   carry returns across ``response_mask == 0`` spans but drop a reward that sits on one (issue
++   #8367), so this placement is what makes them credit turns. ``grpo``, ``rloo`` and
++   ``reinforce_plus_plus_baseline`` sum the row and keep behaving episodically. With the flag off
++   nothing changes: one score on the last token, as before. Two consequences to keep in mind:
++   the row is written by the agent loop, so the reward must be computed there (a rule-based reward,
++   or a reward model with ``reward.reward_model.enable_resource_pool=True``; a colocated reward model
++   would overwrite the row, and the config validation rejects that combination), and every metric
++   that sums ``rm_scores`` (``critic/score/*``, ``val-core/*/reward``, DAPO's group filter) then reports
++   the undiscounted return, step rewards plus outcome, instead of the outcome alone. The flag applies
++   to validation rollouts too.
++
++**The response-budget boundary.** When the tokens of a tool response (the context merge) would make
++the response reach ``response_length``, the loop terminates *before* applying that merge, exactly as it
++did before this feature. The turn's step reward and ``done`` were recorded when the tool ran, so
++``turn_rewards`` / ``rm_scores`` and ``episode_done`` keep them, but the tool response itself is not part
++of ``response_ids``: a reward function that decodes the response never sees that terminal observation,
++and ``episode_done`` can be ``True`` while the trajectory ends with the assistant turn that triggered it.
++Budget ``response_length`` for the final observation when the scorer needs it.
++
++``algorithm.adv_estimator: turn_rloo`` adds the matching critic-free estimator (RFC #7244): for
++sample :math:`i` of a group that shares a prompt, the advantage of every token of turn :math:`t` is
++the return-to-go from that turn minus the mean return-to-go from turn :math:`t` of the *other* group
++members that reached turn :math:`t`, i.e.
++:math:`A_{i,t} = G_{i,t} - \frac{1}{|J_t| - 1} \sum_{j \in J_t, j \neq i} G_{j,t}` with
++:math:`G_{i,t} = \sum_{t' \ge t} \gamma^{t'-t} r_{i,t'}` (``algorithm.gamma`` discounts per turn;
++1.0 is the RFC's form). When no other member reached the turn the baseline is 0. Rows without spans
++are one turn, so on single-turn data the estimator gives the same policy advantages as ``rloo`` (only
++the ``returns`` tensor differs: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its
++advantages, which changes ``critic/returns/*`` and nothing in the actor update); the same holds on multi-turn
++data whenever ``rollout.multi_turn.turn_level_rewards`` is off, because the loop then exports no
++spans and the trainer forwards none, so set both keys as in the example below. The simpler per-turn-index
++normalisation (subtracting the group mean of *the same turn's reward*) is biased as soon as the
++policy decides whether a later turn happens at all; ``tests/trainer/ppo/test_turn_rloo_on_cpu.py``
++checks both against the exact policy gradient of a two-turn MDP.
++
++**Conditions of the unbiasedness argument.** It holds for independent trajectories, ``gamma: 1.0`` and
++``norm_adv_by_std=False`` (the defaults; the exact-gradient test is that case). With
++``norm_adv_by_std=True`` each advantage is divided by a standard deviation that includes the sample's
++own return, so the baseline is no longer independent of the action: it is a variance-reduction
++heuristic (rewards ``[0, 1, 4]`` with probabilities ``[0.2, 0.3, 0.5]`` in groups of 3 give the expected
++score-gradient ``[-0.46, -0.39, 0.85]`` unnormalised and about ``[-0.245, -0.185, 0.430]`` normalised,
++not a common rescaling). With ``gamma < 1`` the advantage is the discounted return-to-go *without* the
++outer :math:`\gamma^t` weight, the convention ``reinforce_plus_plus`` uses: it is not the gradient of
++:math:`E[\sum_t \gamma^t r_t]` (two independent Bernoulli turns with ``gamma: 0.5`` give ``[0.25, 0.25]``
++instead of ``[0.25, 0.125]``), so treat discounting as a heuristic. Outputs of one V1 multi-output
++session share ``uid`` and are correlated, outside the argument.
++
++**Custom estimators and the spans.** An estimator opts into the spans by declaring a ``turn_spans``
++parameter; ``**kwargs`` alone does not. A wrapper must expose what it forwards:
++``adv_estimator_takes_turn_spans`` reads the outermost callable's own signature, and a ``functools.wraps``
++wrapper receives the spans only when it takes ``**kwargs`` and the wrapped estimator declares ``turn_spans``;
++otherwise no spans are passed and ``turn_rloo`` behaves like ``rloo``.
++
++A minimal device tool, with the configuration that trains on its step rewards:
++
++.. code:: python
++
++   from verl.tools.base_tool import BaseTool
++   from verl.tools.schemas import ToolResponse
++
++   class WorkcellTool(BaseTool):
++       async def execute(self, instance_id, parameters, **kwargs):
++           observation, step_reward, placed = await self.device.step(parameters)  # one cycle
++           return ToolResponse(text=observation, done=placed), step_reward, {}
++
++.. code:: yaml
++
++   actor_rollout_ref:
++     rollout:
++       multi_turn:
++         enable: True
++         tool_config_path: workcell_tools.yaml
++         turn_level_rewards: True
++   algorithm:
++     adv_estimator: turn_rloo   # or reinforce_plus_plus / gae, which also read the dense rewards
++     gamma: 1.0
++
+ Next
+ ----
+ 
+diff --git a/docs/algo/ppo.md b/docs/algo/ppo.md
+index e17620ae..cacc39af 100644
+--- a/docs/algo/ppo.md
++++ b/docs/algo/ppo.md
+@@ -1,6 +1,6 @@
+ # Proximal Policy Optimization (PPO)
+ 
+-Last updated: 06/19/2025.
++Last updated: 10/28/2026.
+ 
+ Proximal Policy Optimization (PPO) is a family of policy gradient methods for reinforcement learning, proposed by OpenAI in 2017. PPO strikes a balance between simplicity, stability, and performance, making it one of the most widely used algorithms in modern RL applications, including large-scale language model fine-tuning.
+ 
+@@ -45,7 +45,7 @@ Most critic configs are similar to those of actors. Note that the critic model i
+ 
+ - `algorithm.lam`: The lambda term that trades off between bias and variance in the GAE estimator
+ 
+-- `algorithm.adv_estimator`: Support gae, grpo, reinforce_plus_plus, reinforce_plus_plus_baseline, rloo
++- `algorithm.adv_estimator`: Support gae, grpo, reinforce_plus_plus, reinforce_plus_plus_baseline, rloo, turn_rloo (per-turn leave-one-out baseline for multi-turn agent loops, see the Agent Loop page)
+ 
+ ## Advanced Extensions
+ 
+diff --git a/docs/examples/config.rst b/docs/examples/config.rst
+index e8c93b43..3a5ed9bc 100644
+--- a/docs/examples/config.rst
++++ b/docs/examples/config.rst
+@@ -3,7 +3,7 @@
+ Config Explanation
+ ===================
+ 
+-Last updated: 10/01/2026.
++Last updated: 10/28/2026.
+ 
+ ppo_trainer.yaml for RL FSDP Backend
+ -------------------------------------
+@@ -566,7 +566,7 @@ Algorithm
+ 
+ - ``gamma``: discount factor
+ - ``lam``: Trade-off between bias and variance in the GAE estimator
+-- ``adv_estimator``: Support ``gae``, ``grpo``, ``reinforce_plus_plus``, ``reinforce_plus_plus_baseline``, ``rloo``, ``rloo_vectorized``, ``grpo_vectorized``
++- ``adv_estimator``: Support ``gae``, ``grpo``, ``reinforce_plus_plus``, ``reinforce_plus_plus_baseline``, ``rloo``, ``rloo_vectorized``, ``grpo_vectorized``, ``turn_rloo`` (multi-turn agent loops, see :doc:`../advance/agent_loop`)
+ - ``use_kl_in_reward``: Whether to enable in-reward kl penalty. Default is False.
+ - ``kl_penalty``: Support ``kl``, ``abs``, ``mse``, ``low_var_kl`` and ``full``. How to
+   calculate the kl divergence between actor and reference policy. For
+diff --git a/tests/experimental/agent_loop/test_tool_call_id_on_cpu.py b/tests/experimental/agent_loop/test_tool_call_id_on_cpu.py
+index 52ec4e1d..1a419840 100644
+--- a/tests/experimental/agent_loop/test_tool_call_id_on_cpu.py
++++ b/tests/experimental/agent_loop/test_tool_call_id_on_cpu.py
+@@ -19,6 +19,7 @@ from typing import Any
+ from verl.experimental.agent_loop.tool_agent_loop import AgentState, ToolAgentLoop
+ from verl.experimental.agent_loop.tool_parser import FunctionCall, KimiToolParser
+ from verl.tools.schemas import OpenAIFunctionToolSchema, ToolResponse
++from verl.utils.tokenizer.continuous_token import MergeResult
+ 
+ 
+ class _FakeTokenizer:
+@@ -120,7 +121,9 @@ class TestToolCallIdOnCpu(unittest.IsolatedAsyncioTestCase):
+         ):
+             del previous_messages, response_logprobs, tools
+             captured_messages.extend(updated_messages)
+-            merge_result = SimpleNamespace(token_ids=list(runtime_token_ids) + [41, 42])
++            merge_result = MergeResult(
++                token_ids=list(runtime_token_ids) + [41, 42], appended_token_count=2, kind="context"
++            )
+             return merge_result, list(response_mask) + [0, 0], None
+ 
+         loop = SimpleNamespace(
+@@ -130,6 +133,7 @@ class TestToolCallIdOnCpu(unittest.IsolatedAsyncioTestCase):
+             response_length=128,
+             tool_schemas=[],
+             _assert_mm_supported=lambda has_multi_modal: None,
++            turn_level_rewards=False,
+             ct_merge_context_msg=ct_merge_context_msg,
+             _call_tool=call_tool,
+         )
+@@ -154,6 +158,9 @@ class TestToolCallIdOnCpu(unittest.IsolatedAsyncioTestCase):
+             tools_kwargs={},
+             metrics={},
+             tool_rewards=[],
++            generated_turn_spans=[],
++            turn_rewards=[],
++            episode_done=False,
+             prompt_ids=[1, 2, 3],
+             response_mask=[],
+             response_logprobs=[],
+diff --git a/tests/experimental/agent_loop/test_turn_level_rewards_on_cpu.py b/tests/experimental/agent_loop/test_turn_level_rewards_on_cpu.py
+new file mode 100644
+index 00000000..414cff9c
+--- /dev/null
++++ b/tests/experimental/agent_loop/test_turn_level_rewards_on_cpu.py
+@@ -0,0 +1,421 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""ToolAgentLoop end to end on CPU: turn spans, per-turn tool rewards, ``ToolResponse.done`` and the dense
++``rm_scores`` written by ``rollout.multi_turn.turn_level_rewards``, fed to ``turn_rloo``.
++
++The LLM server, tokenizer and Continuous Token merges are scripted; the loop, the tool dispatch and the
++reward writer are the real code.
++"""
++
++from types import SimpleNamespace
++from typing import Any
++
++import numpy as np
++import pytest
++import torch
++
++from verl.experimental.agent_loop.tool_agent_loop import ToolAgentLoop
++from verl.experimental.agent_loop.tool_parser import FunctionCall
++from verl.tools.schemas import ToolResponse
++from verl.trainer.ppo.core_algos import compute_turn_rloo_advantage
++from verl.utils.tokenizer.continuous_token import MergeResult
++from verl.workers.rollout.replica import TokenOutput
++
++GENERATED_TOKENS = 3  # tokens per assistant turn
++OBSERVATION_TOKENS = 2  # tokens per tool response
++
++
++class ScriptedWorkcellTool:
++    """A stateful tool whose k-th call returns step reward ``rewards[k]`` and ``done`` on the last one."""
++
++    def __init__(self, rewards: list[float], done_on_last: bool):
++        self.name = "step"
++        self.tool_schema = SimpleNamespace(
++            model_dump=lambda **kwargs: {"type": "function", "function": {"name": "step", "parameters": {}}}
++        )
++        self.rewards = rewards
++        self.done_on_last = done_on_last
++        self.calls = 0
++
++    async def create(self, create_kwargs=None):
++        return "instance", ToolResponse()
++
++    async def execute(self, instance_id, parameters, **kwargs):
++        reward = self.rewards[self.calls]
++        self.calls += 1
++        done = self.done_on_last and self.calls == len(self.rewards)
++        return ToolResponse(text=f"obs {parameters['k']}", done=done), reward, {}
++
++    async def release(self, instance_id):
++        pass
++
++
++class ScriptedServer:
++    """Returns ``GENERATED_TOKENS`` fresh token ids per call and counts the calls."""
++
++    def __init__(self):
++        self.calls = 0
++
++    async def generate(self, request_id, *, prompt_ids, sampling_params, **kwargs):
++        self.calls += 1
++        base = 1000 * self.calls
++        return TokenOutput(token_ids=[base + i for i in range(GENERATED_TOKENS)], log_probs=None)
++
++
++class ScriptedToolParser:
++    """Every turn up to ``tool_call_turns`` calls the tool once; later turns call nothing."""
++
++    stop_token_ids: list[int] = []
++
++    def __init__(self, tool_call_turns: int):
++        self.tool_call_turns = tool_call_turns
++        self.turn = 0
++
++    async def extract_tool_calls(self, response_ids, tools):
++        self.turn += 1
++        if self.turn <= self.tool_call_turns:
++            return "", [FunctionCall(name="step", arguments=f'{{"k": {self.turn}}}')]
++        return "final answer", []
++
++
++def make_loop(
++    tool: ScriptedWorkcellTool, *, turn_level_rewards: bool, max_assistant_turns: int = 8, response_length: int = 64
++) -> ToolAgentLoop:
++    loop = object.__new__(ToolAgentLoop)
++    loop.rollout_config = SimpleNamespace(full_determinism=False)
++    loop.max_user_turns = None
++    loop.max_assistant_turns = max_assistant_turns
++    loop.max_parallel_calls = 1
++    loop.max_tool_response_length = 256
++    loop.tool_response_truncate_side = "middle"
++    loop.turn_level_rewards = turn_level_rewards
++    loop.prompt_length = 16
++    loop.response_length = response_length
++    loop.tools = {tool.name: tool}
++    loop.tool_schemas = [tool.tool_schema.model_dump()]
++    loop.tool_parser = ScriptedToolParser(tool_call_turns=len(tool.rewards))
++    loop.tool_parser_name = "hermes"
++    loop.processor = None
++    loop.server_manager = ScriptedServer()
++
++    async def process_multi_modal_info(messages):
++        return {}
++
++    async def ct_build_initial_tokens(messages, **kwargs):
++        return [101, 102, 103]
++
++    async def ct_merge_assistant_token(runtime_token_ids, assistant_token_ids, response_mask, *args, **kwargs):
++        merge = MergeResult(
++            token_ids=list(runtime_token_ids) + list(assistant_token_ids),
++            appended_token_count=len(assistant_token_ids),
++            kind="assistant",
++        )
++        return merge, list(response_mask) + [1] * len(assistant_token_ids), None
++
++    async def ct_merge_context_msg(previous_messages, updated_messages, runtime_token_ids, response_mask, *a, **kw):
++        observation = [500 + len(runtime_token_ids), 501 + len(runtime_token_ids)]
++        merge = MergeResult(
++            token_ids=list(runtime_token_ids) + observation, appended_token_count=len(observation), kind="context"
++        )
++        return merge, list(response_mask) + [0] * OBSERVATION_TOKENS, None
++
++    loop.process_multi_modal_info = process_multi_modal_info
++    loop._get_mm_processor_kwargs = lambda audios: None
++    loop._assert_mm_supported = lambda has_multi_modal: None
++    loop.ct_build_initial_tokens = ct_build_initial_tokens
++    loop.ct_merge_assistant_token = ct_merge_assistant_token
++    loop.ct_merge_context_msg = ct_merge_context_msg
++    return loop
++
++
++async def run_episode(rewards: list[float], *, turn_level_rewards: bool, done: bool = True) -> tuple[Any, Any]:
++    tool = ScriptedWorkcellTool(rewards, done_on_last=done)
++    loop = make_loop(tool, turn_level_rewards=turn_level_rewards)
++    output = await loop.run({}, raw_prompt=[{"role": "user", "content": "place the part"}])
++    return loop, output
++
++
++def _expected_mask(turns: int, trailing_observation: bool) -> list[int]:
++    mask = []
++    for t in range(turns):
++        mask += [1] * GENERATED_TOKENS
++        if t < turns - 1 or trailing_observation:
++            mask += [0] * OBSERVATION_TOKENS
++    return mask
++
++
++@pytest.mark.asyncio
++async def test_done_ends_the_episode_with_turn_spans_and_turn_rewards():
++    loop, output = await run_episode([0.25, -0.5, 1.0], turn_level_rewards=True)
++
++    assert loop.server_manager.calls == 3, "generation stopped on done, not on max_assistant_turns=8"
++    assert output.response_mask == _expected_mask(3, trailing_observation=True)
++    assert output.extra_fields["generated_turn_spans"] == [(0, 3), (5, 8), (10, 13)]
++    assert output.extra_fields["turn_rewards"] == [0.25, -0.5, 1.0]
++    assert output.extra_fields["tool_rewards"] == [0.25, -0.5, 1.0]
++    assert output.extra_fields["episode_done"] is True
++    assert output.turn_rewards == [0.25, -0.5, 1.0]
++    assert output.num_turns == 7
++    assert len(output.response_ids) == 15
++
++
++@pytest.mark.asyncio
++async def test_without_done_the_loop_keeps_generating_until_the_model_stops_calling_tools():
++    loop, output = await run_episode([0.25, -0.5, 1.0], turn_level_rewards=True, done=False)
++
++    assert loop.server_manager.calls == 4
++    assert output.extra_fields["episode_done"] is False
++    assert output.response_mask == _expected_mask(4, trailing_observation=False)
++    assert output.extra_fields["generated_turn_spans"] == [(0, 3), (5, 8), (10, 13), (15, 18)]
++    assert output.extra_fields["turn_rewards"] == [0.25, -0.5, 1.0, 0.0]
++
++    output.reward_score = 2.0
++    rm_scores = output.as_dict()["rm_scores"]
++    expected = torch.zeros(18)
++    expected[2], expected[7], expected[12], expected[17] = 0.25, -0.5, 1.0, 2.0
++    torch.testing.assert_close(rm_scores, expected)
++
++
++@pytest.mark.asyncio
++async def test_step_reward_and_done_are_kept_when_the_final_context_merge_hits_the_response_budget():
++    """The documented exception: a context merge that would reach ``response_length`` is not applied (the loop
++    terminated there before this change too). The turn's step reward and ``done`` were already recorded and
++    stay; the terminal observation is absent from the trajectory an outcome scorer decodes."""
++    tool = ScriptedWorkcellTool([0.25, -0.5, 1.0], done_on_last=True)
++    # three turns and two observations are 13 tokens; the third observation would make 15 >= 14
++    loop = make_loop(tool, turn_level_rewards=True, response_length=14)
++    output = await loop.run({}, raw_prompt=[{"role": "user", "content": "place the part"}])
++
++    assert tool.calls == 3
++    assert output.response_mask == _expected_mask(3, trailing_observation=False)
++    assert output.extra_fields["generated_turn_spans"] == [(0, 3), (5, 8), (10, 13)]
++    assert output.extra_fields["turn_rewards"] == [0.25, -0.5, 1.0], "the step reward of the cut observation stays"
++    assert output.extra_fields["episode_done"] is True
++    assert output.extra_fields["tool_rewards"] == [0.25, -0.5, 1.0]
++
++
++@pytest.mark.asyncio
++async def test_dense_rm_scores_land_on_the_last_generated_token_of_each_turn():
++    _, output = await run_episode([0.25, -0.5, 1.0], turn_level_rewards=True)
++    output.reward_score = 1.0  # what the reward loop sets after run()
++
++    fields = output.as_dict()
++
++    expected = torch.zeros(15)
++    expected[2], expected[7], expected[12] = 0.25, -0.5, 1.0 + 1.0  # outcome joins the final turn's reward
++    torch.testing.assert_close(fields["rm_scores"], expected)
++    assert fields["rm_scores"][13:].tolist() == [0.0, 0.0], "nothing on the trailing observation (mask 0)"
++    assert "turn_rewards" not in fields
++    assert fields["extra_fields"]["generated_turn_spans"] == [(0, 3), (5, 8), (10, 13)]
++
++
++@pytest.mark.asyncio
++async def test_flag_off_keeps_the_default_scalar_placement_byte_identical():
++    _, output = await run_episode([0.25, -0.5, 1.0], turn_level_rewards=False)
++    output.reward_score = 1.0
++
++    fields = output.as_dict()
++
++    assert output.turn_rewards is None
++    expected = torch.zeros(15)
++    expected[-1] = 1.0  # today's rule: last response token, even though it is an observation token
++    assert torch.equal(fields["rm_scores"], expected)
++    assert set(fields["extra_fields"]) == {"turn_scores", "tool_rewards"}, "no new metadata keys with the flag off"
++    assert set(fields) == {
++        "prompts",
++        "responses",
++        "response_mask",
++        "rm_scores",
++        "num_turns",
++        "metrics",
++        "extra_fields",
++        "multi_modal_data",
++        "mm_processor_kwargs",
++        "mm_processor_output",
++    }
++    assert fields["extra_fields"]["tool_rewards"] == [0.25, -0.5, 1.0]  # exported as before
++
++
++@pytest.mark.asyncio
++async def test_turn_rloo_on_a_group_of_episodes_matches_hand_computed_advantages():
++    turn_rewards = [[1.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 1.0]]
++    outcomes = [1.0, 0.0, 0.0, 1.0]
++    rows, spans = [], np.empty(4, dtype=object)
++    for i, (rewards, outcome) in enumerate(zip(turn_rewards, outcomes, strict=False)):
++        _, output = await run_episode(rewards, turn_level_rewards=True)
++        output.reward_score = outcome
++        fields = output.as_dict()
++        rows.append((fields["rm_scores"], fields["response_mask"].float()))
++        spans[i] = fields["extra_fields"]["generated_turn_spans"]
++    token_level_rewards = torch.stack([r for r, _ in rows])
++    response_mask = torch.stack([m for _, m in rows])
++
++    adv, _ = compute_turn_rloo_advantage(
++        token_level_rewards,
++        response_mask,
++        np.array(["prompt"] * 4),
++        turn_spans=spans,
++        config=SimpleNamespace(gamma=1.0),
++    )
++
++    returns = [
++        [sum(rewards[t:]) + outcome for t in range(3)] for rewards, outcome in zip(turn_rewards, outcomes, strict=False)
++    ]
++    for i in range(4):
++        for t, (start, end) in enumerate(spans[i]):
++            baseline = sum(returns[j][t] for j in range(4) if j != i) / 3
++            torch.testing.assert_close(adv[i, start:end], torch.full((end - start,), returns[i][t] - baseline))
++    assert torch.all(adv[:, [3, 4, 8, 9, 13, 14]] == 0), "observation tokens carry no advantage"
++    assert adv[0, 0] != adv[0, 10], "per-turn credit: turn 1 and turn 3 of the same episode differ"
++
++
++def test_v0_postprocess_writes_dense_rm_scores_only_for_rows_with_turn_rewards():
++    from verl.experimental.agent_loop.agent_loop import AgentLoopMetrics, AgentLoopWorker, _InternalAgentLoopOutput
++
++    def row(reward_score, turn_rewards, spans):
++        mask = torch.tensor([[1, 1, 0, 1, 0, 0]])  # two generated turns, a trailing observation, one pad token
++        attention = torch.tensor([[0, 1, 1, 1, 1, 1, 1, 1, 0]])  # prompt left-padded (3), response right-padded (6)
++        return _InternalAgentLoopOutput(
++            prompt_ids=torch.tensor([[0, 7, 8]]),
++            response_ids=torch.tensor([[11, 12, 13, 14, 15, 0]]),
++            input_ids=torch.tensor([[0, 7, 8, 11, 12, 13, 14, 15, 0]]),
++            position_ids=torch.arange(9).unsqueeze(0),
++            response_mask=mask,
++            attention_mask=attention,
++            reward_score=reward_score,
++            turn_rewards=turn_rewards,
++            num_turns=4,
++            metrics=AgentLoopMetrics(),
++            extra_fields={"generated_turn_spans": spans, "turn_rewards": turn_rewards or [], "episode_done": True},
++        )
++
++    worker = SimpleNamespace(reward_loop_worker_handles=None)
++    dense = row(1.0, [0.5, 0.25], [(0, 2), (3, 4)])
++    scalar = row(1.0, None, [(0, 2), (3, 4)])
++
++    batch = AgentLoopWorker._postprocess(worker, [dense, scalar])
++
++    rm_scores = batch.batch["rm_scores"]
++    assert rm_scores[0].tolist() == pytest.approx([0.0, 0.5, 0.0, 1.25, 0.0, 0.0])
++    assert rm_scores[1].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0, 1.0, 0.0])  # unchanged: last attention token
++    assert list(batch.non_tensor_batch["generated_turn_spans"]) == [[(0, 2), (3, 4)], [(0, 2), (3, 4)]]
++    assert list(batch.non_tensor_batch["episode_done"]) == [True, True]
++
++
++def test_v0_postprocess_adds_the_turn_level_columns_only_when_the_flag_is_on():
++    from verl.experimental.agent_loop.agent_loop import AgentLoopMetrics, AgentLoopWorker, _InternalAgentLoopOutput
++
++    def single_turn_row():
++        return _InternalAgentLoopOutput(
++            prompt_ids=torch.tensor([[7, 8]]),
++            response_ids=torch.tensor([[11, 12, 0]]),
++            input_ids=torch.tensor([[7, 8, 11, 12, 0]]),
++            position_ids=torch.arange(5).unsqueeze(0),
++            response_mask=torch.tensor([[1, 1, 0]]),
++            attention_mask=torch.tensor([[1, 1, 1, 1, 0]]),
++            reward_score=1.0,
++            num_turns=2,
++            metrics=AgentLoopMetrics(),
++            extra_fields={"turn_scores": [], "tool_rewards": []},
++        )
++
++    new_keys = {"turn_rewards", "generated_turn_spans", "episode_done"}
++    off = SimpleNamespace(reward_loop_worker_handles=None, rollout_config=None)
++    assert not new_keys & set(AgentLoopWorker._postprocess(off, [single_turn_row()]).non_tensor_batch)
++    on = SimpleNamespace(
++        reward_loop_worker_handles=None,
++        rollout_config=SimpleNamespace(multi_turn=SimpleNamespace(turn_level_rewards=True)),
++    )
++    columns = AgentLoopWorker._postprocess(on, [single_turn_row()]).non_tensor_batch
++    assert new_keys <= set(columns) and all(columns[key][0] is None for key in new_keys)
++
++
++def test_v0_row_without_generated_tokens_puts_the_outcome_on_the_last_valid_token():
++    from verl.experimental.agent_loop.agent_loop import AgentLoopMetrics, AgentLoopWorker, _InternalAgentLoopOutput
++
++    row = _InternalAgentLoopOutput(
++        prompt_ids=torch.tensor([[7, 8]]),
++        response_ids=torch.tensor([[11, 12, 13, 0]]),
++        input_ids=torch.tensor([[7, 8, 11, 12, 13, 0]]),
++        position_ids=torch.arange(6).unsqueeze(0),
++        response_mask=torch.tensor([[0, 0, 0, 0]]),  # three observation tokens, one pad column
++        attention_mask=torch.tensor([[1, 1, 1, 1, 1, 0]]),
++        reward_score=1.0,
++        turn_rewards=[],
++        num_turns=2,
++        metrics=AgentLoopMetrics(),
++        extra_fields={"generated_turn_spans": []},
++    )
++    worker = SimpleNamespace(reward_loop_worker_handles=None, rollout_config=None)
++    rm_scores = AgentLoopWorker._postprocess(worker, [row]).batch["rm_scores"]
++    assert rm_scores[0].tolist() == [0.0, 0.0, 1.0, 0.0], "the default path's position (last valid token), not the pad"
++
++
++def test_writer_warns_when_a_turn_has_no_generated_token():
++    from verl.experimental.agent_loop.agent_loop import write_turn_level_rewards
++
++    rm_scores, mask = torch.zeros(6), torch.tensor([1, 1, 0, 0, 0, 0])
++    with pytest.warns(RuntimeWarning, match="turn 1 has no generated token"):
++        write_turn_level_rewards(rm_scores, mask, [(0, 2), (2, 4)], [0.5, 1.0], reward_score=None)
++    assert rm_scores.tolist() == [0.0, 0.5, 0.0, 0.0, 0.0, 0.0]
++
++
++def test_alignment_warns_when_a_merge_removes_a_rewarded_turn():
++    from verl.experimental.agent_loop.tool_agent_loop import _align_generated_turn_spans
++
++    agent_data = SimpleNamespace(
++        response_mask=[1, 1, 1, 0, 1, 1], generated_turn_spans=[(0, 3), (4, 6)], turn_rewards=[0.5, 1.0]
++    )
++    with pytest.warns(RuntimeWarning, match="whole generated turn"):
++        _align_generated_turn_spans(
++            agent_data, MergeResult(token_ids=[], appended_token_count=0, kind="context", removed_prefix_token_count=3)
++        )
++    assert agent_data.generated_turn_spans == [(0, 3)] and agent_data.turn_rewards == [0.5]
++
++
++@pytest.mark.parametrize(
++    "worker",
++    [
++        SimpleNamespace(reward_loop_worker_handles=None),  # no rollout_config at all (custom subclass, tests)
++        SimpleNamespace(reward_loop_worker_handles=None, rollout_config=SimpleNamespace()),  # no multi_turn section
++        SimpleNamespace(reward_loop_worker_handles=None, rollout_config=SimpleNamespace(multi_turn=SimpleNamespace())),
++    ],
++    ids=["no-rollout-config", "no-multi-turn", "config-without-the-flag"],
++)
++def test_v0_postprocess_without_a_rollout_config_behaves_as_if_the_flag_were_off(worker):
++    from verl.experimental.agent_loop.agent_loop import AgentLoopMetrics, AgentLoopWorker, _InternalAgentLoopOutput
++
++    row = _InternalAgentLoopOutput(
++        prompt_ids=torch.tensor([[7, 8]]),
++        response_ids=torch.tensor([[11, 12, 0]]),
++        input_ids=torch.tensor([[7, 8, 11, 12, 0]]),
++        position_ids=torch.arange(5).unsqueeze(0),
++        response_mask=torch.tensor([[1, 1, 0]]),
++        attention_mask=torch.tensor([[1, 1, 1, 1, 0]]),
++        reward_score=1.0,
++        num_turns=2,
++        metrics=AgentLoopMetrics(),
++        extra_fields={"turn_scores": [], "tool_rewards": []},
++    )
++    batch = AgentLoopWorker._postprocess(worker, [row])
++    assert set(batch.non_tensor_batch) == {
++        "__num_turns__",
++        "turn_scores",
++        "tool_rewards",
++        "min_global_steps",
++        "max_global_steps",
++        "extras",
++    }
++    assert batch.batch["rm_scores"][0].tolist() == [0.0, 1.0, 0.0]
+diff --git a/tests/experimental/agent_loop/test_turn_spans_real_tokenizer_on_cpu.py b/tests/experimental/agent_loop/test_turn_spans_real_tokenizer_on_cpu.py
+new file mode 100644
+index 00000000..6f2708f6
+--- /dev/null
++++ b/tests/experimental/agent_loop/test_turn_spans_real_tokenizer_on_cpu.py
+@@ -0,0 +1,172 @@
++# Copyright 2024 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Turn spans through the real Continuous Token merge path with a real tokenizer.
++
++``ToolAgentLoop`` runs its own ``ct_build_initial_tokens`` / ``ct_merge_assistant_token`` /
++``ct_merge_context_msg`` on the ``QwenContinuousTokenBuilder`` over ``Qwen/Qwen2.5-0.5B`` and the real
++Hermes tool parser; only the LLM server and the tool are scripted. The junction under test: generation
++stops at ``<|im_end|>`` (vLLM's stop token), so the context merge inserts the missing newline as a mask-0
++boundary token before the tool response, and the next assistant span must start after the generation prompt.
++"""
++
++import asyncio
++from pathlib import Path
++from types import SimpleNamespace
++
++import pytest
++
++from verl.experimental.agent_loop.tool_agent_loop import ToolAgentLoop
++from verl.experimental.agent_loop.tool_parser import HermesToolParser
++from verl.tools.schemas import OpenAIFunctionToolSchema, ToolResponse
++from verl.utils import hf_tokenizer
++from verl.utils.tokenizer.continuous_token_wiring import create_continuous_token_builder
++from verl.workers.rollout.replica import TokenOutput
++
++MODEL_PATH = Path("~/models/Qwen/Qwen2.5-0.5B").expanduser()
++pytestmark = pytest.mark.skipif(not MODEL_PATH.is_dir(), reason=f"{MODEL_PATH} is not available")
++
++TOOL_SCHEMA = OpenAIFunctionToolSchema.model_validate(
++    {
++        "type": "function",
++        "function": {
++            "name": "step",
++            "description": "Advance the device by one cycle.",
++            "parameters": {
++                "type": "object",
++                "properties": {"k": {"type": "integer", "description": "cycle index"}},
++                "required": ["k"],
++            },
++        },
++    }
++)
++
++
++def tool_call_turn(k: int) -> str:
++    return f'<tool_call>\n{{"name": "step", "arguments": {{"k": {k}}}}}\n</tool_call><|im_end|>'
++
++
++FINAL_TURN = "The part is placed.<|im_end|>"
++
++
++class StepTool:
++    def __init__(self, rewards: list[float], done_on_last: bool):
++        self.name, self.tool_schema = "step", TOOL_SCHEMA
++        self.rewards, self.done_on_last, self.calls = rewards, done_on_last, 0
++
++    async def create(self, create_kwargs=None):
++        return "instance", ToolResponse()
++
++    async def execute(self, instance_id, parameters, **kwargs):
++        reward = self.rewards[self.calls]
++        self.calls += 1
++        done = self.done_on_last and self.calls == len(self.rewards)
++        return ToolResponse(text=f"observation after cycle {parameters['k']}", done=done), reward, {}
++
++    async def release(self, instance_id):
++        pass
++
++
++class ScriptedServer:
++    """Returns the real token ids of the scripted assistant turns, each ending with ``<|im_end|>``."""
++
++    def __init__(self, tokenizer, turns: list[str]):
++        self.tokenizer, self.turns, self.calls = tokenizer, turns, 0
++
++    async def generate(self, request_id, *, prompt_ids, sampling_params, **kwargs):
++        text = self.turns[self.calls]
++        self.calls += 1
++        return TokenOutput(token_ids=self.tokenizer.encode(text, add_special_tokens=False), log_probs=None)
++
++
++def make_loop(tokenizer, tool: StepTool, turns: list[str], *, response_length: int = 256) -> ToolAgentLoop:
++    loop = object.__new__(ToolAgentLoop)
++    loop.rollout_config = SimpleNamespace(full_determinism=False, prompt_length=512, response_length=response_length)
++    loop.tokenizer, loop.processor = tokenizer, None
++    loop.continuous_token_builder = create_continuous_token_builder(tokenizer, hf_model_type="qwen2")
++    loop.loop = asyncio.get_running_loop()
++    loop.max_user_turns, loop.max_assistant_turns, loop.max_parallel_calls = None, 8, 1
++    loop.max_tool_response_length, loop.tool_response_truncate_side = 256, "middle"
++    loop.turn_level_rewards = True
++    loop.prompt_length, loop.response_length = 512, response_length
++    loop.tools = {tool.name: tool}
++    loop.tool_schemas = [TOOL_SCHEMA.model_dump(exclude_unset=True, exclude_none=True)]
++    loop.tool_parser, loop.tool_parser_name = HermesToolParser(tokenizer), "hermes"
++    loop.server_manager = ScriptedServer(tokenizer, turns)
++
++    async def process_multi_modal_info(messages):
++        return {}
++
++    loop.process_multi_modal_info = process_multi_modal_info
++    loop._get_mm_processor_kwargs = lambda audios: None
++    return loop
++
++
++def _mask_runs(mask: list[int]) -> list[tuple[int, int]]:
++    runs, start = [], None
++    for i, m in enumerate(mask + [0]):
++        if m and start is None:
++            start = i
++        elif not m and start is not None:
++            runs.append((start, i))
++            start = None
++    return runs
++
++
++async def _run(tokenizer, tool, turns, **kwargs):
++    loop = make_loop(tokenizer, tool, turns, **kwargs)
++    return await loop.run({}, raw_prompt=[{"role": "user", "content": "Place the part."}])
++
++
++@pytest.mark.asyncio
++async def test_spans_follow_the_real_qwen_junction_edits():
++    tokenizer = hf_tokenizer(str(MODEL_PATH))
++    turns = [tool_call_turn(1), tool_call_turn(2), FINAL_TURN]
++    output = await _run(tokenizer, StepTool([0.25, 1.0], done_on_last=False), turns)
++
++    mask, spans = output.response_mask, output.extra_fields["generated_turn_spans"]
++    assert spans == _mask_runs(mask) and len(spans) == 3, "spans are exactly the runs of generated tokens"
++    for (start, end), text in zip(spans, turns, strict=True):
++        assert output.response_ids[start:end] == tokenizer.encode(text, add_special_tokens=False)
++    newline = tokenizer.encode("\n", add_special_tokens=False)[0]
++    im_end = tokenizer.convert_tokens_to_ids("<|im_end|>")
++    for start, end in spans[:2]:  # the junction: <|im_end|> ends the span, the inserted newline is mask 0
++        assert output.response_ids[end - 1] == im_end and output.response_ids[end] == newline and mask[end] == 0
++    between = tokenizer.decode(output.response_ids[spans[0][1] : spans[1][0]])
++    assert between.startswith("\n<|im_start|>user") and "observation after cycle 1" in between
++    assert between.endswith("<|im_start|>assistant\n"), "the next span starts right after the generation prompt"
++    assert output.extra_fields["turn_rewards"] == [0.25, 1.0, 0.0]
++    assert output.extra_fields["episode_done"] is False
++
++    output.reward_score = 1.0
++    rm_scores = output.as_dict()["rm_scores"]
++    expected = {spans[0][1] - 1: 0.25, spans[1][1] - 1: 1.0, spans[2][1] - 1: 1.0}  # each turn's <|im_end|>
++    assert {i: v for i, v in enumerate(rm_scores.tolist()) if v} == expected
++
++
++@pytest.mark.asyncio
++async def test_done_keeps_the_terminal_observation_unless_the_context_merge_hits_the_budget():
++    tokenizer = hf_tokenizer(str(MODEL_PATH))
++    turns = [tool_call_turn(1), tool_call_turn(2)]
++    output = await _run(tokenizer, StepTool([0.25, 1.0], done_on_last=True), turns)
++    spans = output.extra_fields["generated_turn_spans"]
++    assert output.extra_fields["episode_done"] is True and len(spans) == 2
++    tail = tokenizer.decode(output.response_ids[spans[1][1] :])
++    assert "observation after cycle 2" in tail, "done: the tool response stays as the final observation"
++    assert set(output.response_mask[spans[1][1] :]) == {0}
++
++    # the documented exception: the final context merge would reach response_length, so it is not applied
++    cut = await _run(tokenizer, StepTool([0.25, 1.0], done_on_last=True), turns, response_length=spans[1][1] + 1)
++    assert cut.extra_fields["generated_turn_spans"] == spans
++    assert len(cut.response_ids) == spans[1][1], "no terminal observation in the trajectory"
++    assert cut.extra_fields["turn_rewards"] == [0.25, 1.0] and cut.extra_fields["episode_done"] is True
+diff --git a/tests/experimental/reward_loop/test_reward_manager_extra_info_on_cpu.py b/tests/experimental/reward_loop/test_reward_manager_extra_info_on_cpu.py
+new file mode 100644
+index 00000000..29118bb2
+--- /dev/null
++++ b/tests/experimental/reward_loop/test_reward_manager_extra_info_on_cpu.py
+@@ -0,0 +1,206 @@
++# Copyright 2024 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Every reward manager hands the agent loop's ``tool_extra_fields`` to the custom reward function in
++``extra_info`` (``generated_turn_spans`` / ``turn_rewards`` / ``episode_done`` under
++``rollout.multi_turn.turn_level_rewards``), through ``RewardManagerBase.extra_info_for_reward_fn``, as a copy."""
++
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++import torch
++from omegaconf import OmegaConf
++from tensordict import TensorDict
++
++from verl import DataProto
++from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
++from verl.experimental.reward_loop.reward_manager.dapo import DAPORewardManager
++from verl.experimental.reward_loop.reward_manager.gdpo import GDPORewardManager
++from verl.experimental.reward_loop.reward_manager.limited import RateLimitedRewardManager
++from verl.experimental.reward_loop.reward_manager.naive import NaiveRewardManager
++from verl.experimental.reward_loop.reward_manager.remote import RemoteRewardManager
++
++TOOL_EXTRA_FIELDS = {
++    "turn_scores": [],
++    "tool_rewards": [2.0],
++    "generated_turn_spans": [(0, 2)],
++    "turn_rewards": [2.0],
++    "episode_done": True,
++}
++DATASET_EXTRA_INFO = {"split": "train", "index": 7}
++
++
++def _batch() -> DataProto:
++    """One sample, the way ``AgentLoopWorker._compute_score`` builds it for the reward loop."""
++    return DataProto(
++        batch=TensorDict(
++            {"responses": torch.tensor([[1, 2]]), "attention_mask": torch.tensor([[1, 1, 1]])}, batch_size=[1]
++        ),
++        non_tensor_batch={
++            "data_source": np.array(["toy"]),
++            "reward_model": np.array([{"ground_truth": "x"}], dtype=object),
++            "extra_info": np.array([dict(DATASET_EXTRA_INFO)], dtype=object),
++            "tool_extra_fields": np.array([dict(TOOL_EXTRA_FIELDS)], dtype=object),
++            "__num_turns__": np.array([3]),
++        },
++    )
++
++
++def _manager(cls, compute_score, *, turn_level_rewards=True):
++    config = OmegaConf.create(
++        {
++            "reward": {},
++            "trainer": {"experiment_name": "p4-check"},
++            "actor_rollout_ref": {"rollout": {"multi_turn": {"turn_level_rewards": turn_level_rewards}}},
++        }
++    )
++    tokenizer = SimpleNamespace(decode=lambda *args, **kwargs: "final response")
++    if cls is RemoteRewardManager:
++        # its __init__ starts Ray actors; run its run_single with an in-process stand-in for the worker pool
++        manager = object.__new__(cls)
++        RewardManagerBase.__init__(manager, config, tokenizer, compute_score)
++        manager.is_async_reward_score = False
++        manager.reward_router_address = None
++        manager.reward_model_tokenizer = None
++
++        class _Handle:
++            @staticmethod
++            async def remote(**kwargs):
++                return compute_score(**kwargs)
++
++        manager.choose_reward_worker = lambda: SimpleNamespace(compute_score=_Handle)
++        return manager
++    if cls is RateLimitedRewardManager:
++        for attr in ("_semaphore", "_rpm_limiter", "_tpm_limiter"):
++            setattr(cls, attr, None)
++        cls._class_initialized = False
++    return cls(config, tokenizer, compute_score)
++
++
++@pytest.mark.parametrize(
++    "cls", [NaiveRewardManager, DAPORewardManager, GDPORewardManager, RateLimitedRewardManager, RemoteRewardManager]
++)
++@pytest.mark.asyncio
++async def test_custom_reward_function_sees_the_turn_level_metadata_under_every_manager(cls):
++    """With rollout.multi_turn.turn_level_rewards on, every manager delivers the documented keys."""
++    captured = {}
++
++    def compute_score(data_source, solution_str, ground_truth, extra_info, **kwargs):
++        captured.update(extra_info)
++        return float(extra_info.get("episode_done", False))
++
++    data = _batch()
++    result = await _manager(cls, compute_score).run_single(data)
++
++    assert result["reward_score"] == 1.0, f"{cls.__name__} did not deliver episode_done"
++    for key in ("generated_turn_spans", "turn_rewards", "episode_done", "tool_rewards"):
++        assert captured[key] == TOOL_EXTRA_FIELDS[key], key
++    assert captured["num_turns"] == 3
++    assert captured["rollout_reward_scores"] == {}
++    assert captured["split"] == "train" and captured["index"] == 7
++    # the reward function got a copy: the batch's own dicts are untouched
++    assert data.non_tensor_batch["extra_info"][0] == DATASET_EXTRA_INFO
++    assert data.non_tensor_batch["tool_extra_fields"][0] == TOOL_EXTRA_FIELDS
++
++
++@pytest.mark.asyncio
++async def test_list_valued_tool_fields_are_copied_so_a_reward_function_cannot_edit_the_row(caplog):
++    def mutating(data_source, solution_str, ground_truth, extra_info, **kwargs):
++        extra_info["generated_turn_spans"].append((9, 9))
++        extra_info["turn_rewards"][0] = -1.0
++        extra_info["new_key"] = 1
++        return 1.0
++
++    data = _batch()
++    await _manager(NaiveRewardManager, mutating).run_single(data)
++    assert data.non_tensor_batch["tool_extra_fields"][0] == TOOL_EXTRA_FIELDS
++    assert data.non_tensor_batch["extra_info"][0] == DATASET_EXTRA_INFO
++
++
++@pytest.mark.parametrize("cls", [DAPORewardManager, NaiveRewardManager])
++@pytest.mark.asyncio
++async def test_a_non_mapping_extra_info_is_passed_through_unchanged_with_one_warning(cls, caplog):
++    """main's DAPO handed a ``str`` extra_info to the reward function untouched; so does every manager now."""
++    from verl.experimental.reward_loop.reward_manager import base
++
++    seen = []
++
++    def compute_score(data_source, solution_str, ground_truth, extra_info, **kwargs):
++        seen.append(extra_info)
++        return 1.0
++
++    data = _batch()
++    data.non_tensor_batch["extra_info"] = np.array(['{"split": "train"}'], dtype=object)
++    base._NON_MAPPING_EXTRA_INFO_WARNED.clear()
++    with caplog.at_level("WARNING", logger=base.logger.name):
++        for _ in range(2):
++            result = await _manager(cls, compute_score).run_single(data)
++    assert result["reward_score"] == 1.0 and seen == ['{"split": "train"}', '{"split": "train"}']
++    warnings_ = [r for r in caplog.records if "not a mapping" in r.getMessage()]
++    assert len(warnings_) == 1 and "str" in warnings_[0].getMessage(), "one warning per type, naming it"
++
++
++PROBE_DATASET = {"num_turns": 7, "tool_rewards": [123.0]}
++PROBE_LOOP = {"tool_rewards": [2.0]}
++MANAGERS = [NaiveRewardManager, DAPORewardManager, GDPORewardManager, RateLimitedRewardManager, RemoteRewardManager]
++
++
++@pytest.mark.parametrize("turn_level_rewards", [False, True])
++@pytest.mark.parametrize("cls", MANAGERS)
++@pytest.mark.asyncio
++async def test_each_manager_keeps_its_previous_callback_contract_with_the_flag_off(cls, turn_level_rewards):
++    """the independent follow-up probe (R2-04): dataset extra_info num_turns=7 / tool_rewards=[123.0], loop __num_turns__=3 /
++    tool_rewards=[2.0], a callback returning extra_info["num_turns"]. Flag off = main's contract per manager: naive and
++    remote merge the loop's fields plus num_turns (3); rate_limited merges the loop's fields only (7, tool_rewards
++    [2.0]); dapo and gdpo hand the dataset's own dict over untouched (7, tool_rewards [123.0]). Flag on: every manager
++    delivers the merged contract, the loop's fields overriding dataset keys of the same name (3, [2.0])."""
++    seen = []
++
++    def compute_score(data_source, solution_str, ground_truth, extra_info, **kwargs):
++        seen.append(extra_info)
++        return float(extra_info["num_turns"])
++
++    data = _batch()
++    data.non_tensor_batch["extra_info"] = np.array([dict(PROBE_DATASET)], dtype=object)
++    data.non_tensor_batch["tool_extra_fields"] = np.array([dict(PROBE_LOOP)], dtype=object)
++    result = await _manager(cls, compute_score, turn_level_rewards=turn_level_rewards).run_single(data)
++    extra_info = seen[0]
++    if turn_level_rewards or cls in (NaiveRewardManager, RemoteRewardManager):
++        assert result["reward_score"] == 3.0 and extra_info["tool_rewards"] == [2.0]
++        assert extra_info["rollout_reward_scores"] == {}
++        assert data.non_tensor_batch["extra_info"][0] == PROBE_DATASET, "a copy was handed over"
++    elif cls is RateLimitedRewardManager:
++        assert result["reward_score"] == 7.0 and extra_info["tool_rewards"] == [2.0]
++        assert "rollout_reward_scores" not in extra_info
++    else:  # dapo, gdpo: the dataset's own dict, untouched (gdpo adds experiment_name to it, as on main)
++        assert result["reward_score"] == 7.0 and extra_info["tool_rewards"] == [123.0]
++        assert extra_info is data.non_tensor_batch["extra_info"][0]
++
++
++def test_turn_level_rewards_enabled_reads_the_trainer_config_and_defaults_to_false():
++    from verl.experimental.reward_loop.reward_manager.base import turn_level_rewards_enabled
++
++    assert turn_level_rewards_enabled(OmegaConf.create({"reward": {}})) is False
++    assert turn_level_rewards_enabled(OmegaConf.create({"actor_rollout_ref": {"rollout": {}}})) is False
++    on = {"actor_rollout_ref": {"rollout": {"multi_turn": {"turn_level_rewards": True}}}}
++    assert turn_level_rewards_enabled(OmegaConf.create(on)) is True and turn_level_rewards_enabled(on) is True
++    assert turn_level_rewards_enabled(SimpleNamespace(actor_rollout_ref=None)) is False
++
++
++def test_extra_info_for_reward_fn_without_metadata_or_dataset_extra_info():
++    data = _batch()
++    data.non_tensor_batch.pop("tool_extra_fields")
++    data.non_tensor_batch["extra_info"] = np.array([None], dtype=object)
++    extra_info = RewardManagerBase.extra_info_for_reward_fn(data[0])
++    assert extra_info == {"num_turns": 3, "rollout_reward_scores": {}}
+diff --git a/tests/trainer/ppo/test_core_algos_on_cpu.py b/tests/trainer/ppo/test_core_algos_on_cpu.py
+index 36c8bc8d..69eaed70 100644
+--- a/tests/trainer/ppo/test_core_algos_on_cpu.py
++++ b/tests/trainer/ppo/test_core_algos_on_cpu.py
+@@ -38,16 +38,16 @@ def mock_test_fn():
+ 
+ class TestRegisterAdvEst(unittest.TestCase):
+     def setUp(self):
+-        """Clear the registry before each test"""
+-        verl.trainer.ppo.core_algos.ADV_ESTIMATOR_REGISTRY.clear()
+-        verl.trainer.ppo.core_algos.ADV_ESTIMATOR_REGISTRY = {
+-            "gae": lambda x: x * 2,
+-            "vtrace": lambda x: x + 1,
+-        }
++        """Replace the registry with a scratch one for each test, keeping the real entries aside."""
+         self.ADV_ESTIMATOR_REGISTRY = verl.trainer.ppo.core_algos.ADV_ESTIMATOR_REGISTRY
++        self.saved_registry = dict(self.ADV_ESTIMATOR_REGISTRY)
++        self.ADV_ESTIMATOR_REGISTRY.clear()
++        self.ADV_ESTIMATOR_REGISTRY.update({"gae": lambda x: x * 2, "vtrace": lambda x: x + 1})
+ 
+     def tearDown(self) -> None:
+-        verl.trainer.ppo.core_algos.ADV_ESTIMATOR_REGISTRY.clear()
++        """Restore the real registry so later tests in the session can look estimators up by name."""
++        self.ADV_ESTIMATOR_REGISTRY.clear()
++        self.ADV_ESTIMATOR_REGISTRY.update(self.saved_registry)
+         return super().tearDown()
+ 
+     def test_register_new_function(self):
+diff --git a/tests/trainer/ppo/test_turn_rloo_on_cpu.py b/tests/trainer/ppo/test_turn_rloo_on_cpu.py
+new file mode 100644
+index 00000000..6b08e140
+--- /dev/null
++++ b/tests/trainer/ppo/test_turn_rloo_on_cpu.py
+@@ -0,0 +1,429 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""Tests for the ``turn_rloo`` advantage estimator (RFC #7244).
++
++The soundness check is an exact policy-gradient comparison on a tabular two-turn MDP in which the
++policy decides whether the second turn happens at all (stop vs. continue). RFC #7244 shows that the
++natural per-turn-index normalisation (the MT-GRPO shape) is biased there by the accumulated group
++mean of the intermediate reward, while a leave-one-out return-to-go baseline over the group members
++that reached the turn is unbiased. Both are measured against the closed-form gradient.
++"""
++
++import itertools
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++import torch
++
++from verl.trainer.ppo.core_algos import (
++    compute_gae_advantage_return,
++    compute_reinforce_plus_plus_outcome_advantage,
++    compute_rloo_outcome_advantage,
++    compute_turn_rloo_advantage,
++    get_adv_estimator_fn,
++)
++
++# Trajectory layout of the tabular MDP in response coordinates: two generated tokens per turn and one
++# observation token after turn 1. Rewards sit on the last generated token of each turn.
++#   continue: tokens [t1 t1 obs t2 t2], mask [1 1 0 1 1], spans [(0, 2), (3, 5)]
++#   stop:     tokens [t1 t1 pad pad pad], mask [1 1 0 0 0], spans [(0, 2)]
++MU, R_STOP, N_GROUPS, GROUP_SIZE = 1.0, 0.6, 20_000, 8
++
++
++def _sigmoid(x):
++    return 1.0 / (1.0 + np.exp(-x))
++
++
++def _simulate(rng, th_c, th_a):
++    """Sample groups of the two-turn MDP. Every array has shape (N_GROUPS, GROUP_SIZE)."""
++    p, q = _sigmoid(th_c), _sigmoid(th_a)
++    cont = rng.random((N_GROUPS, GROUP_SIZE)) < p
++    good = rng.random((N_GROUPS, GROUP_SIZE)) < q
++    r_i1 = np.where(cont, MU, 0.0)
++    r_o = np.where(cont, good.astype(float), R_STOP)
++    g_c = cont.astype(float) - p  # d log pi(c | s1) / d th_c
++    g_a = np.where(cont, good.astype(float) - q, 0.0)  # d log pi(a | s2) / d th_a, 0 if never reached
++    return cont, r_i1, r_o, g_c, g_a
++
++
++def _loo_mean(x, valid):
++    xv = np.where(valid, x, 0.0)
++    s = xv.sum(axis=1, keepdims=True) - xv
++    c = valid.sum(axis=1, keepdims=True) - valid
++    return np.where(c > 0, s / np.maximum(c, 1), 0.0)
++
++
++def _turn_index_normalised(cont, r_i1, r_o):
++    """The biased estimator: return-to-go minus the per-turn-index group means of the raw rewards."""
++    all_valid = np.ones_like(cont, dtype=bool)
++    mu_i1, mu_o = _loo_mean(r_i1, all_valid), _loo_mean(r_o, all_valid)
++    a1 = (r_i1 + r_o) - np.where(cont, mu_i1 + mu_o, mu_o)
++    a2 = np.where(cont, r_o, 0.0) - mu_o
++    return a1, a2
++
++
++def _as_batch(cont, r_i1, r_o):
++    """Lay the sampled trajectories out as (token_level_rewards, response_mask, index, turn_spans)."""
++    n = cont.size
++    rewards = np.zeros((n, 5))
++    mask = np.zeros((n, 5))
++    spans = np.empty(n, dtype=object)
++    cont_f, r_i1_f, r_o_f = cont.reshape(-1), r_i1.reshape(-1), r_o.reshape(-1)
++    mask[:, :2] = 1
++    mask[cont_f, 3:] = 1
++    rewards[cont_f, 1] = r_i1_f[cont_f]
++    rewards[cont_f, 4] = r_o_f[cont_f]
++    rewards[~cont_f, 1] = r_o_f[~cont_f]
++    for i in range(n):
++        spans[i] = [(0, 2), (3, 5)] if cont_f[i] else [(0, 2)]
++    index = np.repeat(np.arange(cont.shape[0]), cont.shape[1])
++    return torch.tensor(rewards, dtype=torch.float32), torch.tensor(mask, dtype=torch.float32), index, spans
++
++
++def test_turn_rloo_is_registered():
++    assert get_adv_estimator_fn("turn_rloo") is compute_turn_rloo_advantage
++
++
++def test_turn_rloo_matches_exact_policy_gradient_where_turn_index_normalisation_is_biased():
++    rng = np.random.default_rng(0)
++    th_c, th_a = 0.0, 0.0
++    p, q = _sigmoid(th_c), _sigmoid(th_a)
++    exact = np.array([p * (1 - p) * (MU + q - R_STOP), p * q * (1 - q)])
++    cont, r_i1, r_o, g_c, g_a = _simulate(rng, th_c, th_a)
++
++    rewards, mask, index, spans = _as_batch(cont, r_i1, r_o)
++    adv, _ = compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans, config=SimpleNamespace(gamma=1.0))
++    a1 = adv[:, 1].numpy().reshape(cont.shape)  # advantage of the turn-1 decision
++    a2 = adv[:, 4].numpy().reshape(cont.shape)  # advantage of the turn-2 decision (0 for stoppers)
++
++    def estimate(adv1, adv2):
++        per_group = np.stack([(adv1 * g_c).mean(axis=1), (adv2 * g_a).mean(axis=1)], axis=1)
++        return per_group.mean(axis=0), per_group.std(axis=0, ddof=1) / np.sqrt(N_GROUPS)
++
++    est, se = estimate(a1, a2)
++    assert np.all(np.abs(est - exact) < 4 * se), f"turn_rloo biased: est={est} exact={exact} se={se}"
++
++    # The same data through the per-turn-index normalisation misses the termination gradient by
++    # -p(1-p) * E[r_I] = -p(1-p) * p * MU (RFC #7244), many standard errors away: the test has the
++    # power to tell the two estimators apart.
++    b1, b2 = _turn_index_normalised(cont, r_i1, r_o)
++    est_b, se_b = estimate(b1, b2)
++    assert abs(est_b[0] - exact[0]) > 10 * se_b[0]
++    assert abs((est_b[0] - exact[0]) - (-p * (1 - p) * p * MU)) < 4 * se_b[0]
++
++
++def test_turn_rloo_tensor_matches_scalar_formula_and_zeros_observation_tokens():
++    rng = np.random.default_rng(1)
++    cont, r_i1, r_o, _, _ = _simulate(rng, 0.3, -0.2)
++    cont, r_i1, r_o = cont[:16], r_i1[:16], r_o[:16]
++    rewards, mask, index, spans = _as_batch(cont, r_i1, r_o)
++    adv, returns = compute_turn_rloo_advantage(
++        rewards, mask, index, turn_spans=spans, config=SimpleNamespace(gamma=1.0)
++    )
++
++    g1 = r_i1 + r_o
++    g2 = np.where(cont, r_o, 0.0)
++    a1 = g1 - _loo_mean(g1, np.ones_like(cont, dtype=bool))
++    a2 = g2 - _loo_mean(g2, cont)
++    np.testing.assert_allclose(adv[:, 0].numpy(), a1.reshape(-1), atol=1e-5)
++    np.testing.assert_allclose(adv[:, 1].numpy(), a1.reshape(-1), atol=1e-5)
++    np.testing.assert_allclose(adv[:, 4].numpy(), np.where(cont, a2, 0.0).reshape(-1), atol=1e-5)
++    assert torch.all(adv[:, 2] == 0) and torch.all(returns[:, 2] == 0)  # the observation token
++    np.testing.assert_allclose(returns[:, 0].numpy(), g1.reshape(-1), atol=1e-6)
++    np.testing.assert_allclose(returns[:, 4].numpy(), np.where(cont, g2, 0.0).reshape(-1), atol=1e-6)
++
++
++def test_turn_rloo_without_spans_equals_rloo():
++    torch.manual_seed(0)
++    mask = (torch.rand(12, 9) > 0.3).float()
++    rewards = torch.randn(12, 9) * mask
++    index = np.array(["a"] * 5 + ["b"] * 6 + ["c"])  # a singleton group keeps its raw score in both
++    adv_rloo, _ = compute_rloo_outcome_advantage(rewards.clone(), mask, index)
++    adv_turn, _ = compute_turn_rloo_advantage(rewards.clone(), mask, index)
++    torch.testing.assert_close(adv_turn, adv_rloo)
++    none_spans = np.empty(12, dtype=object)
++    adv_none, _ = compute_turn_rloo_advantage(rewards.clone(), mask, index, turn_spans=none_spans)
++    torch.testing.assert_close(adv_none, adv_rloo)
++
++
++def test_turn_rloo_gives_rloo_policy_advantages_but_keeps_raw_returns():
++    """One-token rewards 1 and 3: both estimators give advantages [-2, 2]; rloo hands its advantages back as
++    ``returns`` while turn_rloo keeps the raw return-to-go (return metrics differ, the actor gradient does not)."""
++    rewards, mask, index = torch.tensor([[1.0], [3.0]]), torch.ones(2, 1), np.array(["g", "g"], dtype=object)
++    adv_rloo, ret_rloo = compute_rloo_outcome_advantage(rewards.clone(), mask, index)
++    adv_turn, ret_turn = compute_turn_rloo_advantage(rewards.clone(), mask, index)
++    torch.testing.assert_close(adv_turn, torch.tensor([[-2.0], [2.0]]))
++    torch.testing.assert_close(adv_rloo, adv_turn)
++    torch.testing.assert_close(ret_rloo, torch.tensor([[-2.0], [2.0]]))
++    torch.testing.assert_close(ret_turn, torch.tensor([[1.0], [3.0]]))
++
++
++def test_norm_adv_by_std_is_a_variance_heuristic_not_a_rescaled_gradient():
++    """Single turn, three actions with rewards [0, 1, 4] and probabilities [0.2, 0.3, 0.5], groups of 3, every
++    joint outcome enumerated: the unnormalised expected score-gradient is the exact gradient p_k (r_k - E[r])
++    = [-0.46, -0.39, 0.85]; dividing by the group std (which contains the sample's own return) gives
++    [-0.245, -0.185, 0.430], not a common rescaling of it."""
++    rewards_by_action, probs = torch.tensor([0.0, 1.0, 4.0]), torch.tensor([0.2, 0.3, 0.5])
++    grads = {norm: torch.zeros(3, dtype=torch.float64) for norm in (False, True)}
++    for actions in itertools.product(range(3), repeat=3):
++        weight = probs[list(actions)].prod().double()
++        rewards = rewards_by_action[list(actions)].reshape(3, 1)
++        for norm in (False, True):
++            adv, _ = compute_turn_rloo_advantage(rewards, torch.ones(3, 1), np.array(["g"] * 3), norm_adv_by_std=norm)
++            for i, a in enumerate(actions):
++                score = -probs.double()
++                score[a] += 1.0  # d log pi(a) / d logits
++                grads[norm] += weight * score * adv[i, 0].double() / 3
++    exact = (probs * (rewards_by_action - (probs * rewards_by_action).sum())).double()
++    torch.testing.assert_close(grads[False], exact, atol=1e-6, rtol=0)
++    reviewer = torch.tensor([-0.46, -0.39, 0.85], dtype=torch.float64)
++    torch.testing.assert_close(grads[False], reviewer, atol=1e-6, rtol=0)
++    reviewer_normalised = torch.tensor([-0.2453, -0.1847, 0.4300], dtype=torch.float64)
++    torch.testing.assert_close(grads[True], reviewer_normalised, atol=2e-4, rtol=0)
++    ratio = grads[True] / grads[False]
++    assert ratio.max() / ratio.min() > 1.05, f"{grads[True].tolist()} is not a rescaling of {grads[False].tolist()}"
++
++
++def test_gamma_below_one_is_the_discounted_return_to_go_heuristic():
++    """Two independent Bernoulli turns (p = 0.5, reward = action, logit parameters) with gamma 0.5: the
++    implemented expected score-gradient is [0.25, 0.25], the gradient of E[r1 + 0.5 r2] is [0.25, 0.125]."""
++
++    def expected_gradient(gamma):
++        grad, mask = torch.zeros(2, dtype=torch.float64), torch.tensor([[1, 1, 0, 1, 1]], dtype=torch.float32)
++        spans = np.empty(1, dtype=object)
++        spans[0] = [(0, 2), (3, 5)]
++        for a1, a2 in itertools.product((0, 1), repeat=2):
++            rewards = torch.tensor([[0.0, float(a1), 0.0, 0.0, float(a2)]])  # [t1 t1 obs t2 t2]
++            adv, _ = compute_turn_rloo_advantage(
++                rewards, mask, np.array(["g"]), turn_spans=spans, config=SimpleNamespace(gamma=gamma)
++            )
++            score = torch.tensor([a1 - 0.5, a2 - 0.5], dtype=torch.float64)  # d log pi / d logit
++            grad += 0.25 * score * torch.tensor([adv[0, 0].item(), adv[0, 3].item()], dtype=torch.float64)
++        return grad
++
++    torch.testing.assert_close(expected_gradient(1.0), torch.tensor([0.25, 0.25], dtype=torch.float64))
++    torch.testing.assert_close(expected_gradient(0.5), torch.tensor([0.25, 0.25], dtype=torch.float64))
++    assert not torch.allclose(expected_gradient(0.5), torch.tensor([0.25, 0.125], dtype=torch.float64))
++
++
++def test_turn_rloo_hand_computed_with_ragged_turn_counts_and_gamma():
++    # group g: rows 0, 1 have three turns, row 2 has one; group h: a single row (baseline 0 everywhere)
++    #   tokens: [t1 t1 o t2 t2 o t3 t3]; the turn reward sits on the last generated token of the turn
++    mask = torch.tensor(
++        [[1, 1, 0, 1, 1, 0, 1, 1], [1, 1, 0, 1, 1, 0, 1, 1], [1, 1, 0, 0, 0, 0, 0, 0], [1, 1, 0, 1, 1, 0, 0, 0]],
++        dtype=torch.float32,
++    )
++    turn_rewards = [[1.0, 0.0, 2.0], [0.0, 1.0, 0.0], [3.0], [0.5, 0.5]]
++    spans = np.empty(4, dtype=object)
++    rewards = torch.zeros(4, 8)
++    for i, rs in enumerate(turn_rewards):
++        spans[i] = [(0, 2), (3, 5), (6, 8)][: len(rs)]
++        for (_, end), r in zip(spans[i], rs, strict=False):
++            rewards[i, end - 1] = r
++    index = np.array(["g", "g", "g", "h"])
++    gamma = 0.5
++
++    def ret(rs, t):
++        return sum(gamma ** (k - t) * r for k, r in enumerate(rs) if k >= t)
++
++    returns = [[ret(rs, t) for t in range(len(rs))] for rs in turn_rewards]
++    expected = torch.zeros(4, 8)
++    expected_returns = torch.zeros(4, 8)
++    for i, rs in enumerate(turn_rewards):
++        for t in range(len(rs)):
++            others = [returns[j][t] for j in range(4) if j != i and index[j] == index[i] and len(turn_rewards[j]) > t]
++            baseline = sum(others) / len(others) if others else 0.0
++            start, end = spans[i][t]
++            expected[i, start:end] = returns[i][t] - baseline
++            expected_returns[i, start:end] = returns[i][t]
++
++    adv, got_returns = compute_turn_rloo_advantage(
++        rewards, mask, index, turn_spans=spans, config=SimpleNamespace(gamma=gamma)
++    )
++    torch.testing.assert_close(adv, expected)
++    torch.testing.assert_close(got_returns, expected_returns)
++    # turn 1 of the three-turn rows is baselined against each other only; row 2's lone turn 1 against both
++    assert adv[0, 0].item() == pytest.approx(returns[0][0] - (returns[1][0] + returns[2][0]) / 2)
++    assert adv[0, 6].item() == pytest.approx(2.0 - 0.0)  # row 2 never reached turn 3
++    assert adv[3, 0].item() == pytest.approx(returns[3][0])  # singleton group: baseline 0
++
++
++def test_turn_rloo_std_normalisation_is_optional():
++    mask = torch.ones(3, 2)
++    rewards = torch.tensor([[0.0, 1.0], [0.0, 3.0], [0.0, 5.0]])
++    index = np.array(["g"] * 3)
++    spans = np.empty(3, dtype=object)
++    for i in range(3):
++        spans[i] = [(0, 2)]
++    adv, _ = compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)
++    torch.testing.assert_close(adv[:, 0], torch.tensor([1.0 - 4.0, 3.0 - 3.0, 5.0 - 2.0]))
++    adv_norm, _ = compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans, norm_adv_by_std=True)
++    std = torch.tensor([1.0, 3.0, 5.0]).std()
++    torch.testing.assert_close(adv_norm[:, 0], adv[:, 0] / (std + 1e-6))
++
++
++def test_dense_turn_rewards_reach_gae_and_reinforce_plus_plus_only_on_generated_tokens():
++    """Regression for the placement rule of ``rollout.multi_turn.turn_level_rewards``: both estimators carry a
++    reward across observation spans when it sits on a generated token, and drop it when it sits on a
++    ``response_mask == 0`` token (issue #8367), which is why the writer uses the turn's last generated token."""
++    mask = torch.tensor([[1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1]], dtype=torch.float32)
++    rewards = torch.zeros(1, 14)
++    rewards[0, 2], rewards[0, 6], rewards[0, 13] = 1.0, 0.0, 1.0  # turn rewards 1, 0, 1 on last generated tokens
++    expected_return = torch.tensor([2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
++    generated = mask[0].bool()
++
++    _, rpp_returns = compute_reinforce_plus_plus_outcome_advantage(rewards, mask, config=SimpleNamespace(gamma=1.0))
++    torch.testing.assert_close(rpp_returns[0][generated], expected_return)
++    _, gae_returns = compute_gae_advantage_return(rewards, torch.zeros_like(rewards), mask, gamma=1.0, lam=1.0)
++    torch.testing.assert_close(gae_returns[0][generated], expected_return)
++
++    misplaced = torch.zeros(1, 14)
++    misplaced[0, 4] = 1.0  # the same reward on an observation token is lost by both
++    _, rpp_lost = compute_reinforce_plus_plus_outcome_advantage(misplaced, mask, config=SimpleNamespace(gamma=1.0))
++    _, gae_lost = compute_gae_advantage_return(misplaced, torch.zeros_like(misplaced), mask, gamma=1.0, lam=1.0)
++    assert rpp_lost[0][generated].sum() == 0 and gae_lost[0][generated].sum() == 0
++
++
++@pytest.mark.parametrize(
++    "bad",
++    [
++        pytest.param([(0, 3), (2, 4)], id="overlap"),
++        pytest.param([(2, 4), (0, 2)], id="reversed-order"),
++        pytest.param([(0, 2), (2, 2)], id="empty"),
++        pytest.param([(3, 2)], id="start-after-end"),
++        pytest.param([(-1, 2)], id="negative"),
++        pytest.param([(0, 2), (3, 9)], id="past-the-row-end"),
++        pytest.param([(0, 2), (9, 11)], id="starting-past-the-row-end"),
++        pytest.param([(0, 2), (3,)], id="not-a-pair"),
++        pytest.param([(0.9, 2.1)], id="float-offsets"),
++        pytest.param([(False, True)], id="bool-offsets"),
++        pytest.param([(np.float64(0.0), 2)], id="numpy-float-offset"),
++        pytest.param([(torch.tensor(True), torch.tensor(2))], id="torch-bool-offset"),
++        pytest.param("ab", id="string-row"),
++    ],
++)
++def test_malformed_spans_raise_naming_the_row(bad):
++    """External producers can hand over spans the loop never would; they must not silently distort the grouping."""
++    rewards, mask = torch.zeros(2, 4), torch.ones(2, 4)
++    index = np.array(["g", "g"], dtype=object)
++    spans = np.empty(2, dtype=object)
++    spans[0], spans[1] = [(0, 2), (2, 4)], bad
++    with pytest.raises(ValueError, match=r"turn_spans\[1\]"):
++        compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)
++    spans[1] = [(0, 2), (2, 4)]
++    compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)  # the well-formed batch passes
++    with pytest.raises(ValueError, match="3 rows for a batch of 2"):
++        compute_turn_rloo_advantage(rewards, mask, index, turn_spans=np.empty(3, dtype=object))
++
++
++def test_offsets_must_be_integral_ints_rejected_by_name_and_a_non_sequence_column_is_named():
++    rewards, mask, index = torch.zeros(2, 4), torch.ones(2, 4), np.array(["g", "g"], dtype=object)
++    ok = np.empty(2, dtype=object)
++    ok[0], ok[1] = [(np.int64(0), torch.tensor(2)), (2, 4)], [(0, 4)]  # numpy and 0-d torch ints are integral
++    compute_turn_rloo_advantage(rewards, mask, index, turn_spans=ok)
++    cases = [([(0.9, 2.1)], "float"), ([(False, True)], "bool"), ([(torch.tensor(1.0), 2)], r"Tensor\[torch.float32\]")]
++    for bad, name in cases:
++        spans = np.empty(2, dtype=object)
++        spans[0], spans[1] = [(0, 4)], bad
++        with pytest.raises(ValueError, match=rf"turn_spans\[1\]: .* has a {name} offset"):
++            compute_turn_rloo_advantage(rewards, mask, index, turn_spans=spans)
++    with pytest.raises(ValueError, match=r"one entry per row \(2 rows\), got a int"):
++        compute_turn_rloo_advantage(rewards, mask, index, turn_spans=5)
++
++
++def test_wrappers_receive_the_spans_only_when_their_own_signature_can_take_them(monkeypatch):
++    """A wrapper must expose what it forwards: a transparent functools.wraps wrapper gets the spans, one whose
++    own signature cannot take the keyword gets none (rloo behaviour) instead of a TypeError at call time."""
++    import functools
++
++    import verl.trainer.ppo.core_algos as core_algos
++    from verl.trainer.ppo.core_algos import adv_estimator_takes_turn_spans
++    from verl.trainer.ppo.ray_trainer import compute_advantage
++
++    @functools.wraps(compute_turn_rloo_advantage)
++    def transparent(*args, **kwargs):
++        return compute_turn_rloo_advantage(*args, **kwargs)
++
++    @functools.wraps(compute_turn_rloo_advantage)
++    def incompatible(token_level_rewards, response_mask, index, config=None):
++        return compute_turn_rloo_advantage(token_level_rewards, response_mask, index, config=config)
++
++    assert adv_estimator_takes_turn_spans(transparent) and not adv_estimator_takes_turn_spans(incompatible)
++    monkeypatch.setitem(core_algos.ADV_ESTIMATOR_REGISTRY, "transparent", transparent)
++    monkeypatch.setitem(core_algos.ADV_ESTIMATOR_REGISTRY, "incompatible", incompatible)
++    spans = [[(0, 3), (3, 4)], [(0, 2), (3, 4)], [(0, 2)], [(0, 4)]]
++    turn = compute_advantage(_spans_batch(True, spans), adv_estimator="turn_rloo").batch["advantages"]
++    rloo = compute_advantage(_spans_batch(True, spans), adv_estimator="rloo").batch["advantages"]
++    assert not torch.allclose(turn, rloo)
++    got = compute_advantage(_spans_batch(True, spans), adv_estimator="transparent").batch["advantages"]
++    torch.testing.assert_close(got, turn)
++    got = compute_advantage(_spans_batch(True, spans), adv_estimator="incompatible").batch["advantages"]
++    torch.testing.assert_close(got, rloo)
++
++
++def test_adv_estimator_takes_turn_spans_reads_the_signature():
++    import functools
++
++    from verl.trainer.ppo.core_algos import adv_estimator_takes_turn_spans
++
++    assert adv_estimator_takes_turn_spans("turn_rloo") and adv_estimator_takes_turn_spans(compute_turn_rloo_advantage)
++    for name in ("rloo", "grpo", "gae", "reinforce_plus_plus", "grpo_vectorized"):
++        assert not adv_estimator_takes_turn_spans(name), name
++
++    def kwargs_only(token_level_rewards, response_mask, index, config=None, **kwargs):
++        return None
++
++    @functools.wraps(compute_turn_rloo_advantage)
++    def wrapped(*args, **kwargs):
++        return compute_turn_rloo_advantage(*args, **kwargs)
++
++    assert not adv_estimator_takes_turn_spans(kwargs_only), "**kwargs alone does not opt in"
++    assert adv_estimator_takes_turn_spans(wrapped), "inspect.signature follows __wrapped__"
++
++
++def _spans_batch(with_spans_column: bool, spans=None):
++    from tensordict import TensorDict
++
++    from verl import DataProto
++
++    rewards = torch.tensor([[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 0.5], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]])
++    mask = torch.tensor([[1, 1, 1, 0], [1, 1, 1, 1], [1, 1, 0, 0], [1, 1, 1, 1]], dtype=torch.float32)
++    non_tensor = {"uid": np.array(["a", "a", "b", "b"], dtype=object)}
++    if with_spans_column:
++        column = np.empty(4, dtype=object)
++        column[:] = spans if spans is not None else [None] * 4
++        non_tensor["generated_turn_spans"] = column
++    batch = TensorDict({"token_level_rewards": rewards, "response_mask": mask}, batch_size=[4])
++    return DataProto(batch=batch, non_tensor_batch=non_tensor)
++
++
++def test_compute_advantage_passes_turn_spans_only_to_estimators_that_declare_them(monkeypatch):
++    """A `generated_turn_spans` column must not break estimators without a `turn_spans` parameter or `**kwargs`."""
++    import verl.trainer.ppo.core_algos as core_algos
++    from verl.trainer.ppo.ray_trainer import compute_advantage
++
++    def plain_rloo(token_level_rewards, response_mask, index, config=None):
++        return compute_rloo_outcome_advantage(token_level_rewards, response_mask, index)
++
++    monkeypatch.setitem(core_algos.ADV_ESTIMATOR_REGISTRY, "plain_rloo", plain_rloo)
++    for name in ("grpo_vectorized", "plain_rloo", "rloo"):
++        expected = compute_advantage(_spans_batch(False), adv_estimator=name).batch["advantages"]
++        got = compute_advantage(_spans_batch(True), adv_estimator=name).batch["advantages"]
++        torch.testing.assert_close(got, expected)
++
++    spans = [[(0, 3), (3, 4)], [(0, 2), (3, 4)], [(0, 2)], [(0, 4)]]
++    out = compute_advantage(_spans_batch(True, spans), adv_estimator="turn_rloo").batch["advantages"]
++    assert out[1, 0].item() == pytest.approx(0.5 - 1.0) and out[1, 3].item() == pytest.approx(0.5 - 0.0)
+diff --git a/tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py b/tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py
+index 483303c1..717512c5 100644
+--- a/tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py
++++ b/tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py
+@@ -143,3 +143,25 @@ async def test_agent_loop_tq_postprocess_skips_rollout_topk_on_validate(monkeypa
+ 
+     assert "rollout_topk_ids" not in fields.keys()
+     assert "rollout_topk_log_probs" not in fields.keys()
++
++
++@pytest.mark.asyncio
++async def test_agent_loop_tq_postprocess_stores_dense_turn_level_rewards(monkeypatch):
++    output = AgentLoopOutput(
++        prompt_ids=[101, 102, 103],
++        response_ids=[11, 12, 13, 14, 15],
++        response_mask=[1, 1, 0, 1, 0],
++        reward_score=1.0,
++        turn_rewards=[0.5, 0.25],
++        num_turns=4,
++        metrics=AgentLoopMetrics(),
++        extra_fields={"generated_turn_spans": [(0, 2), (3, 4)], "turn_rewards": [0.5, 0.25], "episode_done": True},
++    )
++
++    fields = await _postprocess(monkeypatch, _DummyWorker(topk_log_probs=0), output, validate=False)
++
++    # each turn's reward on its last generated token, the outcome on the last generated token of the response
++    assert fields["rm_scores"][0].tolist() == pytest.approx([0.0, 0.5, 0.0, 1.25, 0.0])
++    assert "turn_rewards" not in fields
++    assert fields["extra_fields"][0]["generated_turn_spans"] == [(0, 2), (3, 4)]
++    assert fields["extra_fields"][0]["episode_done"] is True
+diff --git a/tests/trainer/ppo/v1/test_compute_advantage_turn_spans_on_cpu.py b/tests/trainer/ppo/v1/test_compute_advantage_turn_spans_on_cpu.py
+new file mode 100644
+index 00000000..f5bcc164
+--- /dev/null
++++ b/tests/trainer/ppo/v1/test_compute_advantage_turn_spans_on_cpu.py
+@@ -0,0 +1,143 @@
++# Copyright 2024 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""The V1 trainer lifts ``extra_fields["generated_turn_spans"]`` out of the TransferQueue row so that
++``turn_rloo`` sees the turn spans; rows without spans keep working; estimators that do not declare
++``turn_spans`` never fetch the column."""
++
++import numpy as np
++import pytest
++import torch
++from omegaconf import OmegaConf
++from tensordict import TensorDict
++from tensordict.tensorclass import NonTensorData, NonTensorStack
++
++import verl.trainer.ppo.v1.trainer_base as trainer_base_module
++from verl.trainer.ppo.core_algos import compute_turn_rloo_advantage
++from verl.trainer.ppo.v1.trainer_base import PPOTrainer
++
++
++class _Trainer(PPOTrainer):
++    """Concrete shell: only ``_compute_advantage`` runs, on the attributes the test sets."""
++
++    def on_sample_end(self, *args, **kwargs):
++        pass
++
++    def on_step_end(self, *args, **kwargs):
++        pass
++
++
++class _BatchMeta:
++    def __init__(self, keys):
++        self.keys = keys
++        self.partition_id = "train"
++
++    def __len__(self):
++        return len(self.keys)
++
++
++def _nested(rows, dtype):
++    return torch.nested.as_nested_tensor([torch.tensor(r, dtype=dtype) for r in rows], layout=torch.jagged)
++
++
++def _run_compute_advantage(monkeypatch, rows, adv_estimator="turn_rloo"):
++    """``rows``: (uid, response_mask, rm_scores, extra_fields) per sample, response lengths may differ.
++
++    Returns the fields written back, the metrics and the fields the trainer selected from the queue.
++    """
++    stored, metrics, selected = {}, {}, []
++
++    def kv_batch_get(keys, partition_id, select_fields):
++        selected.extend(select_fields)
++        columns = {
++            "uid": NonTensorStack.from_list([NonTensorData(uid) for uid, *_ in rows]),
++            "response_mask": _nested([m for _, m, _, _ in rows], torch.float32),
++            "rm_scores": _nested([s for _, _, s, _ in rows], torch.float32),
++            "extra_fields": NonTensorStack.from_list([NonTensorData(ef) for *_, ef in rows]),
++        }
++        return TensorDict({k: v for k, v in columns.items() if k in select_fields}, batch_size=[len(rows)])
++
++    def kv_batch_put(keys, partition_id, fields):
++        stored.update(fields)
++        return _BatchMeta(keys)
++
++    monkeypatch.setattr(trainer_base_module.tq, "kv_batch_get", kv_batch_get)
++    monkeypatch.setattr(trainer_base_module.tq, "kv_batch_put", kv_batch_put)
++
++    trainer = object.__new__(_Trainer)
++    trainer.config = OmegaConf.create(
++        {
++            "algorithm": {"adv_estimator": adv_estimator, "gamma": 1.0, "lam": 1.0, "use_kl_in_reward": False},
++            "actor_rollout_ref": {"rollout": {"n": 2}},
++        }
++    )
++    trainer._compute_advantage(_BatchMeta([f"u{i}_0_0" for i in range(len(rows))]), metrics=metrics)
++    return stored, metrics, selected
++
++
++def test_v1_compute_advantage_passes_generated_turn_spans_to_turn_rloo(monkeypatch):
++    # two members of one prompt group, dense rewards on the last generated token of each turn
++    rows = [
++        ("g", [1, 1, 0, 1, 1], [0.0, 1.0, 0.0, 0.0, 2.0], {"generated_turn_spans": [(0, 2), (3, 5)]}),
++        ("g", [1, 1, 0, 1], [0.0, 0.0, 0.0, 1.0], {"generated_turn_spans": [(0, 2), (3, 4)]}),
++    ]
++    stored, metrics, selected = _run_compute_advantage(monkeypatch, rows)
++
++    rewards = torch.tensor([[0.0, 1.0, 0.0, 0.0, 2.0], [0.0, 0.0, 0.0, 1.0, 0.0]])
++    mask = torch.tensor([[1, 1, 0, 1, 1], [1, 1, 0, 1, 0]], dtype=torch.float32)
++    spans = np.empty(2, dtype=object)
++    spans[0], spans[1] = [(0, 2), (3, 5)], [(0, 2), (3, 4)]
++    expected, _ = compute_turn_rloo_advantage(rewards, mask, np.array(["g", "g"]), turn_spans=spans)
++    assert stored["advantages"].is_nested
++    torch.testing.assert_close(stored["advantages"][0], expected[0])
++    torch.testing.assert_close(stored["advantages"][1], expected[1, :4])
++    assert stored["advantages"][0][0].item() == pytest.approx(3.0 - 1.0)  # turn-1 return-to-go minus the other's
++    assert stored["advantages"][0][3].item() == pytest.approx(2.0 - 1.0)  # turn 2 likewise
++    assert "extra_fields" in selected
++    assert metrics["adv_estimator/rows_with_turn_spans"] == 2
++
++
++def test_v1_compute_advantage_without_spans_keeps_rloo_behaviour(monkeypatch):
++    rows = [
++        ("g", [1, 1, 1], [0.0, 0.0, 3.0], {"tool_rewards": []}),
++        ("g", [1, 1], [0.0, 1.0], {"tool_rewards": []}),
++    ]
++    stored, metrics, _ = _run_compute_advantage(monkeypatch, rows)
++    torch.testing.assert_close(stored["advantages"][0], torch.tensor([2.0, 2.0, 2.0]))
++    torch.testing.assert_close(stored["advantages"][1], torch.tensor([-2.0, -2.0]))
++    assert metrics["adv_estimator/rows_with_turn_spans"] == 0
++
++
++def test_v1_compute_advantage_tolerates_a_row_whose_extra_fields_is_not_a_dict(monkeypatch):
++    rows = [
++        ("g", [1, 1, 0, 1, 1], [0.0, 1.0, 0.0, 0.0, 2.0], {"generated_turn_spans": [(0, 2), (3, 5)]}),
++        ("g", [1, 1], [0.0, 1.0], None),
++    ]
++    stored, metrics, _ = _run_compute_advantage(monkeypatch, rows)
++    # row 1 has no spans: one turn [0, 2) with return 1; row 0's turn-1 return is 3
++    torch.testing.assert_close(stored["advantages"][1], torch.tensor([1.0 - 3.0, 1.0 - 3.0]))
++    torch.testing.assert_close(stored["advantages"][0][:2], torch.tensor([3.0 - 1.0, 3.0 - 1.0]))
++    assert metrics["adv_estimator/rows_with_turn_spans"] == 1
++
++
++@pytest.mark.parametrize("adv_estimator", ["rloo", "reinforce_plus_plus", "grpo"])
++def test_v1_compute_advantage_does_not_fetch_extra_fields_for_estimators_without_turn_spans(monkeypatch, adv_estimator):
++    """The disabled path: no ``extra_fields`` round trip through the queue, no span lift, no metric."""
++    rows = [
++        ("g", [1, 1, 1], [0.0, 0.0, 3.0], {"generated_turn_spans": [(0, 3)]}),
++        ("g", [1, 1], [0.0, 1.0], {"generated_turn_spans": [(0, 2)]}),
++    ]
++    stored, metrics, selected = _run_compute_advantage(monkeypatch, rows, adv_estimator=adv_estimator)
++    assert "extra_fields" not in selected
++    assert "adv_estimator/rows_with_turn_spans" not in metrics
++    assert stored["advantages"].is_nested and stored["advantages"][0].shape == (3,)
+diff --git a/tests/trainer/test_turn_level_rewards_config_on_cpu.py b/tests/trainer/test_turn_level_rewards_config_on_cpu.py
+new file mode 100644
+index 00000000..78253af4
+--- /dev/null
++++ b/tests/trainer/test_turn_level_rewards_config_on_cpu.py
+@@ -0,0 +1,51 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""``rollout.multi_turn.turn_level_rewards`` is rejected with a colocated reward model, which would overwrite the
++dense per-turn ``rm_scores`` row after rollout."""
++
++import pytest
++from omegaconf import OmegaConf
++
++from verl.utils.config import _validate_turn_level_rewards_config
++
++
++def _config(turn_level_rewards: bool, rm_enable: bool, rm_resource_pool: bool):
++    return OmegaConf.create(
++        {
++            "actor_rollout_ref": {
++                "rollout": {"multi_turn": {"enable": True, "turn_level_rewards": turn_level_rewards}}
++            },
++            "reward": {"reward_model": {"enable": rm_enable, "enable_resource_pool": rm_resource_pool}},
++        }
++    )
++
++
++@pytest.mark.parametrize(
++    "turn_level_rewards,rm_enable,rm_resource_pool",
++    [(False, True, False), (True, False, False), (True, True, True)],
++)
++def test_accepted_combinations(turn_level_rewards, rm_enable, rm_resource_pool):
++    _validate_turn_level_rewards_config(_config(turn_level_rewards, rm_enable, rm_resource_pool))
++
++
++def test_colocated_reward_model_is_rejected():
++    with pytest.raises(ValueError, match="turn_level_rewards=True needs the reward computed in the agent loop"):
++        _validate_turn_level_rewards_config(_config(True, True, False))
++
++
++def test_config_without_multi_turn_section_is_accepted():
++    _validate_turn_level_rewards_config(
++        OmegaConf.create({"actor_rollout_ref": {"rollout": {}}, "reward": {"reward_model": {"enable": True}}})
++    )
+diff --git a/verl/experimental/agent_loop/agent_loop.py b/verl/experimental/agent_loop/agent_loop.py
+index 6a38d1eb..0fd83a00 100644
+--- a/verl/experimental/agent_loop/agent_loop.py
++++ b/verl/experimental/agent_loop/agent_loop.py
+@@ -31,6 +31,7 @@ import asyncio
+ import logging
+ import os
+ import random
++import warnings
+ from abc import ABC, abstractmethod
+ from typing import Any, Optional
+ from uuid import uuid4
+@@ -85,6 +86,65 @@ class AgentLoopMetrics(BaseModel):
+     num_preempted: int = -1  # -1 means not available
+ 
+ 
++def _last_generated_token(response_mask: torch.Tensor, start: int, end: int) -> Optional[int]:
++    """Index of the last ``response_mask == 1`` token in ``[start, end)``, or None if there is none."""
++    generated = torch.nonzero(response_mask[start:end]).flatten()
++    return start + int(generated[-1]) if generated.numel() else None
++
++
++def write_turn_level_rewards(
++    rm_scores: torch.Tensor,
++    response_mask: torch.Tensor,
++    turn_spans: list[tuple[int, int]],
++    turn_rewards: list[float],
++    reward_score: Optional[float] = None,
++    fallback: int = -1,
++) -> torch.Tensor:
++    """Write per-turn rewards and the outcome score into one dense ``rm_scores`` row, in place.
++
++    Each turn's reward lands on the last generated (``response_mask == 1``) token of its span and the
++    outcome score on the last generated token of the response, never on an observation or padding
++    token: GAE and REINFORCE++ carry returns across ``response_mask == 0`` spans but drop a reward
++    that sits on one. A turn whose span holds no generated token cannot keep its reward (a warning is
++    issued when it is non-zero); a response without any generated token takes the outcome score at
++    ``fallback`` (the row's last position by default; the V0 padded path passes its last valid token).
++
++    Args:
++        rm_scores: (response_length,) float row to fill.
++        response_mask: (response_length,) 1 for generated tokens.
++        turn_spans: ``[start, end)`` offsets of the generated turns within the response.
++        turn_rewards: one reward per span.
++        reward_score: the episode outcome, if any.
++        fallback: index that takes the outcome when the response has no generated token.
++    """
++    if len(turn_spans) != len(turn_rewards):
++        raise ValueError(f"turn_rewards has {len(turn_rewards)} entries for {len(turn_spans)} generated turns")
++    for turn, ((start, end), reward) in enumerate(zip(turn_spans, turn_rewards, strict=True)):
++        pos = _last_generated_token(response_mask, int(start), int(end))
++        if pos is not None:
++            rm_scores[pos] += reward
++        elif reward:
++            warnings.warn(
++                f"turn {turn} has no generated token in its span [{start}, {end}); its reward {reward} is dropped",
++                RuntimeWarning,
++                stacklevel=2,
++            )
++    if reward_score is not None:
++        pos = _last_generated_token(response_mask, 0, len(response_mask))
++        rm_scores[pos if pos is not None else fallback] += reward_score
++    return rm_scores
++
++
++def _turn_level_rewards_enabled(rollout_config: Any) -> bool:
++    """Whether ``rollout.multi_turn.turn_level_rewards`` is on in ``rollout_config``.
++
++    A worker without a rollout config, or with one that predates the flag, counts as off: no
++    turn-level schema columns, exactly the default batch.
++    """
++    multi_turn = getattr(rollout_config, "multi_turn", None)
++    return bool(getattr(multi_turn, "turn_level_rewards", False))
++
++
+ class AgentLoopOutput(BaseModel):
+     """Agent loop output."""
+ 
+@@ -102,6 +162,10 @@ class AgentLoopOutput(BaseModel):
+     """Multi-modal data for multi-modal tools."""
+     reward_score: Optional[float] = None
+     """Reward score for the trajectory."""
++    turn_rewards: Optional[list[float]] = None
++    """Per-turn rewards aligned with ``extra_fields["generated_turn_spans"]``. ``ToolAgentLoop`` sets them
++    (tool step rewards summed per assistant turn) when ``rollout.multi_turn.turn_level_rewards`` is on;
++    ``as_dict`` then writes a dense ``rm_scores`` row (see ``write_turn_level_rewards``)."""
+     num_turns: int = 0
+     """Number of chat turns, including user, assistant, tool."""
+     metrics: AgentLoopMetrics
+@@ -142,7 +206,18 @@ class AgentLoopOutput(BaseModel):
+ 
+         # rm_scores: reward score for each token
+         reward_score = output.pop("reward_score", None)
+-        if reward_score is not None:
++        turn_rewards = output.pop("turn_rewards", None)
++        if turn_rewards is not None:
++            rm_scores = torch.zeros_like(output["response_mask"], dtype=torch.float32)
++            write_turn_level_rewards(
++                rm_scores,
++                output["response_mask"],
++                self.extra_fields.get("generated_turn_spans") or [],
++                turn_rewards,
++                reward_score,
++            )
++            output["rm_scores"] = rm_scores
++        elif reward_score is not None:
+             rm_scores = torch.zeros_like(output["response_mask"], dtype=torch.float32)
+             rm_scores[-1] = reward_score
+             output["rm_scores"] = rm_scores
+@@ -891,6 +966,7 @@ class AgentLoopWorker:
+             teacher_logprobs=teacher_logprobs,
+             teacher_ids=teacher_ids,
+             reward_score=output.reward_score,
++            turn_rewards=output.turn_rewards,
+             num_turns=output.num_turns,
+             metrics=output.metrics,
+             extra_fields=output.extra_fields,
+@@ -1127,6 +1203,17 @@ class AgentLoopWorker:
+             response_length = attention_mask[:, prompt_length:].sum(dim=1) - 1
+             rm_scores = torch.zeros_like(response_mask, dtype=torch.float32)
+             rm_scores[torch.arange(response_mask.size(0)), response_length] = torch.tensor(scores, dtype=torch.float32)
++            for i, input in enumerate(inputs):
++                if input.turn_rewards is not None:
++                    rm_scores[i].zero_()
++                    write_turn_level_rewards(
++                        rm_scores[i],
++                        response_mask[i],
++                        input.extra_fields.get("generated_turn_spans") or [],
++                        input.turn_rewards,
++                        input.reward_score,
++                        fallback=int(response_length[i]),
++                    )
+             batch["rm_scores"] = rm_scores
+ 
+         non_tensor_batch = {
+@@ -1157,6 +1244,10 @@ class AgentLoopWorker:
+             "max_global_steps",
+             "extras",
+         }
++        # ToolAgentLoop exports these only under rollout.multi_turn.turn_level_rewards; keep the batch
++        # schema stable across agent loops in that mode and untouched otherwise.
++        if _turn_level_rewards_enabled(getattr(self, "rollout_config", None)):
++            default_extra_keys |= {"turn_rewards", "generated_turn_spans", "episode_done"}
+         all_keys = set(key for input_item in inputs for key in input_item.extra_fields) | default_extra_keys
+         for key in all_keys:
+             temp_arr = np.empty(len(inputs), dtype=object)
+diff --git a/verl/experimental/agent_loop/tool_agent_loop.py b/verl/experimental/agent_loop/tool_agent_loop.py
+index 365159c1..01cd037a 100644
+--- a/verl/experimental/agent_loop/tool_agent_loop.py
++++ b/verl/experimental/agent_loop/tool_agent_loop.py
+@@ -15,6 +15,7 @@ import asyncio
+ import json
+ import logging
+ import os
++import warnings
+ from enum import Enum
+ from typing import Any, Optional
+ from uuid import uuid4
+@@ -33,6 +34,7 @@ from verl.tools.function_tool import FunctionTool, normalize_function_tool_retur
+ from verl.tools.schemas import OpenAIFunctionCallSchema, OpenAIFunctionParsedSchema, ToolResponse
+ from verl.utils.profiler import simple_timer
+ from verl.utils.rollout_trace import rollout_trace_op
++from verl.utils.tokenizer.continuous_token import MergeResult
+ from verl.workers.rollout.replica import TokenOutput
+ 
+ logger = logging.getLogger(__file__)
+@@ -86,6 +88,12 @@ class AgentData:
+         self.response_logprobs: list[float] = []
+         self.turn_scores: list[float] = []
+         self.tool_rewards: list[float] = []
++        # [start, end) offsets of each generated (assistant) turn within response_ids, and the
++        # tool step rewards of that turn summed; the two lists stay index-aligned.
++        self.generated_turn_spans: list[tuple[int, int]] = []
++        self.turn_rewards: list[float] = []
++        # True once a tool response carried ``done=True`` (the episode ended on the tool's signal).
++        self.episode_done: bool = False
+         self.user_turns = 0
+         self.assistant_turns = 0
+ 
+@@ -98,6 +106,35 @@ class AgentData:
+         self.extra_fields: dict[str, Any] = {}
+ 
+ 
++def _align_generated_turn_spans(agent_data: AgentData, merge_result: MergeResult) -> None:
++    """Apply a Continuous Token merge's suffix edits to the generated-turn spans.
++
++    Called before ``agent_data.response_mask`` is replaced by the merge's aligned mask: tokens the
++    merge trimmed from the runtime suffix clip the spans that covered them (a span left empty is
++    dropped together with its turn reward), and an assistant merge appends the span of the newly
++    generated tokens, skipping the mask-0 boundary tokens inserted ahead of them.
++    """
++    retained = max(0, len(agent_data.response_mask) - merge_result.removed_prefix_token_count)
++    spans, rewards = [], []
++    for (start, end), reward in zip(agent_data.generated_turn_spans, agent_data.turn_rewards, strict=True):
++        if start < retained:
++            spans.append((start, min(end, retained)))
++            rewards.append(reward)
++        elif reward:
++            warnings.warn(
++                f"a Continuous Token merge removed {merge_result.removed_prefix_token_count} runtime tokens and "
++                f"with them the whole generated turn [{start}, {end}); its reward {reward} is dropped",
++                RuntimeWarning,
++                stacklevel=2,
++            )
++    if merge_result.kind == "assistant" and merge_result.appended_token_count:
++        start = retained + len(merge_result.inserted_token_ids)
++        spans.append((start, start + merge_result.appended_token_count))
++        rewards.append(0.0)
++    agent_data.generated_turn_spans = spans
++    agent_data.turn_rewards = rewards
++
++
+ @register("tool_agent")
+ class ToolAgentLoop(AgentLoopBase):
+     def __init__(self, *args, tools: Optional[ToolListWrap] = None, **kwargs):
+@@ -111,6 +148,7 @@ class ToolAgentLoop(AgentLoopBase):
+         self.max_user_turns = self.rollout_config.multi_turn.max_user_turns
+         self.max_assistant_turns = self.rollout_config.multi_turn.max_assistant_turns
+         self.max_parallel_calls = self.rollout_config.multi_turn.max_parallel_calls
++        self.turn_level_rewards = self.rollout_config.multi_turn.turn_level_rewards
+         self.max_tool_response_length = self.rollout_config.multi_turn.max_tool_response_length
+         self.tool_response_truncate_side = self.rollout_config.multi_turn.tool_response_truncate_side
+ 
+@@ -210,6 +248,21 @@ class ToolAgentLoop(AgentLoopBase):
+             extra_fields=agent_data.extra_fields,
+         )
+         output.extra_fields.update({"turn_scores": agent_data.turn_scores, "tool_rewards": agent_data.tool_rewards})
++        if self.turn_level_rewards:
++            # Spans past the response budget are cut like the tokens they cover.
++            generated_turn_spans, turn_rewards = [], []
++            for (start, end), reward in zip(agent_data.generated_turn_spans, agent_data.turn_rewards, strict=True):
++                if start < len(output.response_ids):
++                    generated_turn_spans.append((start, min(end, len(output.response_ids))))
++                    turn_rewards.append(reward)
++            output.turn_rewards = turn_rewards
++            output.extra_fields.update(
++                {
++                    "turn_rewards": turn_rewards,
++                    "generated_turn_spans": generated_turn_spans,
++                    "episode_done": agent_data.episode_done,
++                }
++            )
+         return output
+ 
+     async def _handle_pending_state(self, agent_data: AgentData, sampling_params: dict[str, Any]) -> AgentState:
+@@ -278,6 +331,8 @@ class ToolAgentLoop(AgentLoopBase):
+             agent_data.response_logprobs if (agent_data.response_logprobs or output.log_probs) else None,
+             assistant_logprobs=output.log_probs if output.log_probs else None,
+         )
++        if self.turn_level_rewards:
++            _align_generated_turn_spans(agent_data, merge_result)
+         agent_data.prompt_ids = merge_result.token_ids
+         agent_data.response_mask = response_mask
+         if response_logprobs is not None:
+@@ -322,6 +377,7 @@ class ToolAgentLoop(AgentLoopBase):
+ 
+         # Process tool responses and update multi_modal_data
+         # Removed: agent_data.new_images_this_turn = []
++        turn_reward, episode_done = 0.0, False
+         for tool_index, (tool_response, tool_reward, _) in enumerate(responses):
+             tool_call = agent_data.tool_calls[tool_index]
+             # Create message from tool response
+@@ -374,6 +430,13 @@ class ToolAgentLoop(AgentLoopBase):
+ 
+             if tool_reward is not None:
+                 agent_data.tool_rewards.append(tool_reward)
++                turn_reward += float(tool_reward)
++            episode_done = episode_done or tool_response.done
++
++        # The step rewards of this turn's tool calls credit the assistant turn that made them.
++        if agent_data.turn_rewards:
++            agent_data.turn_rewards[-1] += turn_reward
++        agent_data.episode_done = agent_data.episode_done or episode_done
+ 
+         # Continuous Token is the only tokenization path; tool responses that add new
+         # images require a VL author + processor. Validate before mutating rollout state
+@@ -392,7 +455,12 @@ class ToolAgentLoop(AgentLoopBase):
+             tools=schemas,
+         )
+         if len(response_mask) >= self.response_length:
++            # The merged context would reach the response budget: terminate without applying the merge
++            # (as before this change). The turn's step reward and ``done`` above are kept; the tool
++            # response itself is not part of the trajectory (see docs/advance/agent_loop.rst).
+             return AgentState.TERMINATED
++        if self.turn_level_rewards:
++            _align_generated_turn_spans(agent_data, merge_result)
+         agent_data.prompt_ids = merge_result.token_ids
+         agent_data.response_mask = response_mask
+         if agent_data.response_logprobs:
+@@ -408,6 +476,9 @@ class ToolAgentLoop(AgentLoopBase):
+                 agent_data.image_data.append(img)
+ 
+         agent_data.user_turns += 1
++        # A tool ended the episode: its response stays in the trajectory as the final observation.
++        if episode_done:
++            return AgentState.TERMINATED
+         return AgentState.GENERATING
+ 
+     def _build_assistant_message(self, content: str, agent_data: AgentData) -> dict[str, Any]:
+@@ -506,7 +577,10 @@ class ToolAgentLoop(AgentLoopBase):
+                 tool_response_text = tool_response_text[:length] + "...(truncated)..." + tool_response_text[-length:]
+ 
+         # Create ToolResponse from tool execution result
+-        tool_response_kwargs = {"text": tool_response_text}
++        tool_response_kwargs = {
++            "text": tool_response_text,
++            "done": bool(getattr(tool_execution_response, "done", False)),
++        }
+ 
+         # Add multimedia data if present
+         for attr_name in ["image", "video"]:
+diff --git a/verl/experimental/reward_loop/reward_manager/base.py b/verl/experimental/reward_loop/reward_manager/base.py
+index 82063390..136e0e19 100644
+--- a/verl/experimental/reward_loop/reward_manager/base.py
++++ b/verl/experimental/reward_loop/reward_manager/base.py
+@@ -15,10 +15,11 @@
+ import logging
+ import os
+ from abc import ABC, abstractmethod
++from collections.abc import Mapping
+ from typing import Any, Callable
+ 
+ import torch
+-from omegaconf import DictConfig
++from omegaconf import DictConfig, OmegaConf
+ from transformers import AutoTokenizer
+ 
+ from verl import DataProto
+@@ -30,6 +31,22 @@ logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+ 
+ RawRewardFn = Callable[..., Any] | None
+ 
++# types of non-mapping ``extra_info`` values already reported by extra_info_for_reward_fn (one warning each)
++_NON_MAPPING_EXTRA_INFO_WARNED: set[str] = set()
++
++
++def turn_level_rewards_enabled(config) -> bool:
++    """``actor_rollout_ref.rollout.multi_turn.turn_level_rewards`` of the trainer config; False when absent."""
++    path = ("actor_rollout_ref", "rollout", "multi_turn", "turn_level_rewards")
++    if isinstance(config, DictConfig):
++        return bool(OmegaConf.select(config, ".".join(path), default=False))
++    node = config
++    for key in path:
++        node = node.get(key) if isinstance(node, Mapping) else getattr(node, key, None)
++        if node is None:
++            return False
++    return bool(node)
++
+ 
+ class RewardManagerBase(ABC):
+     _class_initialized = False
+@@ -58,6 +75,45 @@ class RewardManagerBase(ABC):
+     async def run_single(self, data: DataProto):
+         raise NotImplementedError
+ 
++    @staticmethod
++    def extra_info_for_reward_fn(data_item, merge_tool_fields: bool = True, rollout_fields: bool = True) -> Any:
++        """Build the ``extra_info`` handed to the reward function for one sample.
++
++        ``merge_tool_fields=False`` hands the dataset's ``extra_info`` over as stored (``{}`` when absent): what
++        ``dapo`` and ``gdpo`` did before this helper existed and still do while
++        ``rollout.multi_turn.turn_level_rewards`` is off. Otherwise the result is a copy of the dataset's
++        ``extra_info`` (the batch's own dict is never mutated) merged with the agent loop's
++        ``tool_extra_fields`` (``turn_scores``, ``tool_rewards`` and, under the flag, ``generated_turn_spans``
++        / ``turn_rewards`` / ``episode_done``; list values are copied, so the reward function cannot edit
++        the row's metadata) and, with ``rollout_fields``, ``num_turns`` and ``rollout_reward_scores``.
++        Precedence: the loop's fields override dataset keys of the same name, and ``num_turns`` /
++        ``rollout_reward_scores`` override both. With the flag on every manager builds its ``extra_info``
++        here, so a custom reward function sees the same keys whichever manager runs it. A dataset whose
++        ``extra_info`` is not a mapping (a string, say) is handed over unchanged, without the merge, with
++        one warning per type.
++        """
++        if not merge_tool_fields:
++            return data_item.non_tensor_batch.get("extra_info", {})
++        dataset_extra_info = data_item.non_tensor_batch.get("extra_info", None)
++        if dataset_extra_info is not None and not isinstance(dataset_extra_info, Mapping):
++            type_name = type(dataset_extra_info).__name__
++            if type_name not in _NON_MAPPING_EXTRA_INFO_WARNED:
++                _NON_MAPPING_EXTRA_INFO_WARNED.add(type_name)
++                logger.warning(
++                    "extra_info is a %s, not a mapping: handed to the reward function unchanged, without the "
++                    "agent loop's tool metadata (generated_turn_spans / turn_rewards / episode_done / num_turns)",
++                    type_name,
++                )
++            return dataset_extra_info
++        extra_info = dict(dataset_extra_info or {})
++        tool_extra_fields = data_item.non_tensor_batch.get("tool_extra_fields", None)
++        if tool_extra_fields is not None:
++            extra_info.update((k, list(v) if isinstance(v, list) else v) for k, v in tool_extra_fields.items())
++        if rollout_fields:
++            extra_info["num_turns"] = data_item.non_tensor_batch.get("__num_turns__", None)
++            extra_info["rollout_reward_scores"] = data_item.non_tensor_batch.get("reward_scores", {})
++        return extra_info
++
+     @classmethod
+     def assemble_rm_scores(cls, data: DataProto, scores: list[float]) -> torch.Tensor:
+         """Assemble per-sample reward scores into the ``rm_scores`` tensor for a batch.
+diff --git a/verl/experimental/reward_loop/reward_manager/dapo.py b/verl/experimental/reward_loop/reward_manager/dapo.py
+index 7f8f21ae..e8092454 100644
+--- a/verl/experimental/reward_loop/reward_manager/dapo.py
++++ b/verl/experimental/reward_loop/reward_manager/dapo.py
+@@ -16,7 +16,7 @@ import inspect
+ 
+ from verl import DataProto
+ from verl.experimental.reward_loop.reward_manager import register
+-from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
++from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase, turn_level_rewards_enabled
+ from verl.utils.reward_score import default_compute_score
+ 
+ 
+@@ -35,6 +35,9 @@ class DAPORewardManager(RewardManagerBase):
+         self.max_resp_len = config.reward.get("reward_kwargs", {}).get("max_resp_len", None)
+         self.reward_router_address = reward_router_address
+         self.reward_model_tokenizer = reward_model_tokenizer
++        # the loop's tool metadata joins extra_info only under rollout.multi_turn.turn_level_rewards;
++        # with the flag off the dataset's extra_info is handed over untouched, as before
++        self.merge_tool_fields = turn_level_rewards_enabled(config)
+ 
+         if self.overlong_buffer_cfg is not None and self.overlong_buffer_cfg.enable:
+             assert self.max_resp_len is not None, (
+@@ -59,7 +62,7 @@ class DAPORewardManager(RewardManagerBase):
+ 
+         data_source = data_item.non_tensor_batch["data_source"]
+         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
+-        extra_info = data_item.non_tensor_batch.get("extra_info", {})
++        extra_info = self.extra_info_for_reward_fn(data_item, merge_tool_fields=self.merge_tool_fields)
+ 
+         response_str = await self.loop.run_in_executor(
+             None, lambda: self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)
+diff --git a/verl/experimental/reward_loop/reward_manager/gdpo.py b/verl/experimental/reward_loop/reward_manager/gdpo.py
+index f5ede8c6..edf331eb 100644
+--- a/verl/experimental/reward_loop/reward_manager/gdpo.py
++++ b/verl/experimental/reward_loop/reward_manager/gdpo.py
+@@ -16,7 +16,7 @@ import inspect
+ 
+ from verl import DataProto
+ from verl.experimental.reward_loop.reward_manager import register
+-from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
++from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase, turn_level_rewards_enabled
+ from verl.utils.reward_score import default_compute_score
+ 
+ 
+@@ -31,6 +31,9 @@ class GDPORewardManager(RewardManagerBase):
+ 
+         self.reward_router_address = reward_router_address
+         self.reward_model_tokenizer = reward_model_tokenizer
++        # the loop's tool metadata joins extra_info only under rollout.multi_turn.turn_level_rewards;
++        # with the flag off the dataset's extra_info is handed over untouched, as before
++        self.merge_tool_fields = turn_level_rewards_enabled(config)
+ 
+     async def run_single(self, data: DataProto) -> dict:
+         data = data[-1:]  # for multi-sequence outputs, we only compute reward based on the last sequence
+@@ -42,7 +45,7 @@ class GDPORewardManager(RewardManagerBase):
+ 
+         data_source = data_item.non_tensor_batch["data_source"]
+         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
+-        extra_info = data_item.non_tensor_batch.get("extra_info", {})
++        extra_info = self.extra_info_for_reward_fn(data_item, merge_tool_fields=self.merge_tool_fields)
+         extra_info["experiment_name"] = self.config.trainer.experiment_name
+ 
+         response_str = await self.loop.run_in_executor(
+diff --git a/verl/experimental/reward_loop/reward_manager/limited.py b/verl/experimental/reward_loop/reward_manager/limited.py
+index 3707ed20..fa44691f 100644
+--- a/verl/experimental/reward_loop/reward_manager/limited.py
++++ b/verl/experimental/reward_loop/reward_manager/limited.py
+@@ -21,7 +21,7 @@ from transformers import AutoTokenizer
+ 
+ from verl import DataProto
+ from verl.experimental.reward_loop.reward_manager import register as register_manager
+-from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase
++from verl.experimental.reward_loop.reward_manager.base import RewardManagerBase, turn_level_rewards_enabled
+ from verl.utils.ray_utils import get_event_loop
+ from verl.utils.reward_score import default_compute_score
+ from verl.workers.reward_manager import register as register_manager_legacy
+@@ -363,6 +363,9 @@ class RateLimitedRewardManager(RewardManagerBase):
+         self.reward_router_address = reward_router_address
+         self.reward_model_tokenizer = reward_model_tokenizer
+         self.timeout = config.reward.get("timeout", 300.0)
++        # num_turns / rollout_reward_scores join extra_info only under rollout.multi_turn.turn_level_rewards;
++        # with the flag off this manager merges the loop's tool_extra_fields alone, as before
++        self.rollout_fields = turn_level_rewards_enabled(config)
+ 
+     async def _compute_reward(
+         self, data_source: str, solution_str: str, ground_truth: str, extra_info: dict
+@@ -406,10 +409,7 @@ class RateLimitedRewardManager(RewardManagerBase):
+ 
+         data_source = data_item.non_tensor_batch["data_source"]
+         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
+-        extra_info = data_item.non_tensor_batch.get("extra_info", {})
+-        tool_extra_fields = data_item.non_tensor_batch.get("tool_extra_fields", None)
+-        if tool_extra_fields is not None:
+-            extra_info.update(tool_extra_fields.items())
++        extra_info = self.extra_info_for_reward_fn(data_item, rollout_fields=self.rollout_fields)
+ 
+         response_str = await self.loop.run_in_executor(
+             None, lambda: self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)
+diff --git a/verl/experimental/reward_loop/reward_manager/naive.py b/verl/experimental/reward_loop/reward_manager/naive.py
+index f28ecf37..e8dcb0ea 100644
+--- a/verl/experimental/reward_loop/reward_manager/naive.py
++++ b/verl/experimental/reward_loop/reward_manager/naive.py
+@@ -41,15 +41,7 @@ class NaiveRewardManager(RewardManagerBase):
+ 
+         data_source = data_item.non_tensor_batch["data_source"]
+         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
+-        extra_info = data_item.non_tensor_batch.get("extra_info", {})
+-        tool_extra_fields = data_item.non_tensor_batch.get("tool_extra_fields", None)
+-        if tool_extra_fields is not None:
+-            extra_info.update(tool_extra_fields.items())
+-
+-        num_turns = data_item.non_tensor_batch.get("__num_turns__", None)
+-        rollout_reward_scores = data_item.non_tensor_batch.get("reward_scores", {})
+-        extra_info["num_turns"] = num_turns
+-        extra_info["rollout_reward_scores"] = rollout_reward_scores
++        extra_info = self.extra_info_for_reward_fn(data_item)
+ 
+         response_str = await self.loop.run_in_executor(
+             None, lambda: self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)
+diff --git a/verl/experimental/reward_loop/reward_manager/remote.py b/verl/experimental/reward_loop/reward_manager/remote.py
+index e2368eb2..450f541e 100644
+--- a/verl/experimental/reward_loop/reward_manager/remote.py
++++ b/verl/experimental/reward_loop/reward_manager/remote.py
+@@ -82,15 +82,7 @@ class RemoteRewardManager(RewardManagerBase):
+ 
+         data_source = data_item.non_tensor_batch["data_source"]
+         ground_truth = data_item.non_tensor_batch["reward_model"]["ground_truth"]
+-        extra_info = data_item.non_tensor_batch.get("extra_info", {})
+-        tool_extra_fields = data_item.non_tensor_batch.get("tool_extra_fields", None)
+-        if tool_extra_fields is not None:
+-            extra_info.update(tool_extra_fields.items())
+-
+-        num_turns = data_item.non_tensor_batch.get("__num_turns__", None)
+-        rollout_reward_scores = data_item.non_tensor_batch.get("reward_scores", {})
+-        extra_info["num_turns"] = num_turns
+-        extra_info["rollout_reward_scores"] = rollout_reward_scores
++        extra_info = self.extra_info_for_reward_fn(data_item)
+ 
+         response_str = await self.loop.run_in_executor(
+             None, lambda: self.tokenizer.decode(valid_response_ids, skip_special_tokens=True)
+diff --git a/verl/tools/schemas.py b/verl/tools/schemas.py
+index bf1b23ab..d6134049 100644
+--- a/verl/tools/schemas.py
++++ b/verl/tools/schemas.py
+@@ -101,6 +101,9 @@ class ToolResponse(BaseModel):
+     text: str | None = None
+     image: list[Any] | None = None
+     video: list[Any] | None = None
++    done: bool = False
++    """Set by a tool to end the episode: the agent loop appends this response as the final
++    observation and terminates instead of generating another turn."""
+ 
+     @model_validator(mode="before")
+     @classmethod
+diff --git a/verl/trainer/config/_generated_ppo_megatron_trainer.yaml b/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
+index e8ab900f..0d20ddbb 100644
+--- a/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_megatron_trainer.yaml
+@@ -363,6 +363,7 @@ actor_rollout_ref:
+       function_tool_path: null
+       max_user_turns: null
+       max_parallel_calls: 1
++      turn_level_rewards: false
+       max_tool_response_length: 256
+       tool_response_truncate_side: middle
+       use_inference_chat_template: false
+diff --git a/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml b/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
+index b8605dc1..c7f450fc 100644
+--- a/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_torchtitan_trainer.yaml
+@@ -314,6 +314,7 @@ actor_rollout_ref:
+       function_tool_path: null
+       max_user_turns: null
+       max_parallel_calls: 1
++      turn_level_rewards: false
+       max_tool_response_length: 256
+       tool_response_truncate_side: middle
+       use_inference_chat_template: false
+diff --git a/verl/trainer/config/_generated_ppo_trainer.yaml b/verl/trainer/config/_generated_ppo_trainer.yaml
+index 58af8e1b..7c4992b3 100644
+--- a/verl/trainer/config/_generated_ppo_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_trainer.yaml
+@@ -351,6 +351,7 @@ actor_rollout_ref:
+       function_tool_path: null
+       max_user_turns: null
+       max_parallel_calls: 1
++      turn_level_rewards: false
+       max_tool_response_length: 256
+       tool_response_truncate_side: middle
+       use_inference_chat_template: false
+diff --git a/verl/trainer/config/_generated_ppo_veomni_trainer.yaml b/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
+index 29f46158..8f866d28 100644
+--- a/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_veomni_trainer.yaml
+@@ -338,6 +338,7 @@ actor_rollout_ref:
+       function_tool_path: null
+       max_user_turns: null
+       max_parallel_calls: 1
++      turn_level_rewards: false
+       max_tool_response_length: 256
+       tool_response_truncate_side: middle
+       use_inference_chat_template: false
+diff --git a/verl/trainer/config/rollout/rollout.yaml b/verl/trainer/config/rollout/rollout.yaml
+index d503665c..09c2cbd8 100644
+--- a/verl/trainer/config/rollout/rollout.yaml
++++ b/verl/trainer/config/rollout/rollout.yaml
+@@ -213,6 +213,15 @@ multi_turn:
+   # max parallel call for tools in single turn
+   max_parallel_calls: 1
+ 
++  # Write each assistant turn's tool step rewards (BaseTool.execute's reward, summed per turn) on the last
++  # generated token of that turn and the episode score on the last generated token of the response, so
++  # token-level estimators (reinforce_plus_plus, gae, turn_rloo) credit turns. Off: one score on the last token.
++  # Requires the reward to be computed in the agent loop (rule-based reward or a reward model with
++  # reward.reward_model.enable_resource_pool=True): a colocated reward model would overwrite the row.
++  # The last allowed assistant turn never runs its tool calls, so give an environment of K steps
++  # max_assistant_turns >= K + 1 for the final step reward (and ToolResponse.done) to land.
++  turn_level_rewards: False
++
+   # max length of tool response
+   max_tool_response_length: 256
+ 
+diff --git a/verl/trainer/ppo/core_algos.py b/verl/trainer/ppo/core_algos.py
+index afa86c25..b106bf56 100644
+--- a/verl/trainer/ppo/core_algos.py
++++ b/verl/trainer/ppo/core_algos.py
+@@ -20,6 +20,8 @@ implement PPO-like algorithms.
+ 
+ __all__ = ["register_adv_est", "get_adv_estimator_fn", "AdvantageEstimator"]
+ 
++import inspect
++import operator
+ from collections import defaultdict
+ from enum import Enum
+ from typing import Any, Callable, Optional
+@@ -150,6 +152,26 @@ def get_adv_estimator_fn(name_or_enum):
+     return ADV_ESTIMATOR_REGISTRY[name]
+ 
+ 
++def adv_estimator_takes_turn_spans(adv_estimator) -> bool:
++    """Whether an advantage estimator takes a ``turn_spans`` keyword.
++
++    ``adv_estimator`` is a registry name / enum or the callable itself. The tool agent loop's
++    ``generated_turn_spans`` (``rollout.multi_turn.turn_level_rewards``) reach only estimators that opt in, so
++    by-name estimators keep working unchanged and the trainers skip the span bookkeeping for every other
++    estimator. The outermost callable's own signature decides: an explicit ``turn_spans`` parameter opts in;
++    ``**kwargs`` alone does not; a wrapper carrying ``__wrapped__`` (``functools.wraps``) opts in only when it
++    takes ``**kwargs`` and the wrapped chain declares ``turn_spans``, i.e. a wrapper must expose what it forwards.
++    """
++    fn = adv_estimator if callable(adv_estimator) else get_adv_estimator_fn(adv_estimator)
++    own = inspect.signature(fn, follow_wrapped=False).parameters
++    if "turn_spans" in own:
++        return True
++    forwards_kwargs = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in own.values())
++    if not forwards_kwargs or not hasattr(fn, "__wrapped__"):
++        return False
++    return "turn_spans" in inspect.signature(fn).parameters
++
++
+ class AdaptiveKLController:
+     """
+     Adaptive KL controller described in the paper:
+@@ -636,6 +658,169 @@ def compute_rloo_outcome_advantage(
+     return scores, scores
+ 
+ 
++def _span_offset(row: int, span, value) -> int:
++    """An integral span offset (Python, numpy or 0-d torch integers); floats and bools are rejected by name."""
++    is_bool = isinstance(value, bool | np.bool_) or (isinstance(value, torch.Tensor) and value.dtype == torch.bool)
++    if not is_bool:
++        try:
++            return operator.index(value)
++        except TypeError:
++            pass
++    name = f"{type(value).__name__}[{value.dtype}]" if isinstance(value, torch.Tensor) else type(value).__name__
++    raise ValueError(f"turn_spans[{row}]: span {span!r} has a {name} offset; offsets must be integral ints")
++
++
++def _validated_turn_spans(row: int, spans, length: int) -> list[tuple[int, int]]:
++    """The ``[start, end)`` pairs of one row, checked to be ordered, non-empty, non-overlapping and within the row.
++
++    The tool agent loop clips its spans to the response it exports, so a violation means an external producer
++    handed over malformed spans, which would silently distort the turn grouping; raise instead, naming the row.
++    ``None`` or an empty list is one turn covering the whole row.
++    """
++    if spans is None:
++        return [(0, length)]
++    result: list[tuple[int, int]] = []
++    previous_end = 0
++    for span in spans:
++        try:
++            first, second = span
++        except (TypeError, ValueError) as e:
++            raise ValueError(f"turn_spans[{row}]: span {span!r} is not an (int, int) pair") from e
++        start, end = _span_offset(row, span, first), _span_offset(row, span, second)
++        if start < previous_end or start >= end or end > length:
++            raise ValueError(
++                f"turn_spans[{row}]: span ({start}, {end}) must satisfy {previous_end} <= start < end <= {length} "
++                "(ordered, non-negative, non-empty, non-overlapping, within the row)"
++            )
++        result.append((start, end))
++        previous_end = end
++    return result or [(0, length)]
++
++
++@register_adv_est("turn_rloo")
++def compute_turn_rloo_advantage(
++    token_level_rewards: torch.Tensor,
++    response_mask: torch.Tensor,
++    index: np.ndarray,
++    turn_spans: Optional[Any] = None,
++    config: Optional[AlgoConfig] = None,
++    norm_adv_by_std: bool = False,
++    epsilon: float = 1e-6,
++    **kwargs,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    """Turn-level RLOO: a leave-one-out return-to-go baseline per turn index (RFC #7244).
++
++    For sample ``i`` of a group sharing a prompt, the reward of turn ``t`` is the sum of
++    ``token_level_rewards`` over its segment ``[s_t, s_{t+1})`` (segment 0 starts at token 0 and the
++    last one runs to the end of the row, so a reward placed on an observation token still counts),
++    the return-to-go is ``G[i, t] = sum_{t' >= t} gamma^(t' - t) R[i, t']`` with ``gamma = config.gamma``
++    and the advantage of every generated token of turn ``t`` is ``G[i, t] - mean_{j != i, m_j > t} G[j, t]``:
++    the baseline averages the other group members that reached turn ``t`` and is 0 when none did
++    (a constant, so the estimate stays unbiased; the variance is then that of plain REINFORCE).
++    Tokens outside a span (tool observations) get 0. Spans must be ordered, non-empty, non-overlapping,
++    within the row and made of integral ints (``ValueError`` naming the row otherwise). A row without
++    spans is one turn ``[0, L)``, so without ``turn_spans`` the estimator gives the same policy advantages
++    as ``rloo`` (``returns`` differ: ``turn_rloo`` keeps the raw return-to-go, ``rloo`` returns its
++    advantages). The tool agent loop exports spans only under ``rollout.multi_turn.turn_level_rewards``;
++    with that flag off ``turn_rloo`` behaves like ``rloo`` on multi-turn data too.
++
++    Normalising each turn by the group mean of the *same turn's reward* (the MT-GRPO shape) is biased
++    whenever the policy decides whether a later turn happens at all; the leave-one-out return-to-go
++    baseline is not. tests/trainer/ppo/test_turn_rloo_on_cpu.py checks both against the exact gradient.
++
++    The unbiasedness argument holds for independent trajectories with ``gamma = 1`` and
++    ``norm_adv_by_std=False`` (the defaults). ``norm_adv_by_std=True`` divides by a standard deviation
++    that includes the sample's own return, so the baseline is no longer action-independent: a
++    variance-reduction heuristic, not an unbiased estimator. With ``gamma < 1`` the advantage is the
++    discounted return-to-go without an outer ``gamma ** t`` weight (the ``reinforce_plus_plus``
++    convention); it is not the gradient of ``E[sum_t gamma ** t * r_t]``, so treat discounting as a
++    heuristic. Outputs of one V1 multi-output session share ``uid`` and are correlated, outside the
++    argument.
++
++    Args:
++        token_level_rewards: `(torch.Tensor)`
++            shape: (bs, response_length); dense, each turn's reward on a token of its segment
++            (``rollout.multi_turn.turn_level_rewards`` writes it on the turn's last generated token)
++        response_mask: `(torch.Tensor)`
++            shape: (bs, response_length), 1 for generated tokens
++        index: `(np.ndarray)`
++            shape: (bs,), group id of each sample (``uid``)
++        turn_spans: per sample, the ``[start, end)`` offsets of its generated turns
++            (``extra_fields["generated_turn_spans"]``) or None
++        config: (AlgoConfig) algorithm config; ``gamma`` discounts per turn (1.0 is the RFC's form)
++        norm_adv_by_std: divide each (group, turn) advantage by the std of the members' returns
++        epsilon: std floor for ``norm_adv_by_std``
++
++    Returns:
++        advantages: `(torch.Tensor)`
++            shape: (bs, response_length)
++        Returns: `(torch.Tensor)`
++            shape: (bs, response_length); ``G[i, t]`` on the generated tokens of turn ``t``
++    """
++    bs, length = token_level_rewards.shape
++    gamma = config.gamma if config is not None else 1.0
++    if turn_spans is None:
++        rows = [None] * bs
++    else:
++        try:
++            rows = list(turn_spans)
++        except TypeError as e:
++            raise ValueError(
++                f"turn_spans must hold one entry per row ({bs} rows), got a {type(turn_spans).__name__}"
++            ) from e
++    if len(rows) != bs:
++        raise ValueError(f"turn_spans has {len(rows)} rows for a batch of {bs}")
++    spans_per_row = [_validated_turn_spans(i, spans, length) for i, spans in enumerate(rows)]
++    max_turns = max(len(spans) for spans in spans_per_row)
++
++    with torch.no_grad():
++        # segment_id: the turn whose reward segment holds each token; span_id: the turn whose
++        # generated tokens it belongs to (-1 outside every span)
++        segment_id = torch.zeros(bs, length, dtype=torch.long, device=token_level_rewards.device)
++        span_id = torch.full_like(segment_id, -1)
++        reached = torch.zeros(bs, max_turns, dtype=torch.bool, device=token_level_rewards.device)
++        for i, spans in enumerate(spans_per_row):
++            reached[i, : len(spans)] = True
++            for t, (start, end) in enumerate(spans):
++                next_start = spans[t + 1][0] if t + 1 < len(spans) else length
++                segment_id[i, (start if t else 0) : next_start] = t
++                span_id[i, start:end] = t
++
++        turn_rewards = torch.zeros(bs, max_turns, dtype=token_level_rewards.dtype, device=token_level_rewards.device)
++        turn_rewards.scatter_add_(1, segment_id, token_level_rewards)
++        returns = torch.zeros_like(turn_rewards)
++        running = torch.zeros(bs, dtype=turn_rewards.dtype, device=turn_rewards.device)
++        for t in reversed(range(max_turns)):
++            running = turn_rewards[:, t] + gamma * running
++            returns[:, t] = running
++        returns = returns * reached
++
++        # leave-one-out mean (and optionally std) over the group members that reached each turn
++        _, group_ids = np.unique(index, return_inverse=True)
++        group_ids = torch.as_tensor(group_ids, dtype=torch.long, device=returns.device)
++        num_groups = int(group_ids.max().item()) + 1 if bs else 0
++        counts = torch.zeros(num_groups, max_turns, dtype=returns.dtype, device=returns.device)
++        counts.index_add_(0, group_ids, reached.to(returns.dtype))
++        sums = torch.zeros_like(counts).index_add_(0, group_ids, returns)
++        others = counts[group_ids] - reached.to(returns.dtype)
++        baseline = torch.where(others > 0, (sums[group_ids] - returns) / others.clamp(min=1), torch.zeros_like(returns))
++        advantages = (returns - baseline) * reached
++        if norm_adv_by_std:
++            sums_sq = torch.zeros_like(counts).index_add_(0, group_ids, returns * returns)
++            group_counts = counts[group_ids]
++            denominator = (group_counts - 1).clamp(min=1)
++            var = (sums_sq[group_ids] - sums[group_ids] ** 2 / group_counts.clamp(min=1)) / denominator
++            std = torch.where(group_counts > 1, var.clamp(min=0).sqrt(), torch.zeros_like(var))
++            advantages = torch.where(group_counts > 1, advantages / (std + epsilon), advantages)
++
++        in_span = (span_id >= 0).to(returns.dtype) * response_mask
++        token_index = span_id.clamp(min=0)
++        advantages = torch.gather(advantages, 1, token_index) * in_span
++        returns = torch.gather(returns, 1, token_index) * in_span
++
++    return advantages, returns
++
++
+ @register_adv_est(AdvantageEstimator.OPO)  # or simply: @register_adv_est("opo")
+ def compute_opo_outcome_advantage(
+     token_level_rewards: torch.Tensor,
+diff --git a/verl/trainer/ppo/ray_trainer.py b/verl/trainer/ppo/ray_trainer.py
+index 9352bcfa..a9df0319 100644
+--- a/verl/trainer/ppo/ray_trainer.py
++++ b/verl/trainer/ppo/ray_trainer.py
+@@ -257,6 +257,12 @@ def compute_advantage(
+             adv_kwargs["index"] = data.non_tensor_batch["uid"]
+         if "reward_baselines" in data.batch:  # optional
+             adv_kwargs["reward_baselines"] = data.batch["reward_baselines"]
++        # turn spans (tool agent loop, rollout.multi_turn.turn_level_rewards) go only to estimators that
++        # declare a `turn_spans` parameter, so by-name estimators without **kwargs keep working
++        if "generated_turn_spans" in data.non_tensor_batch and core_algos.adv_estimator_takes_turn_spans(
++            adv_estimator_fn
++        ):
++            adv_kwargs["turn_spans"] = data.non_tensor_batch["generated_turn_spans"]
+         # GDPO: pass raw data for per-dimension reward extraction
+         if adv_estimator in (AdvantageEstimator.GDPO, "gdpo"):
+             adv_kwargs["non_tensor_batch"] = data.non_tensor_batch
+diff --git a/verl/trainer/ppo/v1/trainer_base.py b/verl/trainer/ppo/v1/trainer_base.py
+index 117c1a98..13d981ab 100644
+--- a/verl/trainer/ppo/v1/trainer_base.py
++++ b/verl/trainer/ppo/v1/trainer_base.py
+@@ -1744,12 +1744,28 @@ class PPOTrainer(ABC):
+     def _compute_advantage(self, batch: KVBatchMeta, metrics: dict) -> KVBatchMeta:
+         """Compute the advantage of the batch."""
+         fields = ["uid", "response_mask", "rm_scores", "rollout_log_probs", "old_log_probs", "ref_log_prob", "values"]
++        # the tool agent loop's generated_turn_spans live in extra_fields; fetch and lift them only for
++        # estimators that declare a turn_spans parameter (turn_rloo), every other estimator pays nothing
++        lift_turn_spans = core_algos.adv_estimator_takes_turn_spans(self.config.algorithm.adv_estimator)
++        if lift_turn_spans:
++            fields.append("extra_fields")
+         data = tq.kv_batch_get(keys=batch.keys, partition_id=batch.partition_id, select_fields=fields)
+ 
+         response_mask = data["response_mask"]
+         data = DataProto(batch=data.to_padded_tensor())
+         data.batch["token_level_scores"] = data.batch["rm_scores"]
+         data.non_tensor_batch["uid"] = np.array(data.batch.pop("uid").tolist(), dtype=object)
++        if lift_turn_spans:
++            # `extra_fields` is a non-tensor field (a LinkedList, NonTensorStack or numpy array depending on
++            # the TransferQueue backend); list(...) + unwrap normalizes every element to the row's dict.
++            extra_fields = [tu.unwrap_non_tensor_data(row) for row in list(data.batch.pop("extra_fields"))]
++            turn_spans = np.empty(len(extra_fields), dtype=object)
++            for i, row in enumerate(extra_fields):
++                turn_spans[i] = row.get("generated_turn_spans") if isinstance(row, dict) else None
++            rows_with_spans = sum(spans is not None for spans in turn_spans)
++            if rows_with_spans:
++                data.non_tensor_batch["generated_turn_spans"] = turn_spans
++            metrics["adv_estimator/rows_with_turn_spans"] = int(rows_with_spans)
+ 
+         # 1. apply kl penalty to rewards
+         if self.config.algorithm.use_kl_in_reward:
+diff --git a/verl/utils/config.py b/verl/utils/config.py
+index 83ca7e72..8a17f092 100644
+--- a/verl/utils/config.py
++++ b/verl/utils/config.py
+@@ -119,6 +119,26 @@ def _validate_score_centering_config(config: DictConfig) -> None:
+         raise ValueError("score centering cannot be combined with distillation.")
+ 
+ 
++def _validate_turn_level_rewards_config(config: DictConfig) -> None:
++    """``rollout.multi_turn.turn_level_rewards`` needs the reward computed inside the agent loop.
++
++    The agent loop writes the dense per-turn ``rm_scores`` row together with the episode score it
++    receives from the reward loop. A colocated reward model (``reward.reward_model.enable`` without
++    ``enable_resource_pool``) scores the batch after rollout and replaces that row with its own
++    scalar, which would drop the turn rewards silently.
++    """
++    multi_turn = config.actor_rollout_ref.rollout.get("multi_turn", None)
++    if multi_turn is None or not multi_turn.get("turn_level_rewards", False):
++        return
++    reward_model = config.reward.reward_model
++    if reward_model.enable and not reward_model.enable_resource_pool:
++        raise ValueError(
++            "actor_rollout_ref.rollout.multi_turn.turn_level_rewards=True needs the reward computed in the agent "
++            "loop: use a rule-based reward or set reward.reward_model.enable_resource_pool=True. A colocated "
++            "reward model scores trajectories after rollout and would overwrite the per-turn rm_scores row."
++        )
++
++
+ def validate_config(
+     config: DictConfig,
+     use_reference_policy: bool,
+@@ -199,6 +219,7 @@ def validate_config(
+     actor_config.validate(n_gpus, config.data.train_batch_size, config.actor_rollout_ref.model)
+     _validate_router_replay_config(actor_config, config.algorithm.get("rollout_correction", None))
+     _validate_score_centering_config(config)
++    _validate_turn_level_rewards_config(config)
+ 
+     if not config.actor_rollout_ref.actor.use_dynamic_bsz:
+         if use_reference_policy:
+diff --git a/verl/workers/config/rollout.py b/verl/workers/config/rollout.py
+index 4bfef74d..60291f40 100644
+--- a/verl/workers/config/rollout.py
++++ b/verl/workers/config/rollout.py
+@@ -55,6 +55,7 @@ class MultiTurnConfig(BaseConfig):
+     function_tool_path: Optional[str] = None
+     max_user_turns: Optional[int] = None
+     max_parallel_calls: int = 1
++    turn_level_rewards: bool = False
+     max_tool_response_length: int = 256
+     tool_response_truncate_side: str = "middle"
+     use_inference_chat_template: bool = False

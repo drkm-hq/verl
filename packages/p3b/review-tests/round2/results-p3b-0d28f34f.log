@@ -1,0 +1,56 @@
+....FFF                                                                  [100%]
+=================================== FAILURES ===================================
+E   AssertionError: fit() asserts `val_metrics` is non-empty for val_before_train; {} trips it
+    assert {}
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:240 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.trainer_base:trainer_base.py:1170 [PPOTrainer] validation batch of 2 prompts has no rows to score: every group lost its agent loop worker; its sessions count as failures
+<repo>/packages/p3b/review-tests/round2/test_r2_validate_batches_on_cpu.py:66: AssertionError: fit() asserts `val_metrics` is non-empty for val_before_train; {} trips it
+E   ValueError: This table expects 4 columns: ['step', 'input_1', 'output_1', 'score_1'], found 1
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:240 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:491 [V1ReplayBuffer] marking 1 validation prompts of dead workers as failure
+WARNING  verl.trainer.ppo.v1.trainer_base:trainer_base.py:1170 [PPOTrainer] validation batch of 1 prompts has no rows to score: every group lost its agent loop worker; its sessions count as failures
+<repo>/.venv-cpu/lib/python3.12/site-packages/wandb/sdk/data_types/table.py:518: ValueError: This table expects 4 columns: ['step', 'input_1', 'output_1', 'score_1'], found 1
+E   ValueError: This table expects 1 columns: ['step'], found 4
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:240 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:491 [V1ReplayBuffer] marking 1 validation prompts of dead workers as failure
+WARNING  verl.trainer.ppo.v1.trainer_base:trainer_base.py:1170 [PPOTrainer] validation batch of 1 prompts has no rows to score: every group lost its agent loop worker; its sessions count as failures
+<repo>/.venv-cpu/lib/python3.12/site-packages/wandb/sdk/data_types/table.py:518: ValueError: This table expects 1 columns: ['step'], found 4
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3b/review-tests/round2/test_r2_validate_batches_on_cpu.py::test_r2_b5_live_worker_failing_every_session_without_rows_is_not_reported_as_a_dead_worker
+FAILED ../../packages/p3b/review-tests/round2/test_r2_validate_generations_logger_on_cpu.py::test_r2_b1_all_lost_validation_then_healthy_validation_keeps_logging
+FAILED ../../packages/p3b/review-tests/round2/test_r2_validate_generations_logger_on_cpu.py::test_r2_b1_healthy_validation_then_all_lost_validation_keeps_logging
+3 failed, 4 passed, 7 warnings in 2.54s

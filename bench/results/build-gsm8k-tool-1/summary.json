@@ -1,0 +1,58 @@
+{
+  "ok": true,
+  "returncode": 0,
+  "dst": "/hf-cache/data/gsm8k-tool",
+  "script": "examples/data_preprocess/gsm8k_tool_agent_loop.py",
+  "src_git": "unknown",
+  "src_head": "unknown",
+  "build_s": 19.8,
+  "finished": "2026-10-29T13:17:45Z",
+  "check": {
+    "train": {
+      "rows": 7473,
+      "columns": [
+        "data_source",
+        "agent_name",
+        "prompt",
+        "ability",
+        "reward_model",
+        "extra_info"
+      ],
+      "sha256": "29ffdf74bddc289c29c343d8f6d1674fd224b77a491f24561de392042a6c4d85",
+      "agent_name": "tool_agent",
+      "data_source": "openai/gsm8k",
+      "prompt_roles": [
+        "system",
+        "user"
+      ],
+      "tools_kwargs_keys": [
+        "calc_gsm8k_reward"
+      ],
+      "ground_truth_matches_create_kwargs": true,
+      "system_prompt_head": "You are a math expert. You are given a question and you need to solve it step by step. Reasoning step by step before any"
+    },
+    "test": {
+      "rows": 1319,
+      "columns": [
+        "data_source",
+        "agent_name",
+        "prompt",
+        "ability",
+        "reward_model",
+        "extra_info"
+      ],
+      "sha256": "fa5a7e786c919525650efdde28aa214ce529b5d8823c3fba0229d37b54b7cd45",
+      "agent_name": "tool_agent",
+      "data_source": "openai/gsm8k",
+      "prompt_roles": [
+        "system",
+        "user"
+      ],
+      "tools_kwargs_keys": [
+        "calc_gsm8k_reward"
+      ],
+      "ground_truth_matches_create_kwargs": true,
+      "system_prompt_head": "You are a math expert. You are given a question and you need to solve it step by step. Reasoning step by step before any"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+branch: contrib/p3b-worker-relaunch @ 1b397dfd (9 commits on p3a: 696785bb 678647a8 2af1f7d9 e9129696 3944d085 88d6cb5d 702201d5 a3ad633f 1b397dfd)
+worktree: <repo>/wt/p3b
+base: contrib/p3a-inflight-ttl @ 2bd5c040 (stacked [2/2]); main @ 2ab35292
+review rounds 2 / 2b / 3 / 3b (2026-10-29): dead-worker re-issues outside the budget; empty validation batch + validation recovery counters; generations-logger tolerance + row-less counts; manager keeps rollout/ keys; dead-worker bounds per step (a3ad633f)
+round 3b closure (2026-10-29): rebased onto 2bd5c040 (hold-back charges nothing); 1b397dfd = the dead-worker bound counts death events per step, not orphaned prompts (D1)
+note: contrib/p3-v1-never-hang (wt/p3) is re-pointed by the lead side

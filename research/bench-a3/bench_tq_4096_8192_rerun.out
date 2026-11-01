@@ -1,0 +1,21 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+tq.init() 10.0s
+
+## N=4096 rows, n=8, mean prompt 1016, mean response 3495 (max L=8192)
+list_of_dict_to_tensordict for 512 groups: 1114 ms  (rollout payload 0.93 GB)
+agent-loop kv_batch_put x512 groups of 8: 5178 ms total, 10.1 ms/group, 181 MB/s
+kv_batch_put tags-only for 512 prompts: 10 ms
+kv_list(): 9 ms for 4608 keys
+kv_retrieve_meta(4096 keys) [every dispatch]: 21 ms
+PUT worker log_probs+entropy (all ranks)      336 ms       148 MB      440 MB/s   fields=['log_probs', 'entropy']
+GET old_log_prob fields               363 ms       262 MB      724 MB/s   fields=['entropy', 'log_probs', 'response_mask']
+PUT old_log_probs+entropy             416 ms       115 MB      275 MB/s   fields=['old_log_probs', 'entropy']
+to_padded_tensor(log_probs full-seq) on driver: 18 ms -> (4096, 10240)
+GET ref fields                        183 ms       188 MB     1028 MB/s   fields=['log_probs', 'response_mask']
+PUT ref_log_prob                      323 ms        57 MB      178 MB/s   fields=['ref_log_prob']
+PUT values                            221 ms        57 MB      260 MB/s   fields=['values']
+GET advantage fields                  628 ms       401 MB      638 MB/s   fields=['uid', 'response_mask', 'rm_scores', 'rollout_log_probs', 'old_log_probs', 'ref_log_prob', 'values']
+to_padded_tensor(7 fields) on driver: 146 ms
+PUT advantages+returns                398 ms       115 MB      288 MB/s   fields=['advantages', 'returns']
+GET metrics fields                    646 ms       491 MB      760 MB/s   fields=['prompts', 'responses', 'response_mask', 'values', 'advantages', 'returns', 'rm_scores', 'num_turns']
+kv_clear(4096 keys): 114 ms

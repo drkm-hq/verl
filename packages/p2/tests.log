@@ -1,0 +1,117 @@
+# P2 test log (worktree <repo>/wt/p2, venv .venv-cpu, PYTHONPATH=worktree, 2026-10-29)
+
+## Runner
+VERL_ROOT=<repo>/wt/p2 scripts/run-cpu-tests-wt.sh <label> <cap_s> <pytest args>  # = CI cpu_unit_tests command, see research/00-cpu-env.md
+
+## New tests (5 files, 37 tests)
+label p2-new3: tests/workers/test_ppo_loss_on_policy_skip_on_cpu.py tests/utils/test_skip_old_log_prob_config_on_cpu.py tests/workers/test_engine_workers_return_model_output_on_cpu.py tests/workers/test_fsdp_entropy_requires_grad_on_cpu.py tests/trainer/ppo/v1/test_skip_old_log_prob_on_cpu.py
+======================= 37 passed, 6 warnings in 17.90s ========================
+
+## Regression groups touched by the change (research/00-cpu-env.md section 7), baseline on main: trainer 438/1 skip, workers 278/40 skip, utils 473/23 skip
+label p2-reg-trainer:
+============ 444 passed, 1 skipped, 15 warnings in 71.94s (0:01:11) ============
+label p2-reg-workers:
+==== 291 passed, 40 skipped, 1 deselected, 21 warnings in 107.36s (0:01:47) ====
+label p2-reg-utils:
+=========== 491 passed, 23 skipped, 8 warnings in 111.52s (0:01:51) ============
+
+## Earlier runs
+p2-new (first run): 31 passed, 6 failed -> two test-side bugs (a monkeypatch wrapper chained onto the previous test's wrapper; expected rows read after the put overwrote the store), fixed; p2-new2: 11 passed (the two files)
+
+## Lint
+pre-commit run ruff / ruff-format / mypy --files <11 changed .py files>: Passed (ruff's first pass reported 7 E501 in verl/utils/config.py; ruff-format wrapped them; clean afterwards)
+pre-commit run check-docs-time-info check-docstrings check-license check-device-api-usage check-dataproto-usage validate-structure check-naming-conventions compileall: Passed
+PR_TITLE="[trainer, perf] feat: skip the old-log-prob pass when strictly on-policy" python3 tests/special_sanity/check_pr_title.py: valid
+
+## Not run here
+GPU tests (tests/models/test_engine.py, tests/special_e2e GRPO scripts), the Modal benchmark (BASELINE-A at ppo_mini_batch_size=128, main vs branch): benchmark phase.
+
+## After the adversarial review fixes (commits a9fafde8..5cb89c52, 2026-10-29)
+label p2-fix-new3 (the five author files, now 55 tests):
+======================== 55 passed, 6 warnings in 5.31s ========================
+reviewer's packages/p2/review-tests (29 tests; the 'documents the silent path' test skips once the guard exists):
+28 passed, 1 skipped, 7 warnings in 5.40s
+label p2-fix-reg-trainer:
+================= 450 passed, 1 skipped, 15 warnings in 37.16s =================
+label p2-fix-reg-workers:
+==== 297 passed, 40 skipped, 1 deselected, 21 warnings in 67.81s (0:01:07) =====
+label p2-fix-reg-utils:
+================= 497 passed, 23 skipped, 8 warnings in 48.89s =================
+pre-commit run ruff / ruff-format / mypy --files <8 changed .py files>: Passed
+pre-commit run --all-files --show-diff-on-failure: see research/logs/p2-precommit-all-files.log and CHECKLIST.md
+
+## After the re-verification residuals R1/R2 (commit 2b259b2d, 2026-10-29)
+label p2-r1-new (the five author files, now 59 tests):
+======================= 59 passed, 6 warnings in 19.28s ========================
+reviewer's review-tests, rounds 1+2 (40 tests):
+39 passed, 1 skipped, 7 warnings in 7.63s
+label p2-r1-reg-trainer:
+================= 450 passed, 1 skipped, 15 warnings in 40.24s =================
+label p2-r1-reg-utils:
+=========== 501 passed, 23 skipped, 8 warnings in 106.23s (0:01:46) ============
+pre-commit run ruff / ruff-format / mypy --files verl/utils/config.py tests/utils/test_skip_old_log_prob_config_on_cpu.py: Passed
+
+## Review round 2 (the submitter's independent review, 2026-10-29): commits 1ef03e93, c6067fec, ba60cf8e; HEAD ba60cf8e
+Runner for the worktree: VERL_ROOT=<repo>/wt/p2 scripts/run-cpu-tests-wt.sh <label> <cap_s> <pytest args>
+label p2r2-new (the seven author files: the five of round 1 + tests/utils/test_skip_old_log_prob_effective_config_on_cpu.py + tests/workers/test_skip_old_log_prob_module_walk_on_cpu.py; 59 + 13 tests):
+======================== 72 passed, 8 warnings in 4.79s ========================
+label p2r2-review-tests (reviewer's packages/p2/review-tests, rounds 1+2, unchanged):
+================== 39 passed, 1 skipped, 6 warnings in 4.48s ===================
+Reviewer probes (research/review-bundle/evidence/reproductions, copied to a scratch dir, PYTHONPATH=wt/p2): p2_dropout_override.py now exits 1 at
+_validate_skip_old_log_prob_config with "ValueError: ... train-mode-only settings (attention_dropout=0.5)"; p2_train_eval_gaps.py exits 1 at its own
+`assert dropouts == []` (AssertionError: [('router_jitter_noise', 0.1)]); with that assert replaced by a print, both cases reach the validator and exit 1:
+"train-mode-only settings (router_jitter_noise=0.1)" and "(lora_dropout=0.3)".
+pre-commit run --files verl/utils/config.py verl/utils/model.py verl/workers/engine_workers.py <2 test files> docs/perf/perf_tuning.rst docs/examples/config.rst
+(with .venv-cpu/bin first on PATH so the autogen-trainer-cfg hook finds hydra): ruff, ruff format, mypy, autogen-trainer-cfg, docs time info, docstrings,
+license, device API, DataProto, test structure, naming, example naming, uv GPU branch, compileall: all Passed (after wrapping two E501 lines in the tests).
+Full CPU regression against the worktree (scripts/run-cpu-regression.sh groups, run through run-cpu-tests-wt.sh with VERL_ROOT=wt/p2; logs research/logs/p2r2-reg-*.log):
+[p2r2-reg-small] exit=0 ======================= 200 passed, 7 warnings in 4.02s ========================
+[p2r2-reg-utils] exit=1 ============ 1 failed, 507 passed, 23 skipped, 9 warnings in 24.81s ============
+  the failure: tests/utils/dataset/test_multiturn_sft_dataset_on_cpu.py::test_multiturn_sft_dataset_with_chat_template_kwargs,
+  FileNotFoundError test_data/test_kwargs.parquet: the p2r2-new run finished concurrently in the same worktree and removed test_data/
+  (runner cleanup); unrelated to this change. Re-run alone:
+[p2r2-reg-utils-rerun] exit=0 ================= 508 passed, 23 skipped, 9 warnings in 20.95s =================
+[p2r2-reg-trainer] exit=0 ================= 450 passed, 1 skipped, 15 warnings in 18.80s =================
+[p2r2-reg-workers] exit=0 ========= 303 passed, 40 skipped, 1 deselected, 22 warnings in 26.89s ==========
+[p2r2-reg-experimental] exit=0 ======================== 74 passed, 1 warning in 57.77s ========================
+[p2r2-reg-single_controller] exit=0 ================== 21 passed, 2 warnings in 75.35s (0:01:15) ===================
+Total: 1556 passed, 64 skipped, 1 deselected, 0 failed (utils 501 -> 508 and workers 297 -> 303 = round-1 counts + the 13 new tests).
+scripts/package-audit.sh: p2 contrib/p2-oldlogprob-skip ba60cf8e 13 commits, dirty 0, patch fresh, branch.txt ok, missing none.
+
+## Round-2 re-review fixes (2026-10-29, packages/p2/REVIEW-ROUND2-VERDICT.md): commits c7031289 (D1 validator + walk, D3 BatchNorm, 4 tests), ba0dccf5 (D2 wording); HEAD ba0dccf5
+label p2r3-new (the seven author files, 76 tests = 72 + 4 new):
+======================= 76 passed, 10 warnings in 3.67s ========================
+label p2r3-review-tests (packages/p2/review-tests rounds 1+2 plus round2/test_r2_effective_model_on_cpu.py; the reviewer's 3 failing tests now pass):
+================== 46 passed, 1 skipped, 8 warnings in 3.94s ===================
+label p2r3-reg-utils (re-run alone after the fixes): ================ 509 passed, 23 skipped, 10 warnings in 20.65s =================
+label p2r3-reg-workers: ========= 306 passed, 40 skipped, 1 deselected, 23 warnings in 25.96s ==========
+(the other groups are untouched by these commits: small 200, trainer 450 / 1 skip, experimental 74, single_controller 21 from the p2r2 run)
+pre-commit run --files verl/utils/config.py verl/utils/model.py verl/workers/engine_workers.py <2 test files> docs/perf/perf_tuning.rst: all hooks Passed (three E501 wrapped first)
+scripts/package-audit.sh: p2    contrib/p2-oldlogprob-skip       ba0dccf5  15   0     fresh  ok      none
+
+## Legacy-trainer silent no-op closed (2026-10-29, lead's call): commit 7f0c53f5; HEAD 7f0c53f5
+label p2r4-new (the eight author files, 77 tests = 76 + tests/trainer/ppo/test_skip_old_log_prob_legacy_trainer_on_cpu.py):
+======================= 77 passed, 12 warnings in 4.22s ========================
+label p2r4-reg-trainer (the touched regression group, re-run alone): ================= 451 passed, 1 skipped, 17 warnings in 24.03s =================
+pre-commit run --files verl/trainer/ppo/ray_trainer.py tests/trainer/ppo/test_skip_old_log_prob_legacy_trainer_on_cpu.py: all 14 hooks Passed (one E501 wrapped first)
+scripts/package-audit.sh: p2    contrib/p2-oldlogprob-skip       7f0c53f5  16   0     fresh  ok      none
+
+## Round 3 (the AI follow-up review R2-01, W4A4 QAT, 2026-10-29): commit 5532f3a4; HEAD 5532f3a4
+label p2r5-new (the eight author files, 80 tests = 77 + 3: the qat parametrised case and the exact-message test in tests/utils/test_skip_old_log_prob_config_on_cpu.py, the QATLinear walk test in tests/workers/test_skip_old_log_prob_module_walk_on_cpu.py):
+======================= 80 passed, 12 warnings in 5.67s ========================
+label p2r5-review-tests (packages/p2/review-tests rounds 1+2 plus round2/): ================== 46 passed, 1 skipped, 8 warnings in 9.13s ===================
+label p2r5-reg-utils: ================ 511 passed, 23 skipped, 10 warnings in 44.67s =================
+label p2r5-reg-workers: ========= 307 passed, 40 skipped, 1 deselected, 23 warnings in 56.21s ==========
+The submitter's probe research/review-bundle/follow-up-review/evidence/p2/reproduce_qat_skip.py (scratch copy, PYTHONPATH=wt/p2): exit 1 at the validator,
+"ValueError: ... actor.fsdp_config.qat.mode=w4a4 with qat.enable=True (W4A4 QAT's activation observers update the activation quantization scale in train mode only, ...)"
+pre-commit run --files verl/utils/config.py verl/utils/model.py <2 test files> docs/perf/perf_tuning.rst: all 14 hooks Passed (E501 wraps first)
+scripts/package-audit.sh: p2    contrib/p2-oldlogprob-skip       5532f3a4  17   0     fresh  ok      none
+
+## Round-3 re-review D1 (Enum-valued qat.mode, packages/p2/REVIEW-ROUND3-VERDICT.md): commit e19e7949; HEAD e19e7949
+label p2r6-new (the eight author files; the enum case joins test_w4a4_qat_is_rejected_for_its_train_mode_observers_and_w4a16_is_accepted, count unchanged):
+======================= 80 passed, 12 warnings in 5.22s ========================
+label p2r6-review-tests (packages/p2/review-tests rounds 1+2 plus round2/ and round3/; the reviewer's test_enum_valued_mode_is_rejected now passes, all 11 round-3 tests pass):
+================== 57 passed, 1 skipped, 8 warnings in 5.34s ===================
+label p2r6-reg-utils (the touched group): ================ 511 passed, 23 skipped, 10 warnings in 21.93s =================
+pre-commit run --files verl/utils/config.py tests/utils/test_skip_old_log_prob_config_on_cpu.py: all 14 hooks Passed (ruff-format wrapped one call)
+scripts/package-audit.sh: p2    contrib/p2-oldlogprob-skip       e19e7949  18   0     fresh  ok      none

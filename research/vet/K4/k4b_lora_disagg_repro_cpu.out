@@ -1,0 +1,17 @@
+PEFT model: 22 params, 8 adapter tensors
+
+== collect_lora_params selection rule (REAL function) ==
+  base_sync_done=False: 14 tensors, 0 contain 'lora_'   e.g. model.layers.0.self_attn.q_proj.weight
+  base_sync_done=True :  8 tensors, 8 contain 'lora_'   e.g. base_model.model.model.layers.0.self_attn.q_proj.lora_B.weight
+
+== REAL ActorRolloutRefWorker.update_weights per backend (load_format=safetensors, merge=False) ==
+  backend=nccl      get_per_tensor_param(base_sync_done=...) calls=[False, False]  exported=14 tensors, 0 adapter  -> server_adapter kwargs={'wire_format': 'named_tensors'}
+      => model.load_weights(base) -> list_loras()=[] -> lora_request=None -> BASE POLICY served
+  backend=nixl      get_per_tensor_param(base_sync_done=...) calls=[False, False]  exported=14 tensors, 0 adapter  -> server_adapter kwargs={'wire_format': 'named_tensors'}
+      => model.load_weights(base) -> list_loras()=[] -> lora_request=None -> BASE POLICY served
+  backend=mooncake  get_per_tensor_param(base_sync_done=...) calls=[False, False]  exported=14 tensors, 0 adapter  -> server_adapter kwargs={'wire_format': 'named_tensors'}
+      => model.load_weights(base) -> list_loras()=[] -> lora_request=None -> BASE POLICY served
+  backend=naive     get_per_tensor_param(base_sync_done=...) calls=[True, True]  exported= 8 tensors, 8 adapter  -> server_adapter kwargs={'peft_config': True, 'base_sync_done': True}
+      => add_lora(TensorLoRARequest) -> list_loras()=[123] -> requests carry LoRARequest(123)
+
+RESULT: on main@2ab35292 every non-naive backend exports the frozen base only and forwards no peft_config; the standalone replica never receives an adapter -> it samples the initial policy on every step.

@@ -1,0 +1,83 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+E   AssertionError: expected the expired prompt to be marked failure on its first expiry; metrics={'training/inflight_ttl_suspended': 1}
+    assert ('4ff3b105af334727a24fd45097a6215d' not in {'4ff3b105af334727a24fd45097a6215d'})
+     +  where {'4ff3b105af334727a24fd45097a6215d'} = inflight()
+     +    where inflight = <_r2_budget_common.MemoryTQ object at 0x1214cc350>.inflight
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:229 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:412 [V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step=0); suspending the TTL for the rest of this step and waiting for the 1 expired generations still in flight
+<repo>/packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py:27: AssertionError: expected the expired prompt to be marked failure on its first expiry; metrics={'training/inflight_ttl_suspended': 1}
+E   AssertionError: the exhausted prompt stays in flight once the budget is spent; metrics={'training/inflight_reissued': 1, 'training/inflight_reissue_exhausted': 0, 'training/inflight_expired_age_max': 100.00001287460327, 'training/inflight_ttl_suspended': 1}
+    assert ('70345e7eeb6e4cb69ff6566af4f36c20' not in {'70345e7eeb6e4cb69ff6566af4f36c20', '8ef60dd9f30640f68594a7583d798bd6'})
+     +  where {'70345e7eeb6e4cb69ff6566af4f36c20', '8ef60dd9f30640f68594a7583d798bd6'} = inflight()
+     +    where inflight = <_r2_budget_common.MemoryTQ object at 0x1214ccaa0>.inflight
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:229 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:474 [V1ReplayBuffer] re-issuing 1 expired in-flight prompts (oldest age: 100.0s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:412 [V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step=1); suspending the TTL for the rest of this step and waiting for the 1 expired generations still in flight
+<repo>/packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py:42: AssertionError: the exhausted prompt stays in flight once the budget is spent; metrics={'training/inflight_reissued': 1, 'training/inflight_reissue_exhausted': 0, 'training/inflight_expired_age_max': 100.00001287460327, 'training/inflight_ttl_suspended': 1}
+E   AssertionError: suspended with zero re-issues: {'training/inflight_ttl_suspended': 1, 'training/inflight_reissued': 0, 'training/inflight_reissue_exhausted': 2, 'training/inflight_expired_age_max': 200.0000138282776}
+    assert 'training/inflight_ttl_suspended' not in {'training/inflight_ttl_suspended': 1, 'training/inflight_reissued': 0, 'training/inflight_reissue_exhausted': 2, 'training/inflight_expired_age_max': 200.0000138282776}
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:229 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:412 [V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step=1); suspending the TTL for the rest of this step and waiting for the 1 expired generations still in flight
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:487 [V1ReplayBuffer] 1 prompts exceeded max_inflight_reissues=1; marking them failure: ['6e4514a2ecb741388845cae1c2305576']
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:487 [V1ReplayBuffer] 1 prompts exceeded max_inflight_reissues=1; marking them failure: ['c476b8a9678c451c93771b2ff349192b']
+<repo>/packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py:58: AssertionError: suspended with zero re-issues: {'training/inflight_ttl_suspended': 1, 'training/inflight_reissued': 0, 'training/inflight_reissue_exhausted': 2, 'training/inflight_expired_age_max': 200.0000138282776}
+E   AssertionError: max_inflight_reissues_per_step=1 but the step re-issued 2 prompts
+    assert 2 <= 1
+     +  where 2 = len(['aed83d7da3b4465ca4c338589cfe4513', '271afade922e4bc6946d70a7dddde311'])
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:229 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:412 [V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step=1); suspending the TTL for the rest of this step and waiting for the 1 expired generations still in flight
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:474 [V1ReplayBuffer] re-issuing 1 expired in-flight prompts (oldest age: 100.0s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:474 [V1ReplayBuffer] re-issuing 1 expired in-flight prompts (oldest age: 100.0s)
+<repo>/packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py:72: AssertionError: max_inflight_reissues_per_step=1 but the step re-issued 2 prompts
+E   AssertionError: the drain waited for an expired group it would discard; metrics={'training/inflight_reissued': 1, 'training/inflight_reissue_exhausted': 0, 'training/inflight_expired_age_max': 100.00000786781311, 'training/inflight_ttl_suspended': 1}
+    assert ('024ab238c1e74bb796b9e8f888b5ed03' not in {'024ab238c1e74bb796b9e8f888b5ed03', '06811229503846cd87af324db82e29a7'})
+     +  where {'024ab238c1e74bb796b9e8f888b5ed03', '06811229503846cd87af324db82e29a7'} = inflight()
+     +    where inflight = <_r2_budget_common.MemoryTQ object at 0x1214cc710>.inflight
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:229 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:474 [V1ReplayBuffer] re-issuing 1 expired in-flight prompts (oldest age: 100.0s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:412 [V1ReplayBuffer] the in-flight TTL spent its step budget (max_inflight_reissues_per_step=1); suspending the TTL for the rest of this step and waiting for the 1 expired generations still in flight
+<repo>/packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py:85: AssertionError: the drain waited for an expired group it would discard; metrics={'training/inflight_reissued': 1, 'training/inflight_reissue_exhausted': 0, 'training/inflight_expired_age_max': 100.00000786781311, 'training/inflight_ttl_suspended': 1}
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3a/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py::test_r2_a1_max_inflight_reissues_zero_fails_an_expired_prompt_instead_of_waiting
+FAILED ../../packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py::test_r2_a2_exhausted_prompt_is_still_failed_after_the_budget_is_spent
+FAILED ../../packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py::test_r2_a3_no_suspension_reported_when_the_surplus_is_exhausted_prompts
+FAILED ../../packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py::test_r2_a4_the_budget_bounds_a_step_not_only_one_sampling_call
+FAILED ../../packages/p3a/review-tests/round2/test_r2_step_budget_on_cpu.py::test_r2_a5_dapo_drain_keeps_discarding_expired_groups_after_the_budget_is_spent
+5 failed, 7 warnings in 2.10s

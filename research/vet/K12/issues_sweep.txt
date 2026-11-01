@@ -1,0 +1,14 @@
+
+#### K5 (gae/rf++ speed): 2 open issues
+ #8367 2026-10-25 c=0 r=0 Agent-loop outcome score on a masked chat-template suffix is dropped by GAE / REINFORCE++ / ReMax / 
+      ctx: 'm verl.trainer.config import AlgoConfig\nfrom verl.trainer.ppo.core_algos import compute_gae_advantage_return, compute_reinforce_plus_plus_outcome_advantage\n\nmask = torch.tensor([[1, 1, 0, 1, 1, 0]], dtype=tor'
+ #7793 2026-09-08 c=1 r=0 [trainer] RLOO scalar and vectorized advantage disagree on singleton groups
+      ctx: '[trainer] RLOO scalar and vectorized advantage disagree on singleton groups\nThe scalar and vectorized RLOO advantage implementations disagree on s'
+
+#### K12 (horizon): 3 open issues
+ #5282 2026-02-11 c=4 r=0 Load/offload optimizer states only when calling optimizer.step()?
+      ctx: 'it on GPU through the entire actor update (including loss computation padded to max_response_len), which greatly increases peak GPU memory usage. \nUsing dynamic batch sizing to avoid large padding'
+ #4719 2025-12-29 c=3 r=3 同参数下，verl无法复现easyr1的曲线
+      ctx: 'e,\n        "data_loader_seed": 42,\n        "calculate_entropy": false,\n        "loss_scale_factor": null,\n        "use_fused_kernels": true,\n        "use_torch_compile": true,\n        "use_remove_p'
+ #3741 2025-10-13 c=3 r=0 DrGRPO Implement is right???,  the loss is micro_batch_size * loss, and the grad value is micro_batc
+      ctx: 'DrGRPO Implement is right???,  the loss is micro_batch_size * loss, and the grad value is micro_batch_size'

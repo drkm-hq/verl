@@ -1,0 +1,122 @@
+Using CPython 3.12.14
+Creating virtual environment at: .venv-a3
+Activate with: source .venv-a3/bin/activate
+Using Python 3.12.14 environment at: .venv-a3
+Resolved 10 packages in 740ms
+Installed 10 packages in 561ms
+ + filelock==4.2.4
+ + fsspec==2026.9.0
+ + jinja2==3.1.6
+ + markupsafe==3.0.3
+ + mpmath==1.3.0
+ + networkx==3.7
+ + setuptools==78.1.0
+ + sympy==1.14.0
+ + torch==2.15.0
+ + typing-extensions==4.16.0
+Using Python 3.12.14 environment at: .venv-a3
+Resolved 102 packages in 9.77s
+Downloading grpcio (12.0MiB)
+Downloading ray (64.3MiB)
+Downloading wandb (17.5MiB)
+ Downloaded grpcio
+ Downloaded wandb
+ Downloaded ray
+Prepared 17 packages in 1m 43s
+Uninstalled 1 package in 5ms
+Installed 93 packages in 486ms
+ + absl-py==2.5.1
+ + accelerate==1.15.0
+ + aiohappyeyeballs==2.7.1
+ + aiohttp==3.14.5
+ + aiosignal==1.4.0
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + antlr4-python3-runtime==4.9.3
+ + anyio==4.15.1
+ + attrs==26.1.0
+ + certifi==2026.10.23
+ + charset-normalizer==3.5.2
+ + click==8.5.0
+ + cloudpickle==3.1.2
+ + codetiming==1.4.0
+ + cwevals==0.0.1b1
+ + datasets==5.1.0
+ + dill==0.4.1
+ + distro==1.9.0
+ + einops==0.8.2
+ + frozenlist==1.8.0
+ - fsspec==2026.9.0
+ + fsspec==2026.7.0
+ + googleapis-common-protos==1.76.0
+ + grpcio==1.85.0
+ + h11==0.16.0
+ + hf-xet==1.7.1
+ + httpcore==1.0.9
+ + httpcore2==2.16.0
+ + httpx==0.28.1
+ + httpx2==2.16.0
+ + huggingface-hub==2.3.0
+ + hydra-core==1.3.8
+ + idna==3.20
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + markdown==3.11.2
+ + markdown-it-py==4.2.0
+ + mdurl==0.1.2
+ + msgpack==1.2.4
+ + multidict==7.2.1
+ + multiprocess==0.70.19
+ + numpy==2.5.4
+ + omegaconf==2.3.1
+ + opentelemetry-api==1.45.1
+ + opentelemetry-exporter-http-transport==0.66b1
+ + opentelemetry-exporter-otlp-common==0.66b1
+ + opentelemetry-exporter-otlp-proto-common==1.45.1
+ + opentelemetry-exporter-otlp-proto-http==1.45.1
+ + opentelemetry-proto==1.45.1
+ + opentelemetry-sdk==1.45.1
+ + opentelemetry-semantic-conventions==0.66b1
+ + packaging==26.3
+ + pandas==3.1.0
+ + peft==0.21.2
+ + pillow==13.0.0
+ + platformdirs==4.14.0
+ + propcache==0.5.4
+ + protobuf==7.36.2
+ + psutil==7.2.2
+ + pyarrow==26.0.0
+ + pybind11==3.1.0
+ + pydantic==2.14.1
+ + pydantic-core==2.50.1
+ + pygments==2.21.0
+ + python-dateutil==3.0.0
+ + pyvers==0.2.3
+ + pyyaml==6.0.3
+ + ray==2.59.0
+ + referencing==0.37.0
+ + regex==2026.9.29
+ + requests==2.34.2
+ + rich==15.0.0
+ + rpds-py==2026.9.1
+ + safetensors==0.8.0
+ + shellingham==1.5.4
+ + six==1.17.0
+ + sniffio==1.3.1
+ + tensorboard==2.21.0
+ + tensorboard-data-server==0.7.2
+ + tensordict==0.15.3
+ + tokenizers==0.23.3
+ + torchdata==0.11.0
+ + tqdm==4.70.1
+ + transformers==5.21.0
+ + truststore==0.10.5
+ + typer==0.27.3
+ + typing-inspection==0.4.4
+ + tzdata==2026.6
+ + urllib3==2.8.0
+ + wandb==0.31.0
+ + werkzeug==3.1.9
+ + xxhash==4.0.2
+ + yarl==1.25.1
+exit=0

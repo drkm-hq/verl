@@ -1,0 +1,4 @@
+branch: contrib/p3-v1-never-hang
+head: 1b397dfd3134d6d042bf56f37f22ac468df99162
+base: main @ 2ab35292
+note: combined reference branch; re-pointed 2026-10-29 (review round 2) to the p3b head 1b397dfd (p3a 2bd5c040 + p3b; round 3b final), replacing the old linear combined history 97f76904. packages/p3a and packages/p3b are the PR records; this directory keeps the combined round-1 records plus the final combined diff.

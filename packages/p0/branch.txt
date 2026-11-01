@@ -1,0 +1,5 @@
+branch: contrib/p0-loss-horizon
+base: main @ 2ab35292 (verl-project/verl, 2026-10-28)
+worktree: <repo>/wt/p0
+clone: <repo>/verl (untouched, stays on main)
+head: 9c99205c (7 commits: 73bab827 fix, c57eecaf tests, 35c3bddd review fixes, 6684917e test fixes, 0dab0eb5 residual nits R1-R3, e0a7eb22 review round 2: finite factor + integer horizon validation, 9c99205c round-2 re-review D1: int factors bounded to int64)

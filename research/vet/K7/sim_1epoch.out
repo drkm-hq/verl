@@ -1,0 +1,5 @@
+D=100000 B=512 n=8 epochs=1 easy=0.45 hard=0.15 drift=2.0
+epoch steps | DAPO gen/eff    zv%  rollouts | GRESO gen/eff    zv% skipped  rollouts p_easy p_hard | rollout saving
+    1   126 |         1.56  35.8%   800,000 |          1.56  35.8%       0   800,000   0.05   0.95 |           0.0%
+total rollouts: DAPO 800,000  GRESO 800,000  saving 0.0%  (epoch 1 saving is by construction 0)
+note: with skipping, the epoch ran out of prompts before D//B steps in epochs [1] (verl would roll the dataloader over, trainer_base.py:1473-1475)

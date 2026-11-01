@@ -1,0 +1,23 @@
+branch: contrib/p2-oldlogprob-skip
+worktree: <repo>/wt/p2
+base: main @ 2ab35292039a51175a4b3d3b3b2d76e951a0d3e4 (2ab35292)
+head: e19e79495b7ce49946a1fdd4ef9b339df17b1730
+commits (oldest first):
+  3e0f7148 [cfg, trainer] feat: add actor.skip_old_log_prob_when_on_policy with hard validation
+  ae1a3cff [fsdp] feat: compute the entropy under no_grad when it is a metric only
+  5df156ac [worker] feat: return the update pass's log-probs and use them as old log-probs when on-policy
+  a1d66592 [trainer] feat: skip the old-log-prob pass when strictly on-policy
+  1e45a508 [doc] docs: document actor.skip_old_log_prob_when_on_policy
+  a9fafde8 [cfg] fix: restrict the on-policy skip to the FSDP engines and reject dropout models
+  506d2df1 [trainer, worker] fix: refuse the on-policy skip unless the update is exactly one mini-batch of rows
+  4602a7af [worker] fix: no entropy-loss term or metric under the on-policy skip without a coefficient
+  5cb89c52 [doc] docs: on-policy skip: engine restriction, row-count rule, dropout and warmup semantics
+  2b259b2d [cfg] fix: scan every nested HF sub-config for dropout and allow fsdp_turbo for the on-policy skip
+  1ef03e93 [utils, worker] fix: refuse the on-policy skip for a train-mode-dependent actor module
+  c6067fec [cfg] fix: validate the effective actor model for the on-policy skip
+  ba60cf8e [doc] docs: on-policy skip: effective-model validation and the worker module walk
+  c7031289 [cfg, utils] fix: reject non-LoRA peft adapters, dict-valued rates and BatchNorm for the on-policy skip
+  ba0dccf5 [doc, worker] docs: on-policy skip: the module walk is structural, not a guarantee
+  7f0c53f5 [trainer] fix: the legacy trainer refuses actor.skip_old_log_prob_when_on_policy
+  5532f3a4 [cfg, utils, doc] fix: reject W4A4 QAT for the on-policy skip (train-mode activation observers)
+  e19e7949 [cfg] fix: compare the QAT mode's value when rejecting W4A4 for the on-policy skip

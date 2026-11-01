@@ -1,0 +1,159 @@
+# packages/p3b/tests.log - final CPU run on contrib/p3b-worker-relaunch @ 1b397dfd (on p3a 2bd5c040), 2026-10-29 (round 3b closure)
+# Full regression of this Mac's harness over the worktree (scripts/run-cpu-tests-wt.sh, VERL_ROOT=wt/p3b, the six groups of
+# scripts/run-cpu-regression.sh, cap 600 s): 1542 passed / 64 skipped / 0 failed. Reviewer suites on this tree: p3b round3 9/9
+# (rewritten B1, D1 x2, D2, D3, B2-B4), p3b round2 7/7, p3a round2 5/5, p3a round3 7/8 (H2's last assertion encodes the removed
+# budget spend of the hold-back, by design), round-1 19 pass + the 3 known characterization lines (R3, R4, R9); the follow-up
+# full-loop test 4/4. Per group:
+[reg-p3b-small] exit=0 ======================= 200 passed, 7 warnings in 2.97s ========================
+[reg-p3b-utils] exit=0 ================= 473 passed, 23 skipped, 8 warnings in 20.10s =================
+[reg-p3b-trainer] exit=0 ============ 496 passed, 1 skipped, 15 warnings in 69.33s (0:01:09) ============
+[reg-p3b-workers] exit=0 ========= 278 passed, 40 skipped, 1 deselected, 21 warnings in 25.93s ==========
+[reg-p3b-experimental] exit=0 ======================== 74 passed, 1 warning in 57.60s ========================
+[reg-p3b-single_controller] exit=0 ======================= 21 passed, 2 warnings in 56.83s ========================
+regression set exit=0 (0 = every group green)
+
+# ---- tests/trainer (reg-p3b-trainer.log; contains the P3 tests) ----
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.0, pluggy-1.6.0
+cachedir: <repo>/.pytest_cache
+rootdir: <repo>/wt/p3b
+configfile: ../../pytest-cpu.ini
+plugins: asyncio-1.4.0, rerunfailures-16.3, hydra-core-1.3.3, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 497 items
+
+tests/trainer/ppo/test_core_algos_on_cpu.py ......... [CORRECT] 
+
+adv1=tensor([[ 0.8185,  0.8185,  0.8185,  0.6084,  0.3423, -0.0852, -0.0852, -0.0852,
+         -1.6839,  1.2200,  1.2200]]), 
+
+ret1=tensor([[0.0000, -0.0000, 2.8939, 3.3151, 3.5820, -0.0000, -0.0000, 3.4043, 1.0000,
+         0.0000, 0.0000]])
+.[RLOO] seed=0 groups=5 shape=torch.Size([64, 128]) mask_tokens=4147 adv_max_diff=1.907e-06 ret_max_diff=1.907e-06
+.[RLOO] seed=1 groups=8 shape=torch.Size([128, 256]) mask_tokens=16364 adv_max_diff=1.907e-06 ret_max_diff=1.907e-06
+.[RLOO] seed=2 groups=10 shape=torch.Size([512, 512]) mask_tokens=130968 adv_max_diff=3.815e-06 ret_max_diff=3.815e-06
+..[GRPO] seed=0 groups=5 shape=torch.Size([64, 128]) mask_tokens=4147 adv_max_diff=2.384e-07 ret_max_diff=2.384e-07
+.[GRPO] seed=1 groups=8 shape=torch.Size([128, 256]) mask_tokens=16364 adv_max_diff=2.384e-07 ret_max_diff=2.384e-07
+.[GRPO] seed=2 groups=10 shape=torch.Size([512, 512]) mask_tokens=130968 adv_max_diff=4.768e-07 ret_max_diff=4.768e-07
+.......
+tests/trainer/ppo/test_dynamic_policy_losses_on_cpu.py .
+tests/trainer/ppo/test_loss_aggregation_on_cpu.py ......
+tests/trainer/ppo/test_metric_utils_on_cpu.py ......................................
+tests/trainer/ppo/test_reinforce_pp_multiturn_on_cpu.py ......
+tests/trainer/ppo/test_rollout_moe_lb_metrics_on_cpu.py ...............
+tests/trainer/ppo/test_score_centering_alignment_on_cpu.py ........
+tests/trainer/ppo/test_score_centering_config_on_cpu.py ....
+tests/trainer/ppo/test_score_centering_metrics_on_cpu.py W1029 14:43:11.311000 31571 torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+...
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py ......
+tests/trainer/ppo/test_score_centering_on_cpu.py ...........................................s.............
+tests/trainer/ppo/test_spec_decode_metrics_on_cpu.py ...
+tests/trainer/ppo/test_value_loss_normalization_on_cpu.py ..........................
+tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py .....
+tests/trainer/ppo/v1/test_checkpoint_callback_on_cpu.py ....
+tests/trainer/ppo/v1/test_compute_reward_colocate_on_cpu.py ...........
+tests/trainer/ppo/v1/test_dead_worker_recovery_on_cpu.py [36m(StubWorkerTQ pid=31606)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+..[36m(StubWorkerTQ pid=31615)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 4x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+..[36m(StubWorkerTQ pid=31627)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 7x across cluster][0m
+....[36m(StubWorkerTQ pid=31640)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 6x across cluster][0m
+..[36m(StubWorkerTQ pid=31670)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 4x across cluster][0m
+....[36m(pid=gcs_server)[0m [2026-10-29 14:43:45,384 E 31593 4758078] (gcs_server) gcs_actor_scheduler.cc:499: Failed to kill actor NIL_ID, return status: Invalid: KillActor RPC failed for actor NIL_ID: RpcError: RPC error: Socket closed rpc_code: 14
+[36m(StubWorkerTQ pid=31685)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 7x across cluster][0m
+
+tests/trainer/ppo/v1/test_inflight_recovery_on_cpu.py 2026-10-29 14:43:49,946	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+.............................
+tests/trainer/ppo/v1/test_metrics_aggregator_on_cpu.py .....................
+tests/trainer/ppo/v1/test_reissue_inflight_on_cpu.py 2026-10-29 14:44:04,429	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+.............
+tests/trainer/ppo/v1/test_replay_buffer_on_cpu.py ..............................................
+tests/trainer/ppo/v1/test_rollout_profiling_on_cpu.py ..........
+tests/trainer/ppo/v1/test_separate_async_step_switch_on_cpu.py ......................................................................
+tests/trainer/ppo/v1/test_streaming_feed_on_cpu.py ........................
+tests/trainer/ppo/v1/test_trainer_base_on_cpu.py ..........
+tests/trainer/ppo/v1/test_ttl_budget_full_loop_on_cpu.py ....
+tests/trainer/ppo/v1/test_v1_async_alignment_on_cpu.py ..............
+tests/trainer/ppo/v1/test_v1_async_warmup_on_cpu.py .........
+tests/trainer/ppo/v1/test_validate_recovery_on_cpu.py ..........
+tests/trainer/test_constants_ppo_on_cpu.py .....
+tests/trainer/test_multi_trajectories_advantage_on_cpu.py ..
+
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+tests/trainer/ppo/test_metric_utils_on_cpu.py::TestReduceMetrics::test_reduce_metrics_empty
+  <repo>/.venv-cpu/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:3824: RuntimeWarning: Mean of empty slice
+    return _methods._mean(a, axis=axis, dtype=dtype,
+
+tests/trainer/ppo/test_metric_utils_on_cpu.py::TestReduceMetrics::test_reduce_metrics_empty
+  <repo>/.venv-cpu/lib/python3.12/site-packages/numpy/_core/_methods.py:142: RuntimeWarning: invalid value encountered in scalar divide
+    ret = ret.dtype.type(ret / rcount)
+
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py::test_near_zero_trainer_tail_has_finite_correction_and_sampled_loss_gradients[None-2.0-16.118095]
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py::test_near_zero_trainer_tail_has_finite_correction_and_sampled_loss_gradients[None-2.0-35.0]
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py::test_near_zero_trainer_tail_has_finite_correction_and_sampled_loss_gradients[token-2.0-16.118095]
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py::test_near_zero_trainer_tail_has_finite_correction_and_sampled_loss_gradients[token-2.0-35.0]
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py::test_near_zero_trainer_tail_has_finite_correction_and_sampled_loss_gradients[token-0.5_5.0-16.118095]
+tests/trainer/ppo/test_score_centering_numerics_on_cpu.py::test_near_zero_trainer_tail_has_finite_correction_and_sampled_loss_gradients[token-0.5_5.0-35.0]
+  tests/trainer/ppo/test_score_centering_numerics_on_cpu.py:27: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    @pytest.mark.parametrize("logit_gap", [16.118095, 35.0])
+
+tests/trainer/ppo/v1/test_dead_worker_recovery_on_cpu.py::test_ttl_reissues_prompts_of_a_silently_stuck_worker
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/_private/worker.py:2051: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: <repo>/research/junit/reg-p3b-trainer.xml -
+=========================== short test summary info ============================
+SKIPPED [1] tests/trainer/ppo/test_score_centering_on_cpu.py:390: could not import 'vllm.logprobs': No module named 'vllm'
+============ 496 passed, 1 skipped, 15 warnings in 69.33s (0:01:09) ============
+
+# ---- tests/experimental (reg-p3b-experimental.log) ----
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.0, pluggy-1.6.0
+cachedir: <repo>/.pytest_cache
+rootdir: <repo>/wt/p3b
+configfile: ../../pytest-cpu.ini
+plugins: asyncio-1.4.0, rerunfailures-16.3, hydra-core-1.3.3, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 74 items
+
+tests/experimental/agent_loop/test_agent_loop_extra_fields_schema_on_cpu.py ...................
+tests/experimental/agent_loop/test_audio_server_contract_on_cpu.py ....
+tests/experimental/agent_loop/test_call_tool_on_cpu.py ........
+tests/experimental/agent_loop/test_multimodal_position_ids_on_cpu.py .
+tests/experimental/agent_loop/test_qwen3_tool_parser_on_cpu.py .....
+tests/experimental/agent_loop/test_tool_call_id_on_cpu.py ...
+tests/experimental/fully_async_policy/test_async_genrm_config_on_cpu.py .....
+tests/experimental/reward_loop/test_async_token_bucket_on_cpu.py ................
+tests/experimental/reward_loop/test_rate_limited_reward_manager_on_cpu.py .............
+
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: <repo>/research/junit/reg-p3b-experimental.xml -
+======================== 74 passed, 1 warning in 57.60s ========================

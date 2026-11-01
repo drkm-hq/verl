@@ -1,0 +1,66 @@
+WARNING:2026-10-28 21:47:09,558:No supported accelerator detected. Registered: ('nvidia', 'huawei', 'amd'). Falling back to 'nvidia'.
+WARNING:2026-10-28 21:47:09,558:Platform 'nvidia' (PlatformCUDA) is registered but not available. This may be due to this ray actor being a CPU-only actor.
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## N=1024 P=2048 L=8192 dp=8
+dense batch payload: 0.54 GB; non-tensor keys: 17
+DataProto.to_tensordict() (17 non-tensor keys)                         median       87.7 ms   min       86.3 ms   (n=3)
+DataProto.to_tensordict() (1 non-tensor key)                           median        5.0 ms   min        4.9 ms   (n=3)
+  .. NonTensorStack.from_list(N NonTensorData) for one dict key        median        5.0 ms   min        4.9 ms   (n=3)
+tu.get_tensordict(dict with N-length object arrays)                    median       90.3 ms   min       89.1 ms   (n=3)
+union_numpy_dict deep-equal on 4 overlapping object keys               median        1.0 ms   min        1.0 ms   (n=3)
+DataProto.concat of 8 chunks (torch.cat full copy)                     median        6.6 ms   min        6.6 ms   (n=3)
+BatchData(td).chunk(8) = chunk_tensordict + contiguous().consolidate() median       78.7 ms   min       75.7 ms   (n=3)
+one DP chunk payload: 0.07 GB
+pickle.dumps(consolidated chunk)  [ray.put side]                       median        5.4 ms   min        5.4 ms   (n=3)
+pickled size: 0.07 GB
+pickle.loads(consolidated chunk)  [worker ray.get side]                median       15.8 ms   min       15.2 ms   (n=3)
+pickle.dumps(non-consolidated chunk, tensors only)                     median       55.1 ms   min       54.4 ms   (n=3)
+pickle.dumps all 8 chunks (serial)                                     median       44.1 ms   min       44.1 ms   (n=1)
+pickle.dumps(DataProto) via __getstate__ (consolidate + torch.save)    median      242.5 ms   min      240.9 ms   (n=3)
+DataProto pickled size: 0.54 GB
+pickle.loads(DataProto) via __setstate__ (torch.load)                  median       18.3 ms   min       18.0 ms   (n=3)
+DataProto.select_idxs(bool mask) full copy                             median        5.5 ms   min        5.4 ms   (n=3)
+pickle.dumps(NonTensorStack of N raw_prompt dicts)                     median        1.6 ms   min        1.6 ms   (n=3)
+pickle.dumps(np object array of N raw_prompt dicts)                    median        0.3 ms   min        0.3 ms   (n=3)
+
+## N=4096 P=2048 L=8192 dp=32
+dense batch payload: 2.15 GB; non-tensor keys: 17
+DataProto.to_tensordict() (17 non-tensor keys)                         median      521.9 ms   min      509.7 ms   (n=3)
+DataProto.to_tensordict() (1 non-tensor key)                           median       19.5 ms   min       19.4 ms   (n=3)
+  .. NonTensorStack.from_list(N NonTensorData) for one dict key        median       21.0 ms   min       19.7 ms   (n=3)
+tu.get_tensordict(dict with N-length object arrays)                    median      584.9 ms   min      558.8 ms   (n=3)
+union_numpy_dict deep-equal on 4 overlapping object keys               median        9.1 ms   min        7.9 ms   (n=3)
+DataProto.concat of 8 chunks (torch.cat full copy)                     median       56.5 ms   min       53.8 ms   (n=3)
+BatchData(td).chunk(32) = chunk_tensordict + contiguous().consolidate() median      388.0 ms   min      361.0 ms   (n=3)
+one DP chunk payload: 0.07 GB
+pickle.dumps(consolidated chunk)  [ray.put side]                       median        7.8 ms   min        7.1 ms   (n=3)
+pickled size: 0.07 GB
+pickle.loads(consolidated chunk)  [worker ray.get side]                median       19.2 ms   min       17.8 ms   (n=3)
+pickle.dumps(non-consolidated chunk, tensors only)                     median      267.8 ms   min      257.7 ms   (n=3)
+pickle.dumps all 32 chunks (serial)                                    median      262.0 ms   min      262.0 ms   (n=1)
+pickle.dumps(DataProto) via __getstate__ (consolidate + torch.save)    median     1157.7 ms   min      799.6 ms   (n=3)
+DataProto pickled size: 2.15 GB
+pickle.loads(DataProto) via __setstate__ (torch.load)                  median       89.6 ms   min       88.5 ms   (n=3)
+DataProto.select_idxs(bool mask) full copy                             median       25.3 ms   min       24.7 ms   (n=3)
+pickle.dumps(NonTensorStack of N raw_prompt dicts)                     median        9.0 ms   min        8.8 ms   (n=3)
+pickle.dumps(np object array of N raw_prompt dicts)                    median        1.0 ms   min        0.9 ms   (n=3)
+
+## N=4096 P=2048 L=32768 dp=32
+dense batch payload: 7.78 GB; non-tensor keys: 17
+DataProto.to_tensordict() (17 non-tensor keys)                         median      537.8 ms   min      536.9 ms   (n=2)
+DataProto.to_tensordict() (1 non-tensor key)                           median       20.1 ms   min       19.3 ms   (n=2)
+  .. NonTensorStack.from_list(N NonTensorData) for one dict key        median       22.2 ms   min       21.9 ms   (n=2)
+tu.get_tensordict(dict with N-length object arrays)                    median      534.9 ms   min      533.0 ms   (n=2)
+union_numpy_dict deep-equal on 4 overlapping object keys               median        4.6 ms   min        4.4 ms   (n=2)
+DataProto.concat of 8 chunks (torch.cat full copy)                     median       68.4 ms   min       63.4 ms   (n=2)
+BatchData(td).chunk(32) = chunk_tensordict + contiguous().consolidate() median      440.4 ms   min      419.1 ms   (n=2)
+one DP chunk payload: 0.24 GB
+pickle.dumps(consolidated chunk)  [ray.put side]                       median        9.3 ms   min        8.8 ms   (n=2)
+pickled size: 0.24 GB
+pickle.loads(consolidated chunk)  [worker ray.get side]                median       22.6 ms   min       22.4 ms   (n=2)
+pickle.dumps(non-consolidated chunk, tensors only)                     median     1169.4 ms   min     1142.3 ms   (n=2)
+pickle.dumps all 32 chunks (serial)                                    median      725.5 ms   min      725.5 ms   (n=1)
+DataProto.select_idxs(bool mask) full copy                             median       81.1 ms   min       67.5 ms   (n=2)
+pickle.dumps(NonTensorStack of N raw_prompt dicts)                     median        8.4 ms   min        8.3 ms   (n=2)
+pickle.dumps(np object array of N raw_prompt dicts)                    median        1.1 ms   min        1.0 ms   (n=2)

@@ -1,0 +1,43 @@
+{
+  "image": "verlai/verl:uv.cu130.dev5",
+  "gpu": "H100:2",
+  "src_git": "HEAD@8c340e4745bd",
+  "src_head": "unknown",
+  "src_commits_ahead_of_main": "?",
+  "started": "2026-10-29T18:39:14Z",
+  "tests": "tests/workers/test_response_only_lm_head_on_gpu.py",
+  "pytest_extra": "-s -rs",
+  "tree": {
+    "manifest": true,
+    "shipped": 1299,
+    "present": 1299,
+    "removed_files": 12,
+    "removed_dirs": 3,
+    "digest": "d5d1bbd5af9c7e5a5e77c9aaf161a5c9bc46c8861b77bf5816c9839f31c53c84",
+    "digest_local": "d5d1bbd5af9c7e5a5e77c9aaf161a5c9bc46c8861b77bf5816c9839f31c53c84",
+    "digest_match": true
+  },
+  "uv_sync_s": 28.707935333251953,
+  "models_linked": [
+    "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "Qwen/Qwen2.5-0.5B",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "Qwen/Qwen2.5-1.5B-Instruct",
+    "Qwen/Qwen3-0.6B",
+    "Qwen/Qwen3-1.7B",
+    "Qwen/Qwen3-8B",
+    "Qwen/Qwen3-8B-Base",
+    "deepseek-ai/deepseek-coder-1.3b-instruct"
+  ],
+  "pytest": {
+    "returncode": 0,
+    "wall_s": 322.8,
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "failed": [],
+    "passed": 10
+  },
+  "finished": "2026-10-29T18:45:15Z"
+}

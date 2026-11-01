@@ -1,0 +1,9 @@
+[transformers] `use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`.
+<repo>/.venv-a9/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1552: FutureWarning: A saved_tensors_hooks context (e.g. save_on_cpu) is active around a selective activation checkpoint region. Tensors that SAC saves currently bypass these hooks, but a future release will route them through the hooks like any other saved tensor. Silence this warning and choose the behavior explicitly by passing respect_saved_tensors_hooks=True|False to torch.utils.checkpoint.checkpoint.
+  return fn(*args, **kwargs)
+mode     layer ckpt flags               loss   max|dgrad|  saved bytes  vs none
+none     [0, 0, 0, 0]             5.55481005    0.000e+00      3428612    1.000  OK
+full     [1, 1, 1, 1]             5.55481005    0.000e+00       329476    0.096  OK
+every2   [1, 0, 1, 0]             5.55481005    0.000e+00      1879044    0.548  OK
+sac      [1, 1, 1, 1]             5.55481005    0.000e+00       329476    0.096  OK
+ALL GRADIENTS MATCH

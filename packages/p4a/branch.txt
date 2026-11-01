@@ -1,0 +1,6 @@
+branch: contrib/p4a-turn-signals
+worktree: <repo>/wt/p4a
+base: main @ 2ab35292 (verl-project/verl)
+commits: 5d4b11f3 writer+cfg+validation, 4d21a858 done+spans+loop, 71bd8b61 docs, f4651857 schema columns default off without a rollout config (re-verification R-2), 7e4e8e4f reward managers deliver tool metadata (review round 2, finding 1), e5111692 span bookkeeping only under the flag + response-budget boundary documented (findings 2, 4), a600e810 real Qwen tokenizer junction test (item 8), d8c4b925 non-mapping extra_info passed through + list metadata copied (re-review LOW 1-2), 0d4cd8ca each manager keeps its flag-off callback contract (round 3, the submitter's R2-04)
+HEAD: 0d4cd8ca
+stack: [1/2]; [2/2] is contrib/p4b-turn-rloo (packages/p4b)

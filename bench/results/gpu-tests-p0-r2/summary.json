@@ -1,0 +1,51 @@
+{
+  "image": "verlai/verl:uv.cu130.dev5",
+  "gpu": "H200:8",
+  "src_git": "HEAD@9c99205c8f6e",
+  "src_head": "unknown",
+  "src_commits_ahead_of_main": "?",
+  "started": "2026-10-29T14:01:36Z",
+  "tests": "tests/",
+  "pytest_extra": "",
+  "tree": {
+    "manifest": true,
+    "shipped": 1297,
+    "present": 1297,
+    "removed_files": 12,
+    "removed_dirs": 3,
+    "digest": "dfab34c83f6ac1d296bfb0220af303430a537c211ceb2ef8f8217dc9988f8467",
+    "digest_local": "dfab34c83f6ac1d296bfb0220af303430a537c211ceb2ef8f8217dc9988f8467",
+    "digest_match": true
+  },
+  "uv_sync_s": 40.33364391326904,
+  "models_linked": [
+    "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "Qwen/Qwen2.5-0.5B",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "Qwen/Qwen2.5-1.5B-Instruct",
+    "Qwen/Qwen3-0.6B",
+    "Qwen/Qwen3-1.7B",
+    "Qwen/Qwen3-8B",
+    "Qwen/Qwen3-8B-Base",
+    "deepseek-ai/deepseek-coder-1.3b-instruct"
+  ],
+  "pytest": {
+    "returncode": 0,
+    "wall_s": 1829.0,
+    "tests": 529,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8,
+    "failed": [],
+    "passed": 521
+  },
+  "torchrun_linear_cross_entropy_tp": {
+    "returncode": 0,
+    "wall_s": 39.5
+  },
+  "torchrun_megatron_kl_loss_tp": {
+    "returncode": 0,
+    "wall_s": 34.0
+  },
+  "finished": "2026-10-29T14:34:09Z"
+}

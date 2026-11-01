@@ -1,0 +1,7 @@
+prompts=128 n=8 dp=8 max_token_len=24576; 3 encoder passes/step (old_log_prob, ref, update_actor)
+lengths        samples/rank  mb/rank |  A: mb-dedupe  B: rank cache  C: grouped+mb  (encoder work saved per phase)
+geo3k-like              128      6.0 |          6.2%          34.3%          42.3%
+short-uniform           128      3.0 |         12.6%          34.7%          63.8%
+long-tail               128     13.0 |          2.3%          33.7%          20.3%
+B assumes an exact per-rank cache valid across the 3 passes (tower adapter-free); it also removes
+the 2 extra passes: encodes/step = unique-per-rank instead of 3 x samples.

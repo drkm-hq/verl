@@ -1,0 +1,52 @@
+FF..                                                                     [100%]
+=================================== FAILURES ===================================
+E   RuntimeError: Sync replay buffer selected terminal groups with no materializable trajectories. Enable trainer.v1.sampler.sync_refill_failed_groups to replace failed groups.
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:248 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:555 [V1ReplayBuffer] 2 prompts exceeded max_inflight_reissues=0; marking them failure: ['dea14ecb77434063a1c3c70f55997d19', 'ede472b35f734614ae6004e9249ca316']
+<repo>/wt/p3b/verl/trainer/ppo/v1/replay_buffer.py:825: RuntimeError: Sync replay buffer selected terminal groups with no materializable trajectories. Enable trainer.v1.sampler.sync_refill_failed_groups to replace failed groups.
+E   RuntimeError: Sync replay buffer selected terminal groups with no materializable trajectories. Enable trainer.v1.sampler.sync_refill_failed_groups to replace failed groups.
+------------------------------ Captured log call -------------------------------
+INFO     verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:248 [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:540 [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.6s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:535 [V1ReplayBuffer] 2 prompts are being re-issued again (attempt >= 2), e.g. b6e214e33c104940a6cefc55daab08db; inflight_ttl_s=0.5 must exceed the dispatch-to-terminal time including engine queueing, or healthy generations are restarted from scratch
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:540 [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.6s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:535 [V1ReplayBuffer] 2 prompts are being re-issued again (attempt >= 2), e.g. 5caa55676fea4586b05876ceea279968; inflight_ttl_s=0.5 must exceed the dispatch-to-terminal time including engine queueing, or healthy generations are restarted from scratch
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:540 [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.6s)
+WARNING  verl.trainer.ppo.v1.replay_buffer:replay_buffer.py:555 [V1ReplayBuffer] 2 prompts exceeded max_inflight_reissues=3; marking them failure: ['5990e6cca1aa45d3980223fac95ce66a', 'c2aac208ae064c03a717fdc4e647d6af']
+<repo>/wt/p3b/verl/trainer/ppo/v1/replay_buffer.py:825: RuntimeError: Sync replay buffer selected terminal groups with no materializable trajectories. Enable trainer.v1.sampler.sync_refill_failed_groups to replace failed groups.
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3b/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3a/review-tests/round3/test_r3_charged_budget_on_cpu.py::test_r3_a1_sync_padding_mode_waits_for_healthy_slow_generations_instead_of_failing_the_step[0]
+FAILED ../../packages/p3a/review-tests/round3/test_r3_charged_budget_on_cpu.py::test_r3_a1_sync_padding_mode_waits_for_healthy_slow_generations_instead_of_failing_the_step[3]
+2 failed, 2 passed, 7 warnings in 2.03s

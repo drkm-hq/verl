@@ -1,0 +1,121 @@
+W1028 21:48:41.538000 24595 torch/distributed/elastic/multiprocessing/redirects.py:35] NOTE: Redirects are currently not supported in MacOs.
+torch 2.15.0; B=8 T=12 lengths=[12, 0, 3, 7, 12, 1, 9, 5] valid_tokens=49
+==============================================================================================================
+POLICY LOSSES: gradient wrt log_prob, micro-batch split [1,2,5] rows vs whole; dp=2 simulation
+vanilla   token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gspo      token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+sapo      token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+cispo     token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gpg       token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dro       token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_tv   token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_kl   token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+geo_mean  token-mean               fixed: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | mbwidth: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | dp2: OK  rel_grad_err= 0.00e+00
+clip_cov  token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl_cov    token-mean               fixed: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | mbwidth: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | dp2: BAD rel_grad_err= 2.51e-02
+vanilla   token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gspo      token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+sapo      token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+cispo     token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gpg       token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dro       token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_tv   token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_kl   token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+geo_mean  token-sum                fixed: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | mbwidth: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | dp2: OK  rel_grad_err= 0.00e+00
+clip_cov  token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl_cov    token-sum                fixed: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | mbwidth: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | dp2: BAD rel_grad_err= 2.51e-02
+vanilla   seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gspo      seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+sapo      seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+cispo     seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gpg       seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dro       seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_tv   seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_kl   seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+geo_mean  seq-mean-token-sum       fixed: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | mbwidth: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | dp2: OK  rel_grad_err= 0.00e+00
+clip_cov  seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl_cov    seq-mean-token-sum       fixed: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | mbwidth: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | dp2: BAD rel_grad_err= 2.51e-02
+vanilla   seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.75e-01 loss_ratio(split/whole)=  1.916 | dp2: OK  rel_grad_err= 0.00e+00
+gspo      seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.17e-01 loss_ratio(split/whole)=  1.773 | dp2: OK  rel_grad_err= 0.00e+00
+sapo      seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+cispo     seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.75e-01 loss_ratio(split/whole)=  1.568 | dp2: OK  rel_grad_err= 0.00e+00
+gpg       seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.34e-01 loss_ratio(split/whole)=  1.542 | dp2: OK  rel_grad_err= 0.00e+00
+dro       seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.49e-01 loss_ratio(split/whole)=  1.542 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_tv   seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.75e-01 loss_ratio(split/whole)=  1.568 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_kl   seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 5.75e-01 loss_ratio(split/whole)=  1.568 | dp2: OK  rel_grad_err= 0.00e+00
+geo_mean  seq-mean-token-sum-norm  fixed: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | mbwidth: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | dp2: OK  rel_grad_err= 0.00e+00
+clip_cov  seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 7.87e-01 loss_ratio(split/whole)=  3.162 | dp2: OK  rel_grad_err= 0.00e+00
+kl_cov    seq-mean-token-sum-norm  fixed: BAD rel_grad_err= 2.51e-02 loss_ratio(split/whole)=  0.998 | mbwidth: BAD rel_grad_err= 5.52e-01 loss_ratio(split/whole)=  1.911 | dp2: BAD rel_grad_err= 2.51e-02
+vanilla   seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gspo      seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+sapo      seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+cispo     seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+gpg       seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dro       seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_tv   seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+dppo_kl   seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+geo_mean  seq-mean-token-mean      fixed: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | mbwidth: BAD rel_grad_err= 6.98e-01 loss_ratio(split/whole)=  2.214 | dp2: OK  rel_grad_err= 0.00e+00
+clip_cov  seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl_cov    seq-mean-token-mean      fixed: BAD rel_grad_err= 3.42e-02 loss_ratio(split/whole)=  0.999 | mbwidth: BAD rel_grad_err= 3.42e-02 loss_ratio(split/whole)=  0.999 | dp2: BAD rel_grad_err= 8.54e-03
+==============================================================================================================
+TERMS (entropy via agg_loss, low_var_kl via agg_loss, critic value loss)
+entropy   token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+entropy   token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+entropy   seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+entropy   seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 3.00e+00 loss_ratio(split/whole)=  1.186 | dp2: OK  rel_grad_err= 0.00e+00
+entropy   seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl        token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl        token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl        seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+kl        seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 1.72e+00 loss_ratio(split/whole)=  1.242 | dp2: OK  rel_grad_err= 0.00e+00
+kl        seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+value     token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+value     token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+value     seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+value     seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 1.99e+00 loss_ratio(split/whole)=  1.213 | dp2: OK  rel_grad_err= 0.00e+00
+value     seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+==============================================================================================================
+vanilla + rollout_is_weights (TIS path, losses.py:109 -> core_algos.py:1364-1365)
+vanilla+is token-mean               fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+vanilla+is token-sum                fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+vanilla+is seq-mean-token-sum       fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+vanilla+is seq-mean-token-sum-norm  fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: BAD rel_grad_err= 6.33e-01 loss_ratio(split/whole)=  1.676 | dp2: OK  rel_grad_err= 0.00e+00
+vanilla+is seq-mean-token-mean      fixed: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | mbwidth: OK  rel_grad_err= 0.00e+00 loss_ratio(split/whole)=  1.000 | dp2: OK  rel_grad_err= 0.00e+00
+==============================================================================================================
+NOT micro-batch invariant (rel grad err >= 1e-4):
+   ('geo_mean', 'token-mean', 'fixed', 0.6976744924680496)
+   ('geo_mean', 'token-mean', 'mbwidth', 0.6976744924680496)
+   ('kl_cov', 'token-mean', 'fixed', 0.02510184339422852)
+   ('kl_cov', 'token-mean', 'mbwidth', 0.02510184339422852)
+   ('kl_cov', 'token-mean', 'dp2', 0.02510184339422852)
+   ('geo_mean', 'token-sum', 'fixed', 0.6976744924680496)
+   ('geo_mean', 'token-sum', 'mbwidth', 0.6976744924680496)
+   ('kl_cov', 'token-sum', 'fixed', 0.025101846898360574)
+   ('kl_cov', 'token-sum', 'mbwidth', 0.025101846898360574)
+   ('kl_cov', 'token-sum', 'dp2', 0.02510183941742902)
+   ('geo_mean', 'seq-mean-token-sum', 'fixed', 0.6976744924680496)
+   ('geo_mean', 'seq-mean-token-sum', 'mbwidth', 0.6976744924680496)
+   ('kl_cov', 'seq-mean-token-sum', 'fixed', 0.02510184689831647)
+   ('kl_cov', 'seq-mean-token-sum', 'mbwidth', 0.02510184689831647)
+   ('kl_cov', 'seq-mean-token-sum', 'dp2', 0.025101839417384916)
+   ('vanilla', 'seq-mean-token-sum-norm', 'mbwidth', 0.5754518516889313)
+   ('gspo', 'seq-mean-token-sum-norm', 'mbwidth', 0.516541240682041)
+   ('cispo', 'seq-mean-token-sum-norm', 'mbwidth', 0.5754518516889313)
+   ('gpg', 'seq-mean-token-sum-norm', 'mbwidth', 0.5343505757581122)
+   ('dro', 'seq-mean-token-sum-norm', 'mbwidth', 0.5488553588314421)
+   ('dppo_tv', 'seq-mean-token-sum-norm', 'mbwidth', 0.5754518516889313)
+   ('dppo_kl', 'seq-mean-token-sum-norm', 'mbwidth', 0.5754518516889313)
+   ('geo_mean', 'seq-mean-token-sum-norm', 'fixed', 0.6976744924680496)
+   ('geo_mean', 'seq-mean-token-sum-norm', 'mbwidth', 0.6976744924680496)
+   ('clip_cov', 'seq-mean-token-sum-norm', 'mbwidth', 0.7866121850179331)
+   ('kl_cov', 'seq-mean-token-sum-norm', 'fixed', 0.025101838665689876)
+   ('kl_cov', 'seq-mean-token-sum-norm', 'mbwidth', 0.5521588037606385)
+   ('kl_cov', 'seq-mean-token-sum-norm', 'dp2', 0.025101838665689876)
+   ('geo_mean', 'seq-mean-token-mean', 'fixed', 0.6976744924680496)
+   ('geo_mean', 'seq-mean-token-mean', 'mbwidth', 0.6976744924680496)
+   ('kl_cov', 'seq-mean-token-mean', 'fixed', 0.03416069070916142)
+   ('kl_cov', 'seq-mean-token-mean', 'mbwidth', 0.03416069070916142)
+   ('kl_cov', 'seq-mean-token-mean', 'dp2', 0.008540172677290354)
+   ('entropy', 'seq-mean-token-sum-norm', 'mbwidth', 2.999999910305035)
+   ('kl', 'seq-mean-token-sum-norm', 'mbwidth', 1.7165965298207944)
+   ('value', 'seq-mean-token-sum-norm', 'mbwidth', 1.988055818292262)

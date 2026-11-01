@@ -1,0 +1,1 @@
+[rollout, trainer, cfg] feat: dead agent-loop worker detection and relaunch (V1)

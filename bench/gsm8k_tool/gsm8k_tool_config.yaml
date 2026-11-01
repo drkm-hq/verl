@@ -1,0 +1,24 @@
+# Tool config for the `gsm8k-tool` bench preset (bench/README.md): verl's reference gsm8k_tool_config.yaml
+# (removed from the tree in 5a506cc5, #6302) pointing at the shipped copy of the tool in bench_extras/.
+# `config.step_reward`: verl (reference: 0.0 on an improving submission, else -0.05) | correctness (1.0 / 0.0 per
+# submission; round 2, kept in gsm8k_tool_config_v1_correctness.yaml) | first_correct (round 3: +1.0 for the first correct
+# submission of an episode only). One yaml for every arm: the flag-off arm ignores step rewards but shares the environment.
+# `config.done_when_correct`: a correct submission ends the episode via ToolResponse.done (P4 trees only).
+tools:
+  - class_name: "bench_extras.gsm8k_tool.Gsm8kTool"
+    config:
+      type: native
+      step_reward: first_correct
+      done_when_correct: true
+    tool_schema:
+      type: "function"
+      function:
+        name: "calc_gsm8k_reward"
+        description: "A tool for calculating the reward of gsm8k. (1.0 if your answer is correct, 0.0 if not)"
+        parameters:
+          type: "object"
+          properties:
+            answer:
+              type: "string"
+              description: "The model's answer to the GSM8K math problem, must be a digits"
+          required: ["answer"]

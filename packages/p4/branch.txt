@@ -1,0 +1,4 @@
+branch: contrib/p4-turn-rewards
+head: e1052882fc628245169cf6bafa77bd748a456982
+base: main @ 2ab35292
+note: combined reference branch; re-pointed 2026-10-29 (review round 2) to the p4b head e1052882 (p4a 0d4cd8ca + p4b; round 3), replacing the old linear combined history 912f79fb. packages/p4a and packages/p4b are the PR records; this directory keeps the combined round-1 records, the final combined diff, and bench/ (ENABLED-RUN.md, gsm8k_tool_reward.py, RESULTS.md).

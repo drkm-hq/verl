@@ -1,0 +1,19 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## TQ holds 512 prompts x n=8: 2976 keys
+_sync_metadata_from_transfer_queue (python rebuild per poll)           median        0.5 ms   min        0.5 ms   (n=3)
+_materialize_batch (split every key in TQ)                             median        0.4 ms   min        0.3 ms   (n=3)
+compute_advantage_for_multi_trajectories key loop over 2464 rows       median        0.6 ms   min        0.5 ms   (n=3)
+kv_list payload pickled: 0.2 MB for 2976 keys
+
+## TQ holds 2048 prompts x n=8: 11880 keys
+_sync_metadata_from_transfer_queue (python rebuild per poll)           median        1.9 ms   min        1.9 ms   (n=3)
+_materialize_batch (split every key in TQ)                             median        1.0 ms   min        0.9 ms   (n=3)
+compute_advantage_for_multi_trajectories key loop over 4096 rows       median        1.0 ms   min        1.0 ms   (n=3)
+kv_list payload pickled: 0.9 MB for 11880 keys
+
+## TQ holds 8192 prompts x n=16: 86848 keys
+_sync_metadata_from_transfer_queue (python rebuild per poll)           median       17.5 ms   min       16.9 ms   (n=3)
+_materialize_batch (split every key in TQ)                             median        7.3 ms   min        7.2 ms   (n=3)
+compute_advantage_for_multi_trajectories key loop over 8192 rows       median        2.0 ms   min        1.9 ms   (n=3)
+kv_list payload pickled: 6.6 MB for 86848 keys

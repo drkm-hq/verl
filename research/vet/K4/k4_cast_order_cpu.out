@@ -1,0 +1,26 @@
+bucketed_weight_transfer.py sha256[:12]=b835c242156f; substituted lines: 2 (device shim, async-iterator helper)
+== Part 1: bitwise identity through the real sender/receiver (shm, CPU) ==
+  transfer(current) done in 0.19s
+  transfer(k4_cast_first) done in 0.18s
+  model.embed_tokens.weight                     (4096, 256)    bitwise_equal=True
+  model.layers.0.self_attn.q_proj.weight        (512, 256)     bitwise_equal=True
+  model.layers.0.self_attn.k_proj.weight        (128, 256)     bitwise_equal=True
+  model.layers.0.input_layernorm.weight         (256,)         bitwise_equal=True
+  model.layers.0.mlp.gate_proj.weight           (768, 256)     bitwise_equal=True
+  model.layers.1.mlp.down_proj.weight           (256, 768)     bitwise_equal=True
+  lm_head.weight                                (4096, 256)    bitwise_equal=True
+  all 2654464 elements bitwise identical (int16 view, NaN payloads included)
+  buckets: current=2 (bytes 10.1 MiB)  cast-first=1 (bytes 5.1 MiB)
+  offline check: cat(shards).to(bf16) == cat(shard.to(bf16)) bitwise for every tensor
+
+== Part 2: naive IPC path arithmetic (exact replay of the sender's packing rule) ==
+  Qwen3-1.7B fp32 (today) tensors= 310 (= all-gathers)  bytes=  6.88 GB  buckets=  4 direct_sends=0  all-gather recv/rank= 6.02 GB -> NVLink    20 ms | PCIe-only  0.30 s ; bucket copy    5 ms ; lock-step RT   28 ms
+  Qwen3-1.7B bf16 (K4a)   tensors= 310 (= all-gathers)  bytes=  3.44 GB  buckets=  2 direct_sends=0  all-gather recv/rank= 3.01 GB -> NVLink    10 ms | PCIe-only  0.15 s ; bucket copy    3 ms ; lock-step RT   14 ms
+  Qwen3-1.7B params=1.721 B
+  Qwen3-8B   fp32 (today) tensors= 399 (= all-gathers)  bytes= 32.76 GB  buckets= 15 direct_sends=2  all-gather recv/rank=28.67 GB -> NVLink    96 ms | PCIe-only  1.43 s ; bucket copy   25 ms ; lock-step RT  119 ms
+  Qwen3-8B   bf16 (K4a)   tensors= 399 (= all-gathers)  bytes= 16.38 GB  buckets=  8 direct_sends=0  all-gather recv/rank=14.33 GB -> NVLink    48 ms | PCIe-only  0.72 s ; bucket copy   13 ms ; lock-step RT   56 ms
+  Qwen3-8B   params=8.191 B
+
+== Part 3: Python-side overhead per parameter of the sender-side cast (CPU, tiny tensors) ==
+  tensor.to(bf16) dispatch:    0.9 us/param ; dtype/ndim guard:  0.10 us/param
+  x 399 params (Qwen3-8B): 0.36 ms per sync of pure Python overhead (GPU: same launch cost, async kernel)

@@ -1,0 +1,6 @@
+branch: contrib/p4b-turn-rloo
+worktree: <repo>/wt/p4b
+base: contrib/p4a-turn-signals @ 0d4cd8ca (itself on main @ 2ab35292)
+commits: 92fe6224 estimator+gated plumbing+tests, bd113fe9 docs, b3964636 docs+docstring: turn_rloo without the flag behaves like RLOO (re-verification R-1), bcc63484 span validation + extra_fields fetched only for estimators that take turn_spans + rows_with_turn_spans metric (review round 2, findings 2, 3), d8fc7656 unbiasedness qualifications, returns differ from rloo (finding 5), e1052882 integral offsets, named error for a non-sequence column, wrapper rule for the span gate (re-review LOW 3-5)
+HEAD: e1052882
+stack: [2/2]; no round-3 code change on this branch; rebased --onto 0d4cd8ca d8c4b925 (clean) after the earlier rebases onto a600e810 and d8c4b925

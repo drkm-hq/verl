@@ -1,0 +1,17 @@
+# Not tracked: the verl clone and its worktrees (the branches are pushed instead), local envs, models, data,
+# caches, rollout dumps and the raw validation dumps.
+verl/
+wt/
+.venv*/
+models/
+data/
+gh/
+.mypy_cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+# rollout and validation dumps are kept locally only
+bench/results/*/rollouts/
+bench/results/*/val/

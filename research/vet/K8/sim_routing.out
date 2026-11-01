@@ -1,0 +1,16 @@
+router source: verl.workers.rollout.router.GlobalRequestLoadBalancer (clone @ HEAD)
+shape                              policy    stream distinct/grp redund.prefill of prefill est. gen% load max/mean  load CV
+BASELINE-A gsm8k 1.7B TP=1         baseline  False          8.00        134,400      87.5%      3.6%         1.021    0.023
+BASELINE-A gsm8k 1.7B TP=1         affinity  False          1.00              0       0.0%      0.0%         1.125    0.091
+BASELINE-A gsm8k 1.7B TP=1         baseline  True           7.84        131,250      85.4%      3.5%         1.053    0.038
+BASELINE-A gsm8k 1.7B TP=1         affinity  True           1.00              0       0.0%      0.0%         1.493    0.314
+reference 8B TP=2 P1.5k R8k        baseline  False          4.00      2,304,000      37.5%      3.2%         1.009    0.007
+reference 8B TP=2 P1.5k R8k        affinity  False          1.00              0       0.0%      0.0%         1.006    0.003
+reference 8B TP=2 P1.5k R8k        baseline  True           4.00      2,302,500      37.5%      3.2%         1.010    0.006
+reference 8B TP=2 P1.5k R8k        affinity  True           1.00              0       0.0%      0.0%         1.132    0.123
+agentic 8B TP=2 P8k R2k            baseline  False          4.00      6,144,000      37.5%     18.9%         1.003    0.002
+agentic 8B TP=2 P8k R2k            affinity  False          1.00              0       0.0%      0.0%         1.033    0.020
+agentic 8B TP=2 P8k R2k            baseline  True           3.99      6,128,000      37.4%     18.8%         1.010    0.008
+agentic 8B TP=2 P8k R2k            affinity  True           1.00              0       0.0%      0.0%         1.084    0.067
+
+'est. gen%' = redundant prefill time / (all prefill + decode time) per replica at the stated tok/s; it is the upper bound of the gen-time saving from affinity (KV-concurrency effects not modelled).

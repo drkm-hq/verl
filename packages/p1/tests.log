@@ -1,0 +1,152 @@
+# P1 test log: branch contrib/p1-lmhead-rows @ 4bcbbeb9 (base main @ 2ab35292), 2026-10-28, Apple M5 Max, macOS,
+# .venv-cpu (python 3.12.14, torch 2.13.0 CPU, transformers 5.16.1). Raw pytest output + junit per group in ./logs/.
+# Every run: cwd = <repo>/wt/p1, env PYTHONPATH=<repo>/wt/p1
+# (so `verl` resolves to the worktree, verified via verl.__file__), TORCH_COMPILE_DISABLE=1 TORCHINDUCTOR_DISABLE=1
+# HF_HUB_ENABLE_HF_TRANSFER=0, PATH prefixed with .venv-cpu/bin, exactly as scripts/run-cpu-tests.sh does for the clone:
+#
+#   PY=<repo>/.venv-cpu/bin/python
+#   $PY <repo>/scripts/timeout.py <cap> \
+#     $PY -m pytest -c <repo>/pytest-cpu.ini --rootdir <repo>/wt/p1 \
+#       -s --asyncio-mode=auto -rfEs --continue-on-collection-errors --junitxml logs/<label>.xml <targets>
+#
+# (pytest-cpu.ini = CI's pytest.ini: python_files = *_on_cpu.py, cache outside the tree.)
+
+## 1. New test file (label p1-new, cap 120 s)
+targets: tests/workers/test_response_only_lm_head_on_cpu.py
+result:  exit=0  23 passed, 5 warnings in 8.54s
+  TestLossRowIndex (2), TestIdentityWithTheFullProjection (3 identity cases + kwarg name), TestTheFlagIsANoOpWhenIneligible
+  (6 no-op cases + full-path fallback + ignored-index error), TestBuildTimeResolution (probe, eligible, flag off, 6 guards).
+  Identity cases assert torch.equal on response log-probs (no_padding_2_padding and response_from_nested), entropy,
+  sum_pi_squared, lm_head.weight.grad and embed_tokens.weight.grad, and lm_head row counts 105 -> 32 (no pad) and
+  128 -> 32 (pad_to_length bucket 64, per-sample temperature).
+
+## 2. CPU regression groups of scripts/run-cpu-regression.sh (same targets/ignores/deselect), against the worktree
+label        cap   targets                                                                      result
+reg-small    300   tests/test_base_config_on_cpu.py tests/test_protocol_on_cpu.py               exit=0  200 passed, 7 warnings in 11.43s
+                   tests/test_protocol_v2_on_cpu.py tests/checkpoint_engine tests/models
+                   tests/tools tests/model_merger
+reg-workers  300   tests/workers --ignore=<4 megatron files> --deselect <1 fp32 tolerance param>  exit=0  301 passed, 40 skipped, 1 deselected in 71.47s
+reg-utils    300   tests/utils --ignore=<2 megatron files> --ignore=test_sandbox_on_cpu.py       exit=0  473 passed, 23 skipped in 75.51s
+reg-trainer  300   tests/trainer                                                                 exit=0  438 passed, 1 skipped in 48.88s
+
+Baseline on main @ 2ab35292 (research/00-cpu-env.md §7): small 200, workers 278 (+23 new = 301), utils 473, trainer 438:
+identical counts, no new failures or skips. Groups experimental and single_controller not rerun (untouched areas).
+
+## 3. Lint (from the worktree, hook envs in ~/.cache/pre-commit, ruff v0.12.2 per .pre-commit-config.yaml)
+pre-commit run ruff        --files verl/workers/engine/fsdp/transformer_impl.py verl/workers/utils/padding.py tests/workers/test_response_only_lm_head_on_cpu.py   -> Passed
+pre-commit run ruff-format --files <same>                                                                                                        -> Passed (after one reformat)
+pre-commit run --all-files check-license / check-docstrings / validate-structure / check-device-api-usage / check-naming-conventions /
+                           check-docs-time-info / autogen-trainer-cfg                                                                            -> all Passed
+PR_TITLE="[fsdp, perf] feat: project the LM head only for loss rows" python3 tests/special_sanity/check_pr_title.py                              -> valid
+
+## 4. Not run here (no GPU on this machine): tests/models/test_fsdp_no_padding_on_gpu.py, tests/special_distributed, any e2e.
+
+## 5. Re-run after the adversarial review fixes (branch @ b32c777e, 2026-10-29 ~00:30Z, same harness as above)
+label              targets                                                   result
+p1-new-r2 / r3     tests/workers/test_response_only_lm_head_on_cpu.py        exit=0  23 passed (r2 after the code fixes, r3 after ruff format)
+review-tests-r2    packages/p1/review-tests (PYTHONPATH=wt/p1:review-tests)  exit=1  18 passed, 2 failed: test_single_sequence_single_response_token
+                                                                             (asserts gradients with rtol=0, atol=1e-6; the review's own D1
+                                                                             says rtol=1e-5 is needed for M=1) and
+                                                                             test_prompt_length_zero_is_rejected_not_misread (expects the assert
+                                                                             D5 dropped). test_docs_claim_a_start_up_warning_for_fused_kernels
+                                                                             (the D2 demonstration) now passes.
+reg-workers-r2     tests/workers (same ignores / deselect as §2)             exit=0  301 passed, 40 skipped, 1 deselected in 109.44s
+reg-utils-r2       tests/utils (same ignores as §2)                          exit=0  473 passed, 23 skipped in 104.38s
+
+Tolerance check on the review's degenerate layouts (scratch script around the shipped test helpers, fp32):
+  p=[1] r=[1]:                 log_probs / entropy 0.0; lm_head.weight.grad max|d| 4.66e-9 (rel 6.6e-7);
+                               embed_tokens.weight.grad max|d| 1.67e-6 (rel 4.5e-5); assert_close(rtol=1e-5, atol=1e-6) holds
+  p=[3,7,1,12,4] r=[1,0,5,2,0] (per-sample temperature): all four 0.0
+  p=[2,1] r=[1,1]:             all four 0.0
+
+## 6. Lint after the fixes
+pre-commit run ruff / ruff-format / mypy --files <4 changed .py files>                 -> Passed
+pre-commit run --all-files --show-diff-on-failure (run 1, logs/pre-commit-all-files.log) -> ruff Failed (2 x E501 in the new
+    test file, lines 209 and 303, 124 and 126 cols), ruff format Failed (1 file reformatted, 691 unchanged); the other
+    12 hooks (mypy, autogen-trainer-cfg, docs time-info, docstrings, license, device API, DataProto usage, structure,
+    naming, example naming, uv GPU-only, compileall) Passed. Fix committed as b32c777e.
+pre-commit run --all-files --show-diff-on-failure (run 2, logs/pre-commit-all-files-r2.log) -> 14 Passed, 0 Failed, exit 0
+PR_TITLE="[fsdp, perf] feat: project the LM head only for loss rows" python3 tests/special_sanity/check_pr_title.py -> valid
+
+## 7. Re-run after the re-verification nits (branch @ a11ca00b, 2026-10-29 ~00:50Z, same harness)
+label              targets                                                   result
+p1-new-r4          tests/workers/test_response_only_lm_head_on_cpu.py        exit=0  24 passed (23 + test_an_empty_prompt_is_rejected_by_name)
+review-tests-r3    packages/p1/review-tests (33 tests incl. test_review_fixes) exit=1  28 passed, 5 failed, all by construction of the tests:
+                                                                             test_no_device_to_host_sync_in_the_index_path (the named empty-prompt
+                                                                             check is one host transfer), TestDroppedAssertCharacterization x2
+                                                                             (pre-nit IndexError / silent read; now ValueError),
+                                                                             test_prompt_length_zero_is_rejected_not_misread (expects AssertionError,
+                                                                             gets ValueError), test_single_sequence_single_response_token (rtol=0)
+reg-workers-r3     tests/workers (same ignores / deselect as §2)             exit=0  302 passed, 40 skipped, 1 deselected in 113.37s
+reg-utils-r3       tests/utils (same ignores as §2)                          exit=0  473 passed, 23 skipped in 75.92s
+lint               pre-commit run ruff / ruff-format / mypy --files padding.py transformer_impl.py test_response_only_lm_head_on_cpu.py -> Passed
+
+## §8 Review round 2 (2026-10-29, HEAD 2634019d): final CPU run
+
+New test file (26 = 24 + 2 PEFT tests):
+  ======================== 26 passed, 6 warnings in 2.41s ========================
+GPU identity test tests/workers/test_response_only_lm_head_on_gpu.py on this Mac (no CUDA): 3 skipped (needs a CUDA device).
+Full CPU regression on the worktree (scripts/run-cpu-tests-wt.sh, the groups of run-cpu-regression.sh; logs/p1r2-reg-*.log):
+  small              ======================= 200 passed, 7 warnings in 3.27s ========================
+  utils              ================= 473 passed, 23 skipped, 8 warnings in 23.58s =================
+  trainer            ================= 438 passed, 1 skipped, 15 warnings in 19.64s =================
+  workers            ========= 304 passed, 40 skipped, 1 deselected, 21 warnings in 30.82s ==========
+  experimental       ======================== 74 passed, 1 warning in 57.91s ========================
+  single_controller  ================== 21 passed, 2 warnings in 69.22s (0:01:09) ===================
+  total 1510 passed, 64 skipped, 1 deselected, 0 failed (main baseline 1484 / 64; +26 = the new tests)
+pre-commit run --all-files at 2634019d: 14 hooks Passed, 0 Failed (logs/pre-commit-all-files-r4.log); worktree clean.
+
+§8 addendum: HEAD d7d820aa adds the fsdp/fsdp2 parametrization to the GPU test file only (not collected on CPU: 6 skipped here;
+`pre-commit run --files` on it Passed). The regression and the --all-files run above were taken at 2634019d, whose tree differs
+only in that file.
+
+## §9 Round-2 re-review fixes (HEAD 407082ec): reviewer round2 CPU tests + smoke
+
+  review-tests/round2 (mechanics 6 + PEFT probe 7): 13 passed, 0 failed (at d7d820aa: 4 of the mechanics tests failed by design)
+  CPU smoke of _check: identical pass; 5% grad fail; 2% update sign flips fail; +0.03 entropy on 128/498 rows fail (mean rule);
+    two one-ulp entropy rows pass; AdamW-style 2*lr param flip pass; 3*lr fail
+  GPU test on this Mac: 6 skipped ("needs a CUDA device"); pre-commit --files on the file: ruff, ruff-format, mypy, license Passed
+
+## §10 GPU run 1 + fp32-reference redesign (HEAD 363470c1)
+
+  Modal gpu-identity-p1-2 (d7d820aa) / -p1-3 (407082ec): 6 failed / 0 passed / 0 skipped; forward log-probs + entropy bitwise
+    in all six cases, sum_pi_squared max_abs 1.08e-7; grad layer 0 rel_fro 1.694e-2 (fsdp) / 2.201e-2 (fsdp2) / 1.676e-2 (lora) vs 1e-2
+  reviewer round2 tests at 363470c1: 12 passed, 1 failed by construction (test_entropy_tolerance_covers_one_bf16_ulp_of_a_top_logit:
+    the bf16 forward is now asserted exact, as measured)
+  CPU smoke of _compare (bf16 + fp32 rules, layer table): as intended (NOTES.md); GPU file on this Mac: 6 skipped; pre-commit --files Passed
+
+## §11 GPU run 2 + final criterion (HEAD cf539906)
+
+  Modal gpu-identity-p1-4 (363470c1): 2 passed (lora x2) / 4 failed / 0 skipped; forward bitwise (bf16 + fp32); fp32 grads 1.1e-5..1.4e-5
+    per layer (worst 5.7e-5); bf16 arm-vs-arm 1.694e-2 -> 2.199e-3; failures = fp32 update rule (1.0e-4..1.3e-4) + bf16 update rule on q/k biases
+  reviewer round2 tests at cf539906: 12 passed, 1 failed by construction (ulp-rule entropy test; bf16 forward asserted exact)
+  CPU smoke of the distance-to-truth criterion and the SGD residual: as intended (NOTES.md); GPU file here: 6 skipped; pre-commit --files Passed
+
+## §12 GPU run 3 + stock suite on cf539906 (package record)
+
+  gpu-identity-p1-5: 6 passed / 0 failed / 0 skipped (196.6 s); gpu-tests-p1-r2-final: 509 passed / 0 failed / 8 skipped, torchrun 2/2
+
+## §13 Round 3 (HEAD e7c0d616): oracle + reviewer tests
+
+  oracle tests/workers/test_response_only_lm_head_oracle_on_cpu.py: 19 passed; reviewer round2: 13 passed; reviewer round3 oracle
+    (research/review-bundle/follow-up-review/evidence/p1): 11 passed, 1 failed by construction (test_distance_rule_is_not_identity)
+  shipped CPU file: 26 passed; GPU file on this Mac: 10 skipped; pre-commit --files on both files Passed
+  tests/workers regression at e7c0d616 (logs/p1r3-reg-workers.log): ========= 323 passed, 40 skipped, 1 deselected, 21 warnings in 34.80s ==========
+
+## §14 Round-3 re-review D1-D5 (HEAD 1dbc0c07)
+
+  reviewer round3 (packages/p1/review-tests/round3): 12 passed (were 3 + 4 pass / 1 + 4 fail at e7c0d616); round2: 13 passed
+  reviewer oracle: 11 passed, 1 failed by construction; branch oracle: 22 passed; shipped CPU file: 26 passed; GPU file here: 10 skipped
+  tests/workers regression (logs/p1r3b-reg-workers.log): ========= 326 passed, 40 skipped, 1 deselected, 21 warnings in 23.52s ==========
+  pre-commit --files on both files Passed
+
+## §15 Boolean-mask baseline fix (HEAD 8c340e47)
+
+  gpu-identity-p1-6 @ e7c0d616 (H100:2): 8 passed / 2 failed (two-rank D1, as predicted); gpu-identity-p1-7 @ 1dbc0c07: 10 failed (bool subtraction in the baseline loop)
+  branch oracle: 26 passed; reviewer round3: 12 passed; round2: 13 passed; reviewer oracle: 11 passed / 1 by construction; shipped CPU file: 26; GPU file here: 10 skipped
+  tests/workers regression (logs/p1r3c-reg-workers.log): ========= 330 passed, 40 skipped, 1 deselected, 21 warnings in 28.15s ==========
+  pre-commit --files on both files Passed
+
+## §16 GPU run 8 + stock suite on 8c340e47 (package record)
+
+  gpu-identity-p1-8 (H100:2): 10 passed / 0 failed / 0 skipped (320.5 s); gpu-tests-p1-r3-final (H200:8): 513 passed / 0 failed / 8 skipped, torchrun 2/2

@@ -1,0 +1,43 @@
+# P4 CPU test log, worktree <repo>/wt/p4 (branch contrib/p4-turn-rewards), 2026-10-29T03:45Z
+# runner: PYTHONPATH=<worktree> .venv-cpu python -m pytest -c pytest-cpu.ini --rootdir <worktree> -s --asyncio-mode=auto -rfEs --continue-on-collection-errors -p no:cacheprovider (CI python_files=*_on_cpu.py)
+# known macOS-only exclusions from research/00-cpu-env.md §7: megatron files, test_sandbox_on_cpu.py, one float32 tolerance param
+
+## group new-tests: pytest tests/trainer/ppo/test_turn_rloo_on_cpu.py tests/experimental/agent_loop/test_turn_level_rewards_on_cpu.py tests/trainer/ppo/v1/test_compute_advantage_turn_spans_on_cpu.py tests/trainer/ppo/v1/test_agent_loop_tq_on_cpu.py tests/experimental/agent_loop/test_tool_call_id_on_cpu.py
+exit=0
+24 passed in 8.47s
+
+## group trainer: pytest tests/trainer
+exit=1
+FAILED tests/trainer/ppo/test_turn_rloo_on_cpu.py::test_turn_rloo_is_registered
+FAILED tests/trainer/ppo/v1/test_compute_advantage_turn_spans_on_cpu.py::test_v1_compute_advantage_passes_generated_turn_spans_to_turn_rloo
+FAILED tests/trainer/ppo/v1/test_compute_advantage_turn_spans_on_cpu.py::test_v1_compute_advantage_without_spans_keeps_rloo_behaviour
+3 failed, 445 passed, 1 skipped in 40.96s
+
+## group experimental: pytest tests/experimental
+exit=0
+80 passed in 62.25s (0:01:02)
+
+## group tools: pytest tests/tools
+exit=0
+42 passed in 5.46s
+
+## group utils: pytest tests/utils --ignore=tests/utils/ckpt/test_megatron_checkpoint_manager_on_cpu.py --ignore=tests/utils/megatron/test_muon_layerwise_bridge_ddp_on_cpu.py --ignore=tests/utils/reward_score/test_sandbox_on_cpu.py
+exit=0
+473 passed, 23 skipped in 46.24s
+DONE
+
+## group trainer (re-run after making the new tests independent of test_core_algos_on_cpu.py's registry clearing): pytest tests/trainer
+exit=0
+448 passed, 1 skipped in 33.16s
+
+## 2026-10-29 after the review fixes and the split
+The combined tree (contrib/p4-turn-rewards @ f9d52c4c) is byte-identical to contrib/p4b-turn-rloo; see packages/p4b/tests.log
+for the post-fix runs on that tree (new tests 59 passed; trainer 456/1 skipped; experimental 84; tools 42; utils 473/23
+skipped; reviewer suite 53 passed / 4 failed by old wording; pre-commit --all-files all hooks Passed) and
+packages/p4a/tests.log for [1/2] alone (new tests 23; trainer 444/1; experimental 83; tools 42; utils 473/23).
+
+## 2026-10-29 after the re-verification residuals
+Final HEADs: p4a f4651857, p4b 97a43c92, p4 912f79fb (p4 tree == p4b tree). Fresh logs: packages/p4a/tests.log (new tests 26;
+reviewer loop-level files 35 passed / 2 skipped; trainer 444/1; experimental 86; tools 42; utils 473/23; pre-commit Passed) and
+packages/p4b/tests.log (new tests 62; reviewer R1-R10 96 passed; trainer 456/1; experimental 87; tools 42; utils 473/23;
+pre-commit Passed).

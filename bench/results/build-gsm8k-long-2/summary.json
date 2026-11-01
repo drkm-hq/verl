@@ -1,0 +1,63 @@
+{
+  "ok": true,
+  "returncode": 0,
+  "dst": "/hf-cache/data/gsm8k-long",
+  "tokenizer": "/hf-cache/hf_home/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "build_s": 107.8,
+  "finished": "2026-10-29T04:14:42Z",
+  "build": {
+    "target_tokens": 6000,
+    "tolerance": 8,
+    "tokenizer": "/hf-cache/hf_home/hub/models--Qwen--Qwen3-1.7B/snapshots/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    "header": "Reference material (background reading, not needed to answer the question):",
+    "stride": 7919,
+    "filler": {
+      "source": "cache",
+      "sha256": "3f6bb9d6f78e0293b56acd4714dd68cb7d6d1d293402031ce9d5a216bcaf9d75",
+      "n_words": 127360,
+      "cache": "/hf-cache/data/gsm8k-long/filler.txt"
+    },
+    "words_per_token": 0.7608902415826517,
+    "num_proc": 16,
+    "splits": {
+      "train": {
+        "rows": 7473,
+        "iters": 19311,
+        "tokens_min": 5977,
+        "tokens_max": 6024,
+        "tokens_mean": 5998.630402783353,
+        "off_target": 16,
+        "over_6144": 0,
+        "sha256": "ed121315bad0c9edbf481469971f1b0f66fe8ae3ef452784b5af8e9bf71c35b6",
+        "seconds": 51.4,
+        "columns": [
+          "data_source",
+          "prompt",
+          "ability",
+          "reward_model",
+          "extra_info"
+        ]
+      },
+      "test": {
+        "rows": 1319,
+        "iters": 3373,
+        "tokens_min": 5992,
+        "tokens_max": 6016,
+        "tokens_mean": 5998.760424564064,
+        "off_target": 1,
+        "over_6144": 0,
+        "sha256": "d3b3f6a79b4a97f0d0fda7e5bedc4e84fe57b80ddfd5c4dd2f1f422068d87cd3",
+        "seconds": 33.4,
+        "columns": [
+          "data_source",
+          "prompt",
+          "ability",
+          "reward_model",
+          "extra_info"
+        ]
+      }
+    },
+    "example_tail": " entreaties of several\u201d 31 \u201cA note for Miss Bennet\u201d\n\nJanet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market? Let's think step by step and output the final answer after \"####\".",
+    "example_ground_truth": "18"
+  }
+}

@@ -1,0 +1,9 @@
+[transformers] Model config: bos_token_id must be `None` or an integer within the vocabulary (between 0 and 255), got 151643. This may result in unexpected behavior.
+[transformers] Model config: eos_token_id must be `None` or an integer within the vocabulary (between 0 and 255), got 151645. This may result in unexpected behavior.
+torch 2.15.0 transformers 5.21.0 threads 9
+qwen2.5-vl attn=eager images=8 unique=2 patches=160 tokens=40 | image_embeds bitwise=True max|d|=0.000e+00 deepstack bitwise=None | inputs_embeds bitwise=True verl-wrapper==dedupe bitwise=True | logits bitwise=True max|d|=0.000e+00 | visual naive 9.9 ms, dedupe 1.9 ms
+qwen2.5-vl attn=sdpa  images=8 unique=2 patches=160 tokens=40 | image_embeds bitwise=True max|d|=0.000e+00 deepstack bitwise=None | inputs_embeds bitwise=True verl-wrapper==dedupe bitwise=True | logits bitwise=True max|d|=0.000e+00 | visual naive 11.0 ms, dedupe 1.6 ms
+qwen3-vl   attn=eager images=8 unique=2 patches=160 tokens=40 | image_embeds bitwise=True max|d|=0.000e+00 deepstack bitwise=True | inputs_embeds bitwise=True verl-wrapper==dedupe bitwise=True | logits bitwise=True max|d|=0.000e+00 | visual naive 5.1 ms, dedupe 1.9 ms
+qwen3-vl   attn=sdpa  images=8 unique=2 patches=160 tokens=40 | image_embeds bitwise=True max|d|=0.000e+00 deepstack bitwise=True | inputs_embeds bitwise=True verl-wrapper==dedupe bitwise=True | logits bitwise=True max|d|=0.000e+00 | visual naive 3.2 ms, dedupe 2.4 ms
+processor   grid=[[1, 6, 8]] rows=48 same-image-twice rows==2x: True copy1 bitwise=True copy2 bitwise=True
+RESULT PASS

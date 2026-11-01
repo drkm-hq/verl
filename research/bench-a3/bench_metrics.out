@@ -1,0 +1,37 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## N=1024 P=2048 L=8192
+dense batch payload: 0.74 GB
+compute_data_metrics(use_critic=True)                                  median       18.4 ms   min       18.4 ms   (n=3)
+compute_data_metrics(use_critic=False)                                 median       12.1 ms   min       11.8 ms   (n=3)
+compute_timing_metrics                                                 median        0.9 ms   min        0.8 ms   (n=3)
+compute_throughout_metrics                                             median        0.0 ms   min        0.0 ms   (n=3)
+compute_variance_proxy_metrics (no sum_pi_squared: early return)       median        0.0 ms   min        0.0 ms   (n=3)
+agg_loss(entropys, response_mask, token-mean)  [driver entropy metric] median        2.6 ms   min        2.5 ms   (n=3)
+attention_mask.sum(-1).tolist() (global_token_num)                     median        0.5 ms   min        0.5 ms   (n=3)
+[item... for item in DataProto] over 1024 items (DataProto.__getitem__(int)) median        9.7 ms   min        9.6 ms   (n=3)
+same over the non_tensor_batch array directly (1024 items)             median        0.1 ms   min        0.1 ms   (n=3)
+
+## N=4096 P=2048 L=8192
+dense batch payload: 2.95 GB
+compute_data_metrics(use_critic=True)                                  median       73.8 ms   min       73.2 ms   (n=3)
+compute_data_metrics(use_critic=False)                                 median       48.8 ms   min       47.0 ms   (n=3)
+compute_timing_metrics                                                 median        2.5 ms   min        2.5 ms   (n=3)
+compute_throughout_metrics                                             median        0.0 ms   min        0.0 ms   (n=3)
+compute_variance_proxy_metrics (no sum_pi_squared: early return)       median        0.0 ms   min        0.0 ms   (n=3)
+agg_loss(entropys, response_mask, token-mean)  [driver entropy metric] median        9.8 ms   min        9.6 ms   (n=3)
+attention_mask.sum(-1).tolist() (global_token_num)                     median        1.8 ms   min        1.7 ms   (n=3)
+[item... for item in DataProto] over 1024 items (DataProto.__getitem__(int)) median        9.3 ms   min        9.0 ms   (n=3)
+same over the non_tensor_batch array directly (1024 items)             median        0.1 ms   min        0.1 ms   (n=3)
+
+## N=4096 P=2048 L=32768
+dense batch payload: 11.01 GB
+compute_data_metrics(use_critic=True)                                  median      316.9 ms   min      314.5 ms   (n=2)
+compute_data_metrics(use_critic=False)                                 median      186.5 ms   min      178.1 ms   (n=2)
+compute_timing_metrics                                                 median        6.6 ms   min        6.5 ms   (n=2)
+compute_throughout_metrics                                             median        0.0 ms   min        0.0 ms   (n=2)
+compute_variance_proxy_metrics (no sum_pi_squared: early return)       median        0.0 ms   min        0.0 ms   (n=2)
+agg_loss(entropys, response_mask, token-mean)  [driver entropy metric] median       32.9 ms   min       31.0 ms   (n=2)
+attention_mask.sum(-1).tolist() (global_token_num)                     median        4.4 ms   min        4.4 ms   (n=2)
+[item... for item in DataProto] over 1024 items (DataProto.__getitem__(int)) median        9.5 ms   min        9.5 ms   (n=2)
+same over the non_tensor_batch array directly (1024 items)             median        0.1 ms   min        0.1 ms   (n=2)

@@ -1,0 +1,42 @@
+== Qwen3-8B (H4096 I12288 nh32 nkv8 d128): measured at 1/8 dims, T=64, bf16, scaled x8 ==
+mode      KB/token/layer (excl TxT)   TxT KB/token/layer
+none                          302.6                  0.0
+   saved tensors per layer (none), scaled shapes, top 14 by bytes:
+     ('nkv', 'T', 'I')          bfloat16     72.00 KB/token/layer
+     ('nkv', 'T', 'H')          float32      64.00 KB/token/layer
+     ('T', 'H')                 bfloat16     48.00 KB/token/layer
+     ('nkv', 'T', 'nh', 'd')    float32      32.00 KB/token/layer
+     ('T', 'I')                 bfloat16     24.00 KB/token/layer
+     ('nkv', 'T', 'H')          bfloat16     16.00 KB/token/layer
+     ('nkv', 'nh', 'T', 'd')    bfloat16     16.00 KB/token/layer
+     ('nkv', 'nkv', 'T', 'd')   bfloat16     12.00 KB/token/layer
+     ('nkv', 'T', 'nh', 'd')    bfloat16      8.00 KB/token/layer
+     ('nkv', 'T', 'nkv', 'd')   float32       8.00 KB/token/layer
+     ('nkv', 'T', 'nkv', 'd')   bfloat16      2.00 KB/token/layer
+     ('nkv', 'T', 'nh', 'nkv')  float32       0.25 KB/token/layer
+     ('nkv', 'T', 'nkv')        float32       0.12 KB/token/layer
+     ('nkv', 'nh', 'T')         float32       0.12 KB/token/layer
+full                            8.0                  0.0
+every2                        155.3                  0.0
+sac                            84.0                  0.0
+== Qwen3-1.7B (H2048 I6144 nh16 nkv8 d128): measured at 1/4 dims, T=64, bf16, scaled x4 ==
+mode      KB/token/layer (excl TxT)   TxT KB/token/layer
+none                          158.3                  0.0
+   saved tensors per layer (none), scaled shapes, top 14 by bytes:
+     (1, 'T', 'I')              bfloat16     36.00 KB/token/layer
+     (1, 'T', 'H')              float32      32.00 KB/token/layer
+     ('T', 'H')                 bfloat16     24.00 KB/token/layer
+     (1, 'T', 'nh', 'd')        float32      16.00 KB/token/layer
+     ('T', 'I')                 bfloat16     12.00 KB/token/layer
+     (1, 'T', 'H')              bfloat16      8.00 KB/token/layer
+     (1, 'T', 'nkv', 'd')       float32       8.00 KB/token/layer
+     (1, 'nh', 'T', 'd')        bfloat16      8.00 KB/token/layer
+     (1, 'T', 'nh', 'd')        bfloat16      4.00 KB/token/layer
+     (1, 1, 'T', 'd')           bfloat16      4.00 KB/token/layer
+     (1, 'nkv', 'T', 'd')       bfloat16      4.00 KB/token/layer
+     (1, 'T', 'nkv', 'd')       bfloat16      2.00 KB/token/layer
+     (1, 'T', 'nh', 1)          float32       0.12 KB/token/layer
+     (1, 'T', 1)                float32       0.06 KB/token/layer
+full                            4.0                  0.0
+every2                         81.2                  0.0
+sac                            44.0                  0.0

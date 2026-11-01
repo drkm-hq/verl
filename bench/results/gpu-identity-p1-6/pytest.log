@@ -1,0 +1,1644 @@
+Uninstalled 1 package in 0.60ms
+Installed 1 package in 40ms
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.0, pluggy-1.6.0
+rootdir: /workspace/verl
+configfile: pyproject.toml
+plugins: anyio-4.13.0, rerunfailures-16.3, hydra-core-1.3.3, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 10 items
+
+tests/workers/test_response_only_lm_head_on_gpu.py [response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp, variant plain, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/inference/contexts/kv_block_allocator.py:426: SyntaxWarning: invalid escape sequence '\-'
+  """Evict LRU cached blocks to free up space in the pool.
+WARNING:2026-10-29 17:40:22,734:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  26%|██▌       | 76/290 [00:00<00:00, 745.67it/s]Loading weights:  59%|█████▉    | 171/290 [00:00<00:00, 862.68it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 980.96it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:40:24.759912551 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 1.84, memory reserved (GB): 2.45, device memory used/total (GB): 3.61/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:40:25.499000 319 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp/plain/1rank/bf16] flag=off: gradients on 25 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  39%|███▉      | 113/290 [00:00<00:00, 1128.36it/s]Loading weights:  82%|████████▏ | 238/290 [00:00<00:00, 1197.61it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1240.02it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 9.27, memory reserved (GB): 9.48, device memory used/total (GB): 10.76/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 11.11, memory reserved (GB): 11.85, device memory used/total (GB): 13.14/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/plain/1rank/bf16] flag=off: gradients on 25 tensors
+[response_only_lm_head][fsdp/plain/1rank/bf16] flag-off twice: bitwise identical (109 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  37%|███▋      | 107/290 [00:00<00:00, 1067.90it/s]Loading weights:  80%|███████▉  | 231/290 [00:00<00:00, 1161.19it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1184.84it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 11.11, memory reserved (GB): 19.80, device memory used/total (GB): 21.09/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 12.95, memory reserved (GB): 19.80, device memory used/total (GB): 21.09/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/plain/1rank/bf16] flag=on: gradients on 25 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  54%|█████▍    | 156/290 [00:00<00:00, 1546.82it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1507.14it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 20.31, memory reserved (GB): 20.65, device memory used/total (GB): 21.93/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 22.15, memory reserved (GB): 23.02, device memory used/total (GB): 24.31/79.17
+Total steps: -1, num_warmup_steps: 0
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: The AccumulateGrad node's stream does not match the stream of the node that produced the incoming gradient. This may incur unnecessary synchronization and break CUDA graph capture if the AccumulateGrad node's stream is the default stream. This mismatch is caused by an AccumulateGrad node created prior to the current iteration being kept alive. This can happen if the autograd graph is still being kept alive by tensors such as the loss, or if you are using DDP, which will stash a reference to the node. To resolve the mismatch, delete all references to the autograd graph or ensure that DDP initialization is performed under the same stream as subsequent forwards. If the mismatch is intentional, you can use torch.autograd.graph.set_warn_on_accumulate_grad_stream_mismatch(False) to suppress this warning. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/input_buffer.cpp:310.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[response_only_lm_head][fsdp/plain/1rank/fp32] flag=off: gradients on 25 tensors
+[response_only_lm_head][fsdp/plain/1rank] fp32 vs bf16 flag-off log-probs: mean=2.903e-02 max=4.309e-01
+[response_only_lm_head][fsdp/plain/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/bf16] forward/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp/plain/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/plain/1rank/bf16] sgd/grad_norm: off=21.065 on=21.054
+[response_only_lm_head][fsdp/plain/1rank/bf16] sgd/residual_ulps: off=0.213 on=0.213
+[response_only_lm_head][fsdp/plain/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/bf16] train/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 00: n=1 max on-vs-off rel_fro=1.694e-02 D_off=1.024e-01 D_on=9.974e-02 max ratio=0.97
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 01: n=1 max on-vs-off rel_fro=1.411e-02 D_off=1.224e-01 D_on=1.232e-01 max ratio=1.01
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 02: n=1 max on-vs-off rel_fro=1.326e-02 D_off=2.735e-01 D_on=2.740e-01 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 03: n=1 max on-vs-off rel_fro=1.338e-02 D_off=2.871e-01 D_on=2.881e-01 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 04: n=1 max on-vs-off rel_fro=1.393e-02 D_off=1.011e-01 D_on=1.010e-01 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 05: n=1 max on-vs-off rel_fro=1.306e-02 D_off=1.007e-01 D_on=1.008e-01 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 06: n=1 max on-vs-off rel_fro=1.278e-02 D_off=1.060e-01 D_on=1.068e-01 max ratio=1.01
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 07: n=1 max on-vs-off rel_fro=1.464e-02 D_off=1.312e-01 D_on=1.288e-01 max ratio=0.98
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 08: n=1 max on-vs-off rel_fro=1.276e-02 D_off=9.220e-02 D_on=9.204e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 09: n=1 max on-vs-off rel_fro=1.208e-02 D_off=8.783e-02 D_on=8.805e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 10: n=1 max on-vs-off rel_fro=1.144e-02 D_off=8.026e-02 D_on=8.064e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 11: n=1 max on-vs-off rel_fro=1.399e-02 D_off=8.273e-02 D_on=8.340e-02 max ratio=1.01
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 12: n=1 max on-vs-off rel_fro=1.171e-02 D_off=7.757e-02 D_on=7.804e-02 max ratio=1.01
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 13: n=1 max on-vs-off rel_fro=1.031e-02 D_off=7.335e-02 D_on=7.344e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 14: n=1 max on-vs-off rel_fro=1.047e-02 D_off=6.995e-02 D_on=7.022e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 15: n=1 max on-vs-off rel_fro=1.048e-02 D_off=6.705e-02 D_on=6.670e-02 max ratio=0.99
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 16: n=1 max on-vs-off rel_fro=8.993e-03 D_off=6.651e-02 D_on=6.570e-02 max ratio=0.99
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 17: n=1 max on-vs-off rel_fro=7.776e-03 D_off=6.134e-02 D_on=6.125e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 18: n=1 max on-vs-off rel_fro=8.355e-03 D_off=6.535e-02 D_on=6.505e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 19: n=1 max on-vs-off rel_fro=7.569e-03 D_off=7.917e-02 D_on=7.892e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 20: n=1 max on-vs-off rel_fro=7.144e-03 D_off=6.489e-02 D_on=6.490e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 21: n=1 max on-vs-off rel_fro=8.776e-03 D_off=3.364e-01 D_on=3.371e-01 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 22: n=1 max on-vs-off rel_fro=5.184e-03 D_off=6.743e-02 D_on=6.763e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad layer 23: n=1 max on-vs-off rel_fro=2.199e-03 D_off=6.202e-02 D_on=6.198e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad root: n=1 max on-vs-off rel_fro=9.579e-03 D_off=7.780e-02 D_on=7.801e-02 max ratio=1.00
+[response_only_lm_head][fsdp/plain/1rank/bf16] grad: pooled rel_fro=1.190e-02 max_abs=2.344e-02 worst grad/_fsdp_wrapped_module.model.layers.0._fsdp_wrapped_module._flat_param rel_fro=1.694e-02
+[response_only_lm_head][fsdp/plain/1rank/bf16] param: pooled rel_fro=2.890e-07 max_abs=2.344e-05 worst param/_fsdp_wrapped_module.model.layers.3._fsdp_wrapped_module._flat_param rel_fro=7.050e-07
+[response_only_lm_head][fsdp/plain/1rank/bf16] update: pooled rel_fro=1.191e-02 max_abs=2.344e-05 worst update/_fsdp_wrapped_module.model.layers.0._fsdp_wrapped_module._flat_param rel_fro=1.695e-02 min sign agreement=0.9940
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  56%|█████▌    | 162/290 [00:00<00:00, 1617.69it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1490.01it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 14.79, memory reserved (GB): 17.45, device memory used/total (GB): 18.74/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 16.63, memory reserved (GB): 17.96, device memory used/total (GB): 19.25/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/plain/1rank/fp32] flag=on: gradients on 25 tensors
+[response_only_lm_head][fsdp/plain/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/fp32] forward/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp/plain/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/plain/1rank/fp32] sgd/grad_norm: off=21.137 on=21.137
+[response_only_lm_head][fsdp/plain/1rank/fp32] sgd/residual_ulps: off=0.213 on=0.213
+[response_only_lm_head][fsdp/plain/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/plain/1rank/fp32] train/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 00: n=1 max on-vs-off rel_fro=1.236e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 01: n=1 max on-vs-off rel_fro=1.361e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 02: n=1 max on-vs-off rel_fro=1.075e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 03: n=1 max on-vs-off rel_fro=1.139e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 04: n=1 max on-vs-off rel_fro=1.347e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 05: n=1 max on-vs-off rel_fro=1.341e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 06: n=1 max on-vs-off rel_fro=1.316e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 07: n=1 max on-vs-off rel_fro=1.468e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 08: n=1 max on-vs-off rel_fro=1.524e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 09: n=1 max on-vs-off rel_fro=1.495e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 10: n=1 max on-vs-off rel_fro=1.384e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 11: n=1 max on-vs-off rel_fro=1.334e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 12: n=1 max on-vs-off rel_fro=1.415e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 13: n=1 max on-vs-off rel_fro=1.385e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 14: n=1 max on-vs-off rel_fro=1.565e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 15: n=1 max on-vs-off rel_fro=1.646e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 16: n=1 max on-vs-off rel_fro=1.792e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 17: n=1 max on-vs-off rel_fro=1.788e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 18: n=1 max on-vs-off rel_fro=1.377e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 19: n=1 max on-vs-off rel_fro=1.432e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 20: n=1 max on-vs-off rel_fro=1.493e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 21: n=1 max on-vs-off rel_fro=1.016e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 22: n=1 max on-vs-off rel_fro=1.459e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad layer 23: n=1 max on-vs-off rel_fro=1.059e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad root: n=1 max on-vs-off rel_fro=7.772e-06
+[response_only_lm_head][fsdp/plain/1rank/fp32] grad: pooled rel_fro=1.214e-05 max_abs=1.317e-05 worst grad/_fsdp_wrapped_module.model.layers.16._fsdp_wrapped_module._flat_param rel_fro=1.792e-05
+[response_only_lm_head][fsdp/plain/1rank/fp32] param: pooled rel_fro=1.563e-09 max_abs=2.980e-08 worst param/_fsdp_wrapped_module.model.layers.3._fsdp_wrapped_module._flat_param rel_fro=2.707e-09
+[response_only_lm_head][fsdp/plain/1rank/fp32] update: pooled rel_fro=6.422e-05 max_abs=2.980e-08 worst update/_fsdp_wrapped_module.model.layers.18._fsdp_wrapped_module._flat_param rel_fro=1.290e-04 min sign agreement=1.0000
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp2, variant plain, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:40:53,658:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  46%|████▌     | 133/290 [00:00<00:00, 1319.53it/s]Loading weights:  91%|█████████▏| 265/290 [00:00<00:00, 1290.04it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1293.62it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:40:54.734452076 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+After FSDP, memory allocated (GB): 1.84, memory reserved (GB): 2.54, device memory used/total (GB): 3.69/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:40:56.033000 1196 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp2/plain/1rank/bf16] flag=off: gradients on 290 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 111/290 [00:00<00:00, 1067.78it/s]Loading weights:  82%|████████▏ | 239/290 [00:00<00:00, 1173.67it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1183.65it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 9.27, memory reserved (GB): 9.47, device memory used/total (GB): 10.76/79.17
+After FSDP, memory allocated (GB): 11.11, memory reserved (GB): 12.01, device memory used/total (GB): 13.29/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/plain/1rank/bf16] flag=off: gradients on 290 tensors
+[response_only_lm_head][fsdp2/plain/1rank/bf16] flag-off twice: bitwise identical (1169 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  42%|████▏     | 123/290 [00:00<00:00, 1208.23it/s]Loading weights:  84%|████████▍ | 245/290 [00:00<00:00, 1192.71it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1223.33it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 11.11, memory reserved (GB): 19.89, device memory used/total (GB): 21.17/79.17
+After FSDP, memory allocated (GB): 12.95, memory reserved (GB): 19.89, device memory used/total (GB): 21.17/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/plain/1rank/bf16] flag=on: gradients on 290 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  39%|███▉      | 114/290 [00:00<00:00, 1128.64it/s]Loading weights:  84%|████████▍ | 244/290 [00:00<00:00, 1226.46it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1239.22it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 20.32, memory reserved (GB): 20.79, device memory used/total (GB): 22.07/79.17
+After FSDP, memory allocated (GB): 22.16, memory reserved (GB): 23.32, device memory used/total (GB): 24.61/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/plain/1rank/fp32] flag=off: gradients on 290 tensors
+[response_only_lm_head][fsdp2/plain/1rank] fp32 vs bf16 flag-off log-probs: mean=2.903e-02 max=4.309e-01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/bf16] forward/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/plain/1rank/bf16] sgd/grad_norm: off=21.065 on=21.054
+[response_only_lm_head][fsdp2/plain/1rank/bf16] sgd/residual_ulps: off=0.292 on=0.245
+[response_only_lm_head][fsdp2/plain/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/bf16] train/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad embed: n=1 max on-vs-off rel_fro=9.580e-03 D_off=7.780e-02 D_on=7.801e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 00: n=12 max on-vs-off rel_fro=3.586e-02 D_off=1.024e-01 D_on=9.974e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 01: n=12 max on-vs-off rel_fro=3.221e-02 D_off=1.224e-01 D_on=1.232e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 02: n=12 max on-vs-off rel_fro=2.238e-02 D_off=2.735e-01 D_on=2.740e-01 max ratio=1.05
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 03: n=12 max on-vs-off rel_fro=3.345e-02 D_off=2.871e-01 D_on=2.881e-01 max ratio=1.11
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 04: n=12 max on-vs-off rel_fro=3.851e-02 D_off=1.011e-01 D_on=1.010e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 05: n=12 max on-vs-off rel_fro=1.642e-02 D_off=1.007e-01 D_on=1.008e-01 max ratio=1.06
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 06: n=12 max on-vs-off rel_fro=1.544e-02 D_off=1.060e-01 D_on=1.068e-01 max ratio=1.03
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 07: n=12 max on-vs-off rel_fro=2.546e-02 D_off=1.312e-01 D_on=1.288e-01 max ratio=1.00
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 08: n=12 max on-vs-off rel_fro=1.861e-02 D_off=9.220e-02 D_on=9.204e-02 max ratio=1.06
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 09: n=12 max on-vs-off rel_fro=2.026e-02 D_off=8.783e-02 D_on=8.805e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 10: n=12 max on-vs-off rel_fro=1.543e-02 D_off=8.026e-02 D_on=8.064e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 11: n=12 max on-vs-off rel_fro=1.948e-02 D_off=8.273e-02 D_on=8.340e-02 max ratio=1.06
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 12: n=12 max on-vs-off rel_fro=2.779e-02 D_off=7.757e-02 D_on=7.804e-02 max ratio=1.07
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 13: n=12 max on-vs-off rel_fro=1.993e-02 D_off=7.335e-02 D_on=7.344e-02 max ratio=1.03
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 14: n=12 max on-vs-off rel_fro=1.310e-02 D_off=6.995e-02 D_on=7.022e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 15: n=12 max on-vs-off rel_fro=1.712e-02 D_off=6.705e-02 D_on=6.670e-02 max ratio=1.22
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 16: n=12 max on-vs-off rel_fro=3.001e-02 D_off=6.651e-02 D_on=6.570e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 17: n=12 max on-vs-off rel_fro=1.461e-02 D_off=6.134e-02 D_on=6.125e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 18: n=12 max on-vs-off rel_fro=9.661e-03 D_off=6.535e-02 D_on=6.505e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 19: n=12 max on-vs-off rel_fro=9.278e-03 D_off=7.917e-02 D_on=7.892e-02 max ratio=1.05
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 20: n=12 max on-vs-off rel_fro=1.705e-02 D_off=6.489e-02 D_on=6.490e-02 max ratio=1.10
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 21: n=12 max on-vs-off rel_fro=9.056e-03 D_off=3.364e-01 D_on=3.371e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 22: n=12 max on-vs-off rel_fro=1.427e-02 D_off=6.743e-02 D_on=6.763e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad layer 23: n=12 max on-vs-off rel_fro=1.441e-02 D_off=6.202e-02 D_on=6.198e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad norm: n=1 max on-vs-off rel_fro=6.989e-04 D_off=2.680e-02 D_on=2.692e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/plain/1rank/bf16] grad: pooled rel_fro=1.190e-02 max_abs=2.344e-02 worst grad/model.layers.4.input_layernorm.weight rel_fro=3.851e-02
+[response_only_lm_head][fsdp2/plain/1rank/bf16] param: pooled rel_fro=2.890e-07 max_abs=2.344e-05 worst param/model.layers.0.self_attn.v_proj.bias rel_fro=2.012e-04
+[response_only_lm_head][fsdp2/plain/1rank/bf16] update: pooled rel_fro=1.191e-02 max_abs=2.344e-05 worst update/model.layers.2.self_attn.k_proj.bias rel_fro=1.390e-01 min sign agreement=0.8901
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  65%|██████▌   | 189/290 [00:00<00:00, 1885.64it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1660.84it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 14.80, memory reserved (GB): 17.83, device memory used/total (GB): 19.12/79.17
+After FSDP, memory allocated (GB): 16.65, memory reserved (GB): 18.35, device memory used/total (GB): 19.64/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/plain/1rank/fp32] flag=on: gradients on 290 tensors
+[response_only_lm_head][fsdp2/plain/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/fp32] forward/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/plain/1rank/fp32] sgd/grad_norm: off=21.137 on=21.137
+[response_only_lm_head][fsdp2/plain/1rank/fp32] sgd/residual_ulps: off=0.261 on=0.261
+[response_only_lm_head][fsdp2/plain/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/fp32] train/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad embed: n=1 max on-vs-off rel_fro=7.772e-06
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 00: n=12 max on-vs-off rel_fro=1.868e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 01: n=12 max on-vs-off rel_fro=1.744e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 02: n=12 max on-vs-off rel_fro=1.755e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 03: n=12 max on-vs-off rel_fro=2.040e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 04: n=12 max on-vs-off rel_fro=2.731e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 05: n=12 max on-vs-off rel_fro=2.342e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 06: n=12 max on-vs-off rel_fro=2.107e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 07: n=12 max on-vs-off rel_fro=2.874e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 08: n=12 max on-vs-off rel_fro=2.478e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 09: n=12 max on-vs-off rel_fro=1.826e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 10: n=12 max on-vs-off rel_fro=1.618e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 11: n=12 max on-vs-off rel_fro=1.882e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 12: n=12 max on-vs-off rel_fro=2.583e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 13: n=12 max on-vs-off rel_fro=2.030e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 14: n=12 max on-vs-off rel_fro=1.874e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 15: n=12 max on-vs-off rel_fro=1.908e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 16: n=12 max on-vs-off rel_fro=2.669e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 17: n=12 max on-vs-off rel_fro=2.697e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 18: n=12 max on-vs-off rel_fro=2.648e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 19: n=12 max on-vs-off rel_fro=1.681e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 20: n=12 max on-vs-off rel_fro=5.663e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 21: n=12 max on-vs-off rel_fro=1.779e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 22: n=12 max on-vs-off rel_fro=2.131e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad layer 23: n=12 max on-vs-off rel_fro=1.661e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad norm: n=1 max on-vs-off rel_fro=6.089e-06
+[response_only_lm_head][fsdp2/plain/1rank/fp32] grad: pooled rel_fro=1.214e-05 max_abs=1.317e-05 worst grad/model.layers.20.input_layernorm.weight rel_fro=5.663e-05
+[response_only_lm_head][fsdp2/plain/1rank/fp32] param: pooled rel_fro=1.563e-09 max_abs=2.980e-08 worst param/model.layers.0.self_attn.v_proj.bias rel_fro=1.136e-07
+[response_only_lm_head][fsdp2/plain/1rank/fp32] update: pooled rel_fro=6.422e-05 max_abs=2.980e-08 worst update/model.layers.14.post_attention_layernorm.weight rel_fro=8.708e-04 min sign agreement=1.0000
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp, variant gradient-checkpointing, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:41:22,498:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  47%|████▋     | 135/290 [00:00<00:00, 1342.50it/s]Loading weights:  93%|█████████▎| 270/290 [00:00<00:00, 1328.28it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1355.67it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:41:23.645611599 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 1.84, memory reserved (GB): 2.45, device memory used/total (GB): 3.61/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:41:24.598000 2074 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] flag=off: gradients on 25 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  35%|███▌      | 102/290 [00:00<00:00, 1012.23it/s]Loading weights:  82%|████████▏ | 239/290 [00:00<00:00, 1217.96it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1239.35it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 9.27, memory reserved (GB): 9.49, device memory used/total (GB): 10.78/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 11.11, memory reserved (GB): 11.87, device memory used/total (GB): 13.15/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] flag=off: gradients on 25 tensors
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] flag-off twice: bitwise identical (109 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  55%|█████▍    | 159/290 [00:00<00:00, 1577.21it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1552.97it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 11.11, memory reserved (GB): 19.82, device memory used/total (GB): 21.11/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 12.95, memory reserved (GB): 19.82, device memory used/total (GB): 21.11/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] flag=on: gradients on 25 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  50%|█████     | 145/290 [00:00<00:00, 1419.52it/s]Loading weights:  99%|█████████▉| 287/290 [00:00<00:00, 1312.81it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1337.12it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 20.31, memory reserved (GB): 20.67, device memory used/total (GB): 21.96/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 22.15, memory reserved (GB): 23.05, device memory used/total (GB): 24.33/79.17
+Total steps: -1, num_warmup_steps: 0
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: The AccumulateGrad node's stream does not match the stream of the node that produced the incoming gradient. This may incur unnecessary synchronization and break CUDA graph capture if the AccumulateGrad node's stream is the default stream. This mismatch is caused by an AccumulateGrad node created prior to the current iteration being kept alive. This can happen if the autograd graph is still being kept alive by tensors such as the loss, or if you are using DDP, which will stash a reference to the node. To resolve the mismatch, delete all references to the autograd graph or ensure that DDP initialization is performed under the same stream as subsequent forwards. If the mismatch is intentional, you can use torch.autograd.graph.set_warn_on_accumulate_grad_stream_mismatch(False) to suppress this warning. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/input_buffer.cpp:310.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] flag=off: gradients on 25 tensors
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank] fp32 vs bf16 flag-off log-probs: mean=2.903e-02 max=4.309e-01
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] forward/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] sgd/grad_norm: off=21.065 on=21.054
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] sgd/residual_ulps: off=0.213 on=0.213
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] train/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 00: n=1 max on-vs-off rel_fro=1.694e-02 D_off=1.024e-01 D_on=9.974e-02 max ratio=0.97
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 01: n=1 max on-vs-off rel_fro=1.411e-02 D_off=1.224e-01 D_on=1.232e-01 max ratio=1.01
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 02: n=1 max on-vs-off rel_fro=1.326e-02 D_off=2.735e-01 D_on=2.740e-01 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 03: n=1 max on-vs-off rel_fro=1.338e-02 D_off=2.871e-01 D_on=2.881e-01 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 04: n=1 max on-vs-off rel_fro=1.393e-02 D_off=1.011e-01 D_on=1.010e-01 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 05: n=1 max on-vs-off rel_fro=1.306e-02 D_off=1.007e-01 D_on=1.008e-01 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 06: n=1 max on-vs-off rel_fro=1.278e-02 D_off=1.060e-01 D_on=1.068e-01 max ratio=1.01
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 07: n=1 max on-vs-off rel_fro=1.464e-02 D_off=1.312e-01 D_on=1.288e-01 max ratio=0.98
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 08: n=1 max on-vs-off rel_fro=1.276e-02 D_off=9.220e-02 D_on=9.204e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 09: n=1 max on-vs-off rel_fro=1.208e-02 D_off=8.783e-02 D_on=8.805e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 10: n=1 max on-vs-off rel_fro=1.144e-02 D_off=8.026e-02 D_on=8.064e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 11: n=1 max on-vs-off rel_fro=1.399e-02 D_off=8.273e-02 D_on=8.340e-02 max ratio=1.01
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 12: n=1 max on-vs-off rel_fro=1.171e-02 D_off=7.757e-02 D_on=7.804e-02 max ratio=1.01
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 13: n=1 max on-vs-off rel_fro=1.031e-02 D_off=7.335e-02 D_on=7.344e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 14: n=1 max on-vs-off rel_fro=1.047e-02 D_off=6.995e-02 D_on=7.022e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 15: n=1 max on-vs-off rel_fro=1.048e-02 D_off=6.705e-02 D_on=6.670e-02 max ratio=0.99
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 16: n=1 max on-vs-off rel_fro=8.993e-03 D_off=6.651e-02 D_on=6.570e-02 max ratio=0.99
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 17: n=1 max on-vs-off rel_fro=7.776e-03 D_off=6.134e-02 D_on=6.125e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 18: n=1 max on-vs-off rel_fro=8.355e-03 D_off=6.535e-02 D_on=6.505e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 19: n=1 max on-vs-off rel_fro=7.569e-03 D_off=7.917e-02 D_on=7.892e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 20: n=1 max on-vs-off rel_fro=7.144e-03 D_off=6.489e-02 D_on=6.490e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 21: n=1 max on-vs-off rel_fro=8.776e-03 D_off=3.364e-01 D_on=3.371e-01 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 22: n=1 max on-vs-off rel_fro=5.184e-03 D_off=6.743e-02 D_on=6.763e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad layer 23: n=1 max on-vs-off rel_fro=2.199e-03 D_off=6.202e-02 D_on=6.198e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad root: n=1 max on-vs-off rel_fro=9.579e-03 D_off=7.780e-02 D_on=7.801e-02 max ratio=1.00
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] grad: pooled rel_fro=1.190e-02 max_abs=2.344e-02 worst grad/_fsdp_wrapped_module.model.layers.0._fsdp_wrapped_module._flat_param rel_fro=1.694e-02
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] param: pooled rel_fro=2.890e-07 max_abs=2.344e-05 worst param/_fsdp_wrapped_module.model.layers.3._fsdp_wrapped_module._flat_param rel_fro=7.050e-07
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/bf16] update: pooled rel_fro=1.191e-02 max_abs=2.344e-05 worst update/_fsdp_wrapped_module.model.layers.0._fsdp_wrapped_module._flat_param rel_fro=1.695e-02 min sign agreement=0.9940
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  34%|███▍      | 99/290 [00:00<00:00, 984.61it/s]Loading weights:  78%|███████▊  | 226/290 [00:00<00:00, 1149.44it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1168.19it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 14.79, memory reserved (GB): 15.88, device memory used/total (GB): 17.17/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 16.63, memory reserved (GB): 17.52, device memory used/total (GB): 18.81/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] flag=on: gradients on 25 tensors
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] forward/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] sgd/grad_norm: off=21.137 on=21.137
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] sgd/residual_ulps: off=0.213 on=0.213
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] train/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 00: n=1 max on-vs-off rel_fro=1.236e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 01: n=1 max on-vs-off rel_fro=1.361e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 02: n=1 max on-vs-off rel_fro=1.075e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 03: n=1 max on-vs-off rel_fro=1.139e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 04: n=1 max on-vs-off rel_fro=1.347e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 05: n=1 max on-vs-off rel_fro=1.341e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 06: n=1 max on-vs-off rel_fro=1.316e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 07: n=1 max on-vs-off rel_fro=1.468e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 08: n=1 max on-vs-off rel_fro=1.524e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 09: n=1 max on-vs-off rel_fro=1.495e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 10: n=1 max on-vs-off rel_fro=1.384e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 11: n=1 max on-vs-off rel_fro=1.334e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 12: n=1 max on-vs-off rel_fro=1.415e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 13: n=1 max on-vs-off rel_fro=1.385e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 14: n=1 max on-vs-off rel_fro=1.565e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 15: n=1 max on-vs-off rel_fro=1.646e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 16: n=1 max on-vs-off rel_fro=1.792e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 17: n=1 max on-vs-off rel_fro=1.788e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 18: n=1 max on-vs-off rel_fro=1.377e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 19: n=1 max on-vs-off rel_fro=1.432e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 20: n=1 max on-vs-off rel_fro=1.493e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 21: n=1 max on-vs-off rel_fro=1.016e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 22: n=1 max on-vs-off rel_fro=1.459e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad layer 23: n=1 max on-vs-off rel_fro=1.059e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad root: n=1 max on-vs-off rel_fro=7.772e-06
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] grad: pooled rel_fro=1.214e-05 max_abs=1.317e-05 worst grad/_fsdp_wrapped_module.model.layers.16._fsdp_wrapped_module._flat_param rel_fro=1.792e-05
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] param: pooled rel_fro=1.563e-09 max_abs=2.980e-08 worst param/_fsdp_wrapped_module.model.layers.3._fsdp_wrapped_module._flat_param rel_fro=2.707e-09
+[response_only_lm_head][fsdp/gradient-checkpointing/1rank/fp32] update: pooled rel_fro=6.422e-05 max_abs=2.980e-08 worst update/_fsdp_wrapped_module.model.layers.18._fsdp_wrapped_module._flat_param rel_fro=1.290e-04 min sign agreement=1.0000
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp2, variant gradient-checkpointing, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:41:46,585:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  43%|████▎     | 126/290 [00:00<00:00, 1248.90it/s]Loading weights:  87%|████████▋ | 251/290 [00:00<00:00, 1228.44it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1247.19it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:41:47.624310422 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+After FSDP, memory allocated (GB): 1.84, memory reserved (GB): 2.54, device memory used/total (GB): 3.69/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:41:49.028000 2917 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] flag=off: gradients on 290 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  40%|████      | 117/290 [00:00<00:00, 1168.39it/s]Loading weights:  83%|████████▎ | 241/290 [00:00<00:00, 1208.02it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1249.22it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 9.27, memory reserved (GB): 9.61, device memory used/total (GB): 10.90/79.17
+After FSDP, memory allocated (GB): 11.11, memory reserved (GB): 12.14, device memory used/total (GB): 13.43/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] flag=off: gradients on 290 tensors
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] flag-off twice: bitwise identical (1169 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 109/290 [00:00<00:00, 1071.09it/s]Loading weights:  81%|████████▏ | 236/290 [00:00<00:00, 1181.42it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1215.11it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 11.11, memory reserved (GB): 20.17, device memory used/total (GB): 21.45/79.17
+After FSDP, memory allocated (GB): 12.95, memory reserved (GB): 20.17, device memory used/total (GB): 21.45/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] flag=on: gradients on 290 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  52%|█████▏    | 151/290 [00:00<00:00, 1496.85it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1495.73it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 20.32, memory reserved (GB): 21.06, device memory used/total (GB): 22.35/79.17
+After FSDP, memory allocated (GB): 22.16, memory reserved (GB): 23.60, device memory used/total (GB): 24.89/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] flag=off: gradients on 290 tensors
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank] fp32 vs bf16 flag-off log-probs: mean=2.903e-02 max=4.309e-01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] forward/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] sgd/grad_norm: off=21.065 on=21.054
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] sgd/residual_ulps: off=0.292 on=0.245
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] train/sum_pi_squared: max_abs=1.080e-07 mean_delta=2.826e-10 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad embed: n=1 max on-vs-off rel_fro=9.580e-03 D_off=7.780e-02 D_on=7.801e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 00: n=12 max on-vs-off rel_fro=3.586e-02 D_off=1.024e-01 D_on=9.974e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 01: n=12 max on-vs-off rel_fro=3.221e-02 D_off=1.224e-01 D_on=1.232e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 02: n=12 max on-vs-off rel_fro=2.238e-02 D_off=2.735e-01 D_on=2.740e-01 max ratio=1.05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 03: n=12 max on-vs-off rel_fro=3.345e-02 D_off=2.871e-01 D_on=2.881e-01 max ratio=1.11
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 04: n=12 max on-vs-off rel_fro=3.851e-02 D_off=1.011e-01 D_on=1.010e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 05: n=12 max on-vs-off rel_fro=1.642e-02 D_off=1.007e-01 D_on=1.008e-01 max ratio=1.06
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 06: n=12 max on-vs-off rel_fro=1.544e-02 D_off=1.060e-01 D_on=1.068e-01 max ratio=1.03
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 07: n=12 max on-vs-off rel_fro=2.546e-02 D_off=1.312e-01 D_on=1.288e-01 max ratio=1.00
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 08: n=12 max on-vs-off rel_fro=1.861e-02 D_off=9.220e-02 D_on=9.204e-02 max ratio=1.06
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 09: n=12 max on-vs-off rel_fro=2.026e-02 D_off=8.783e-02 D_on=8.805e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 10: n=12 max on-vs-off rel_fro=1.543e-02 D_off=8.026e-02 D_on=8.064e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 11: n=12 max on-vs-off rel_fro=1.948e-02 D_off=8.273e-02 D_on=8.340e-02 max ratio=1.06
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 12: n=12 max on-vs-off rel_fro=2.779e-02 D_off=7.757e-02 D_on=7.804e-02 max ratio=1.07
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 13: n=12 max on-vs-off rel_fro=1.993e-02 D_off=7.335e-02 D_on=7.344e-02 max ratio=1.03
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 14: n=12 max on-vs-off rel_fro=1.310e-02 D_off=6.995e-02 D_on=7.022e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 15: n=12 max on-vs-off rel_fro=1.712e-02 D_off=6.705e-02 D_on=6.670e-02 max ratio=1.22
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 16: n=12 max on-vs-off rel_fro=3.001e-02 D_off=6.651e-02 D_on=6.570e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 17: n=12 max on-vs-off rel_fro=1.461e-02 D_off=6.134e-02 D_on=6.125e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 18: n=12 max on-vs-off rel_fro=9.661e-03 D_off=6.535e-02 D_on=6.505e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 19: n=12 max on-vs-off rel_fro=9.278e-03 D_off=7.917e-02 D_on=7.892e-02 max ratio=1.05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 20: n=12 max on-vs-off rel_fro=1.705e-02 D_off=6.489e-02 D_on=6.490e-02 max ratio=1.10
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 21: n=12 max on-vs-off rel_fro=9.056e-03 D_off=3.364e-01 D_on=3.371e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 22: n=12 max on-vs-off rel_fro=1.427e-02 D_off=6.743e-02 D_on=6.763e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad layer 23: n=12 max on-vs-off rel_fro=1.441e-02 D_off=6.202e-02 D_on=6.198e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad norm: n=1 max on-vs-off rel_fro=6.989e-04 D_off=2.680e-02 D_on=2.692e-02 max ratio=1.00
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] grad: pooled rel_fro=1.190e-02 max_abs=2.344e-02 worst grad/model.layers.4.input_layernorm.weight rel_fro=3.851e-02
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] param: pooled rel_fro=2.890e-07 max_abs=2.344e-05 worst param/model.layers.0.self_attn.v_proj.bias rel_fro=2.012e-04
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/bf16] update: pooled rel_fro=1.191e-02 max_abs=2.344e-05 worst update/model.layers.2.self_attn.k_proj.bias rel_fro=1.390e-01 min sign agreement=0.8901
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  49%|████▉     | 143/290 [00:00<00:00, 1424.03it/s]Loading weights:  99%|█████████▊| 286/290 [00:00<00:00, 1355.24it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1375.37it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 14.79, memory reserved (GB): 15.98, device memory used/total (GB): 17.27/79.17
+After FSDP, memory allocated (GB): 16.64, memory reserved (GB): 17.98, device memory used/total (GB): 19.27/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] flag=on: gradients on 290 tensors
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] forward/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] sgd/grad_norm: off=21.137 on=21.137
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] sgd/residual_ulps: off=0.261 on=0.261
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] train/sum_pi_squared: max_abs=9.313e-08 mean_delta=2.433e-10 rows=498
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad embed: n=1 max on-vs-off rel_fro=7.772e-06
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 00: n=12 max on-vs-off rel_fro=1.868e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 01: n=12 max on-vs-off rel_fro=1.744e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 02: n=12 max on-vs-off rel_fro=1.755e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 03: n=12 max on-vs-off rel_fro=2.040e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 04: n=12 max on-vs-off rel_fro=2.731e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 05: n=12 max on-vs-off rel_fro=2.342e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 06: n=12 max on-vs-off rel_fro=2.107e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 07: n=12 max on-vs-off rel_fro=2.874e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 08: n=12 max on-vs-off rel_fro=2.478e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 09: n=12 max on-vs-off rel_fro=1.826e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 10: n=12 max on-vs-off rel_fro=1.618e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 11: n=12 max on-vs-off rel_fro=1.882e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 12: n=12 max on-vs-off rel_fro=2.583e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 13: n=12 max on-vs-off rel_fro=2.030e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 14: n=12 max on-vs-off rel_fro=1.874e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 15: n=12 max on-vs-off rel_fro=1.908e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 16: n=12 max on-vs-off rel_fro=2.669e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 17: n=12 max on-vs-off rel_fro=2.697e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 18: n=12 max on-vs-off rel_fro=2.648e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 19: n=12 max on-vs-off rel_fro=1.681e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 20: n=12 max on-vs-off rel_fro=5.663e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 21: n=12 max on-vs-off rel_fro=1.779e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 22: n=12 max on-vs-off rel_fro=2.131e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad layer 23: n=12 max on-vs-off rel_fro=1.661e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad norm: n=1 max on-vs-off rel_fro=6.089e-06
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] grad: pooled rel_fro=1.214e-05 max_abs=1.317e-05 worst grad/model.layers.20.input_layernorm.weight rel_fro=5.663e-05
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] param: pooled rel_fro=1.563e-09 max_abs=2.980e-08 worst param/model.layers.0.self_attn.v_proj.bias rel_fro=1.136e-07
+[response_only_lm_head][fsdp2/gradient-checkpointing/1rank/fp32] update: pooled rel_fro=6.422e-05 max_abs=2.980e-08 worst update/model.layers.14.post_attention_layernorm.weight rel_fro=8.708e-04 min sign agreement=1.0000
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp, variant lora, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:42:15,885:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  46%|████▌     | 132/290 [00:00<00:00, 1295.56it/s]Loading weights:  90%|█████████ | 262/290 [00:00<00:00, 1280.52it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1297.83it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:42:17.082325289 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 1.86, memory reserved (GB): 2.47, device memory used/total (GB): 3.62/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:42:18.658000 3791 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp/lora/1rank/bf16] flag=off: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 111/290 [00:00<00:00, 1089.35it/s]Loading weights:  84%|████████▍ | 245/290 [00:00<00:00, 1232.75it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1265.42it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 1.99, memory reserved (GB): 3.36, device memory used/total (GB): 4.65/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.51, device memory used/total (GB): 5.79/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/lora/1rank/bf16] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp/lora/1rank/bf16] flag-off twice: bitwise identical (1353 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  56%|█████▌    | 161/290 [00:00<00:00, 1568.75it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1419.83it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.06, device memory used/total (GB): 5.35/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 5.70, memory reserved (GB): 6.44, device memory used/total (GB): 7.72/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/lora/1rank/bf16] flag=on: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 111/290 [00:00<00:00, 1095.28it/s]Loading weights:  84%|████████▍ | 243/290 [00:00<00:00, 1215.55it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1241.70it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 5.77, memory reserved (GB): 5.95, device memory used/total (GB): 7.23/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 7.62, memory reserved (GB): 8.34, device memory used/total (GB): 9.62/79.17
+Total steps: -1, num_warmup_steps: 0
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: The AccumulateGrad node's stream does not match the stream of the node that produced the incoming gradient. This may incur unnecessary synchronization and break CUDA graph capture if the AccumulateGrad node's stream is the default stream. This mismatch is caused by an AccumulateGrad node created prior to the current iteration being kept alive. This can happen if the autograd graph is still being kept alive by tensors such as the loss, or if you are using DDP, which will stash a reference to the node. To resolve the mismatch, delete all references to the autograd graph or ensure that DDP initialization is performed under the same stream as subsequent forwards. If the mismatch is intentional, you can use torch.autograd.graph.set_warn_on_accumulate_grad_stream_mismatch(False) to suppress this warning. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/input_buffer.cpp:310.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[response_only_lm_head][fsdp/lora/1rank/fp32] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp/lora/1rank] fp32 vs bf16 flag-off log-probs: mean=3.197e-02 max=3.385e-01
+[response_only_lm_head][fsdp/lora/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/bf16] forward/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp/lora/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/lora/1rank/bf16] sgd/grad_norm: off=1.535 on=1.534
+[response_only_lm_head][fsdp/lora/1rank/bf16] sgd/residual_ulps: off=0.229 on=0.228
+[response_only_lm_head][fsdp/lora/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/bf16] train/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 00: n=14 max on-vs-off rel_fro=3.070e-02 D_off=1.302e-01 D_on=1.295e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 01: n=14 max on-vs-off rel_fro=4.438e-02 D_off=2.074e-01 D_on=2.086e-01 max ratio=1.03
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 02: n=14 max on-vs-off rel_fro=2.305e-02 D_off=3.387e-01 D_on=3.390e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 03: n=14 max on-vs-off rel_fro=1.747e-02 D_off=5.026e-01 D_on=5.028e-01 max ratio=1.03
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 04: n=14 max on-vs-off rel_fro=2.095e-02 D_off=1.123e-01 D_on=1.129e-01 max ratio=1.07
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 05: n=14 max on-vs-off rel_fro=2.347e-02 D_off=1.204e-01 D_on=1.200e-01 max ratio=1.07
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 06: n=14 max on-vs-off rel_fro=2.036e-02 D_off=1.176e-01 D_on=1.170e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 07: n=14 max on-vs-off rel_fro=2.127e-02 D_off=1.414e-01 D_on=1.379e-01 max ratio=1.05
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 08: n=14 max on-vs-off rel_fro=1.467e-02 D_off=1.174e-01 D_on=1.172e-01 max ratio=1.02
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 09: n=14 max on-vs-off rel_fro=1.447e-02 D_off=1.098e-01 D_on=1.097e-01 max ratio=1.02
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 10: n=14 max on-vs-off rel_fro=2.245e-02 D_off=1.230e-01 D_on=1.221e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 11: n=14 max on-vs-off rel_fro=1.429e-02 D_off=1.425e-01 D_on=1.405e-01 max ratio=1.01
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 12: n=14 max on-vs-off rel_fro=2.051e-02 D_off=1.068e-01 D_on=1.056e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 13: n=14 max on-vs-off rel_fro=1.624e-02 D_off=8.975e-02 D_on=8.989e-02 max ratio=1.07
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 14: n=14 max on-vs-off rel_fro=1.724e-02 D_off=7.514e-02 D_on=7.523e-02 max ratio=1.01
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 15: n=14 max on-vs-off rel_fro=1.513e-02 D_off=7.380e-02 D_on=7.431e-02 max ratio=1.08
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 16: n=14 max on-vs-off rel_fro=1.291e-02 D_off=6.650e-02 D_on=6.672e-02 max ratio=1.03
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 17: n=14 max on-vs-off rel_fro=1.094e-02 D_off=6.832e-02 D_on=6.801e-02 max ratio=1.03
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 18: n=14 max on-vs-off rel_fro=1.294e-02 D_off=7.005e-02 D_on=6.997e-02 max ratio=1.10
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 19: n=14 max on-vs-off rel_fro=1.254e-02 D_off=9.969e-02 D_on=9.968e-02 max ratio=1.07
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 20: n=14 max on-vs-off rel_fro=1.078e-02 D_off=7.497e-02 D_on=7.512e-02 max ratio=1.02
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 21: n=14 max on-vs-off rel_fro=9.128e-03 D_off=4.795e-01 D_on=4.797e-01 max ratio=1.01
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 22: n=14 max on-vs-off rel_fro=9.673e-03 D_off=9.709e-02 D_on=9.741e-02 max ratio=1.02
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad layer 23: n=14 max on-vs-off rel_fro=7.049e-03 D_off=7.839e-02 D_on=7.855e-02 max ratio=1.01
+[response_only_lm_head][fsdp/lora/1rank/bf16] grad: pooled rel_fro=1.204e-02 max_abs=2.930e-03 worst grad/_fsdp_wrapped_module.base_model.model.model.layers.1._fsdp_wrapped_module.self_attn.q_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=4.438e-02
+[response_only_lm_head][fsdp/lora/1rank/bf16] param: pooled rel_fro=8.713e-07 max_abs=2.930e-06 worst param/_fsdp_wrapped_module.base_model.model.model.layers.0._fsdp_wrapped_module.self_attn.v_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=2.527e-04
+[response_only_lm_head][fsdp/lora/1rank/bf16] update: pooled rel_fro=1.205e-02 max_abs=2.930e-06 worst update/_fsdp_wrapped_module.base_model.model.model.layers.1._fsdp_wrapped_module.self_attn.q_proj.lora_A.default._fsdp_wrapped_module._flat_param rel_fro=6.222e-02 min sign agreement=0.9830
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  51%|█████     | 147/290 [00:00<00:00, 1444.85it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1424.57it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 7.56, memory reserved (GB): 7.78, device memory used/total (GB): 9.06/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 9.42, memory reserved (GB): 10.16, device memory used/total (GB): 11.44/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/lora/1rank/fp32] flag=on: gradients on 336 tensors
+[response_only_lm_head][fsdp/lora/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/fp32] forward/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp/lora/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/lora/1rank/fp32] sgd/grad_norm: off=1.579 on=1.579
+[response_only_lm_head][fsdp/lora/1rank/fp32] sgd/residual_ulps: off=0.225 on=0.225
+[response_only_lm_head][fsdp/lora/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora/1rank/fp32] train/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 00: n=14 max on-vs-off rel_fro=1.679e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 01: n=14 max on-vs-off rel_fro=1.719e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 02: n=14 max on-vs-off rel_fro=1.717e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 03: n=14 max on-vs-off rel_fro=1.798e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 04: n=14 max on-vs-off rel_fro=2.284e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 05: n=14 max on-vs-off rel_fro=2.169e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 06: n=14 max on-vs-off rel_fro=1.724e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 07: n=14 max on-vs-off rel_fro=2.088e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 08: n=14 max on-vs-off rel_fro=2.043e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 09: n=14 max on-vs-off rel_fro=1.813e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 10: n=14 max on-vs-off rel_fro=2.137e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 11: n=14 max on-vs-off rel_fro=1.756e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 12: n=14 max on-vs-off rel_fro=2.378e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 13: n=14 max on-vs-off rel_fro=1.849e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 14: n=14 max on-vs-off rel_fro=2.251e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 15: n=14 max on-vs-off rel_fro=2.135e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 16: n=14 max on-vs-off rel_fro=2.469e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 17: n=14 max on-vs-off rel_fro=3.910e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 18: n=14 max on-vs-off rel_fro=1.754e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 19: n=14 max on-vs-off rel_fro=1.886e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 20: n=14 max on-vs-off rel_fro=3.285e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 21: n=14 max on-vs-off rel_fro=1.511e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 22: n=14 max on-vs-off rel_fro=1.672e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad layer 23: n=14 max on-vs-off rel_fro=1.369e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] grad: pooled rel_fro=1.398e-05 max_abs=1.647e-06 worst grad/_fsdp_wrapped_module.base_model.model.model.layers.17._fsdp_wrapped_module.self_attn.k_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=3.910e-05
+[response_only_lm_head][fsdp/lora/1rank/fp32] param: pooled rel_fro=2.133e-09 max_abs=3.725e-09 worst param/_fsdp_wrapped_module.base_model.model.model.layers.0._fsdp_wrapped_module.self_attn.v_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=2.086e-07
+[response_only_lm_head][fsdp/lora/1rank/fp32] update: pooled rel_fro=2.868e-05 max_abs=3.725e-09 worst update/_fsdp_wrapped_module.base_model.model.model.layers.13._fsdp_wrapped_module.self_attn.q_proj.lora_A.default._fsdp_wrapped_module._flat_param rel_fro=1.521e-03 min sign agreement=0.9999
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp2, variant lora, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:42:46,619:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  43%|████▎     | 125/290 [00:00<00:00, 1237.19it/s]Loading weights:  86%|████████▌ | 250/290 [00:00<00:00, 1229.61it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1272.65it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:42:47.913962078 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+After FSDP, memory allocated (GB): 1.86, memory reserved (GB): 2.55, device memory used/total (GB): 3.71/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:42:50.115000 4665 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp2/lora/1rank/bf16] flag=off: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  37%|███▋      | 107/290 [00:00<00:00, 1062.00it/s]Loading weights:  82%|████████▏ | 237/290 [00:00<00:00, 1200.89it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1198.10it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 1.99, memory reserved (GB): 3.46, device memory used/total (GB): 4.75/79.17
+After FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.53, device memory used/total (GB): 5.82/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora/1rank/bf16] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp2/lora/1rank/bf16] flag-off twice: bitwise identical (1353 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  43%|████▎     | 125/290 [00:00<00:00, 1214.93it/s]Loading weights:  86%|████████▌ | 250/290 [00:00<00:00, 1234.20it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1248.86it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.09, device memory used/total (GB): 5.38/79.17
+After FSDP, memory allocated (GB): 5.70, memory reserved (GB): 6.53, device memory used/total (GB): 7.81/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora/1rank/bf16] flag=on: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  37%|███▋      | 108/290 [00:00<00:00, 1050.46it/s]Loading weights:  79%|███████▉  | 230/290 [00:00<00:00, 1119.11it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1214.90it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 0.19, memory reserved (GB): 6.06, device memory used/total (GB): 7.34/79.17
+After FSDP, memory allocated (GB): 2.05, memory reserved (GB): 6.06, device memory used/total (GB): 7.34/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora/1rank/fp32] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp2/lora/1rank] fp32 vs bf16 flag-off log-probs: mean=3.197e-02 max=3.385e-01
+[response_only_lm_head][fsdp2/lora/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/bf16] forward/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/lora/1rank/bf16] sgd/grad_norm: off=1.535 on=1.534
+[response_only_lm_head][fsdp2/lora/1rank/bf16] sgd/residual_ulps: off=0.229 on=0.228
+[response_only_lm_head][fsdp2/lora/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/bf16] train/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 00: n=14 max on-vs-off rel_fro=3.070e-02 D_off=1.302e-01 D_on=1.295e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 01: n=14 max on-vs-off rel_fro=4.438e-02 D_off=2.074e-01 D_on=2.086e-01 max ratio=1.03
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 02: n=14 max on-vs-off rel_fro=2.305e-02 D_off=3.387e-01 D_on=3.390e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 03: n=14 max on-vs-off rel_fro=1.747e-02 D_off=5.026e-01 D_on=5.028e-01 max ratio=1.03
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 04: n=14 max on-vs-off rel_fro=2.095e-02 D_off=1.123e-01 D_on=1.129e-01 max ratio=1.07
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 05: n=14 max on-vs-off rel_fro=2.347e-02 D_off=1.204e-01 D_on=1.200e-01 max ratio=1.07
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 06: n=14 max on-vs-off rel_fro=2.036e-02 D_off=1.176e-01 D_on=1.170e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 07: n=14 max on-vs-off rel_fro=2.127e-02 D_off=1.414e-01 D_on=1.379e-01 max ratio=1.05
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 08: n=14 max on-vs-off rel_fro=1.467e-02 D_off=1.174e-01 D_on=1.172e-01 max ratio=1.02
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 09: n=14 max on-vs-off rel_fro=1.447e-02 D_off=1.098e-01 D_on=1.097e-01 max ratio=1.02
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 10: n=14 max on-vs-off rel_fro=2.245e-02 D_off=1.230e-01 D_on=1.221e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 11: n=14 max on-vs-off rel_fro=1.429e-02 D_off=1.425e-01 D_on=1.405e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 12: n=14 max on-vs-off rel_fro=2.051e-02 D_off=1.068e-01 D_on=1.056e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 13: n=14 max on-vs-off rel_fro=1.624e-02 D_off=8.975e-02 D_on=8.989e-02 max ratio=1.07
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 14: n=14 max on-vs-off rel_fro=1.724e-02 D_off=7.514e-02 D_on=7.523e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 15: n=14 max on-vs-off rel_fro=1.513e-02 D_off=7.380e-02 D_on=7.431e-02 max ratio=1.08
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 16: n=14 max on-vs-off rel_fro=1.291e-02 D_off=6.650e-02 D_on=6.672e-02 max ratio=1.03
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 17: n=14 max on-vs-off rel_fro=1.094e-02 D_off=6.832e-02 D_on=6.801e-02 max ratio=1.03
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 18: n=14 max on-vs-off rel_fro=1.294e-02 D_off=7.005e-02 D_on=6.997e-02 max ratio=1.10
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 19: n=14 max on-vs-off rel_fro=1.254e-02 D_off=9.969e-02 D_on=9.968e-02 max ratio=1.07
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 20: n=14 max on-vs-off rel_fro=1.078e-02 D_off=7.497e-02 D_on=7.512e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 21: n=14 max on-vs-off rel_fro=9.128e-03 D_off=4.795e-01 D_on=4.797e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 22: n=14 max on-vs-off rel_fro=9.673e-03 D_off=9.709e-02 D_on=9.741e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad layer 23: n=14 max on-vs-off rel_fro=7.049e-03 D_off=7.839e-02 D_on=7.855e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/lora/1rank/bf16] grad: pooled rel_fro=1.204e-02 max_abs=2.930e-03 worst grad/base_model.model.model.layers.1.self_attn.q_proj.lora_B.default.weight rel_fro=4.438e-02
+[response_only_lm_head][fsdp2/lora/1rank/bf16] param: pooled rel_fro=8.713e-07 max_abs=2.930e-06 worst param/base_model.model.model.layers.0.self_attn.v_proj.lora_B.default.weight rel_fro=2.527e-04
+[response_only_lm_head][fsdp2/lora/1rank/bf16] update: pooled rel_fro=1.205e-02 max_abs=2.930e-06 worst update/base_model.model.model.layers.1.self_attn.q_proj.lora_A.default.weight rel_fro=6.222e-02 min sign agreement=0.9830
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  59%|█████▉    | 171/290 [00:00<00:00, 1651.65it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1544.10it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 1.99, memory reserved (GB): 3.47, device memory used/total (GB): 4.76/79.17
+After FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.55, device memory used/total (GB): 5.84/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora/1rank/fp32] flag=on: gradients on 336 tensors
+[response_only_lm_head][fsdp2/lora/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/fp32] forward/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/lora/1rank/fp32] sgd/grad_norm: off=1.579 on=1.579
+[response_only_lm_head][fsdp2/lora/1rank/fp32] sgd/residual_ulps: off=0.225 on=0.225
+[response_only_lm_head][fsdp2/lora/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/fp32] train/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 00: n=14 max on-vs-off rel_fro=1.679e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 01: n=14 max on-vs-off rel_fro=1.719e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 02: n=14 max on-vs-off rel_fro=1.717e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 03: n=14 max on-vs-off rel_fro=1.798e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 04: n=14 max on-vs-off rel_fro=2.284e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 05: n=14 max on-vs-off rel_fro=2.169e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 06: n=14 max on-vs-off rel_fro=1.724e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 07: n=14 max on-vs-off rel_fro=2.088e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 08: n=14 max on-vs-off rel_fro=2.043e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 09: n=14 max on-vs-off rel_fro=1.813e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 10: n=14 max on-vs-off rel_fro=2.137e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 11: n=14 max on-vs-off rel_fro=1.756e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 12: n=14 max on-vs-off rel_fro=2.378e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 13: n=14 max on-vs-off rel_fro=1.849e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 14: n=14 max on-vs-off rel_fro=2.251e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 15: n=14 max on-vs-off rel_fro=2.135e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 16: n=14 max on-vs-off rel_fro=2.469e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 17: n=14 max on-vs-off rel_fro=3.910e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 18: n=14 max on-vs-off rel_fro=1.754e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 19: n=14 max on-vs-off rel_fro=1.886e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 20: n=14 max on-vs-off rel_fro=3.285e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 21: n=14 max on-vs-off rel_fro=1.511e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 22: n=14 max on-vs-off rel_fro=1.672e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad layer 23: n=14 max on-vs-off rel_fro=1.369e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] grad: pooled rel_fro=1.398e-05 max_abs=1.647e-06 worst grad/base_model.model.model.layers.17.self_attn.k_proj.lora_B.default.weight rel_fro=3.910e-05
+[response_only_lm_head][fsdp2/lora/1rank/fp32] param: pooled rel_fro=2.133e-09 max_abs=3.725e-09 worst param/base_model.model.model.layers.0.self_attn.v_proj.lora_B.default.weight rel_fro=2.086e-07
+[response_only_lm_head][fsdp2/lora/1rank/fp32] update: pooled rel_fro=2.868e-05 max_abs=3.725e-09 worst update/base_model.model.model.layers.13.self_attn.q_proj.lora_A.default.weight rel_fro=1.521e-03 min sign agreement=0.9999
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp, variant lora-ckpt, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:43:18,422:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  46%|████▌     | 133/290 [00:00<00:00, 1273.46it/s]Loading weights:  92%|█████████▏| 268/290 [00:00<00:00, 1292.20it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1315.08it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:43:19.604414104 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 1.86, memory reserved (GB): 2.47, device memory used/total (GB): 3.62/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:43:21.525000 5539 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] flag=off: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  37%|███▋      | 107/290 [00:00<00:00, 1057.02it/s]Loading weights:  82%|████████▏ | 237/290 [00:00<00:00, 1160.15it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1216.87it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 1.99, memory reserved (GB): 2.91, device memory used/total (GB): 4.20/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.51, device memory used/total (GB): 5.80/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] flag-off twice: bitwise identical (1353 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  39%|███▊      | 112/290 [00:00<00:00, 1066.80it/s]Loading weights:  84%|████████▍ | 244/290 [00:00<00:00, 1201.15it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1212.81it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.07, device memory used/total (GB): 5.35/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 5.70, memory reserved (GB): 6.44, device memory used/total (GB): 7.73/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] flag=on: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  59%|█████▉    | 172/290 [00:00<00:00, 1691.70it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1588.77it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 5.77, memory reserved (GB): 5.95, device memory used/total (GB): 7.24/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 7.62, memory reserved (GB): 8.34, device memory used/total (GB): 9.63/79.17
+Total steps: -1, num_warmup_steps: 0
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: The AccumulateGrad node's stream does not match the stream of the node that produced the incoming gradient. This may incur unnecessary synchronization and break CUDA graph capture if the AccumulateGrad node's stream is the default stream. This mismatch is caused by an AccumulateGrad node created prior to the current iteration being kept alive. This can happen if the autograd graph is still being kept alive by tensors such as the loss, or if you are using DDP, which will stash a reference to the node. To resolve the mismatch, delete all references to the autograd graph or ensure that DDP initialization is performed under the same stream as subsequent forwards. If the mismatch is intentional, you can use torch.autograd.graph.set_warn_on_accumulate_grad_stream_mismatch(False) to suppress this warning. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/input_buffer.cpp:310.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp/lora-ckpt/1rank] fp32 vs bf16 flag-off log-probs: mean=3.197e-02 max=3.385e-01
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] forward/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] sgd/grad_norm: off=1.535 on=1.534
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] sgd/residual_ulps: off=0.229 on=0.228
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] train/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 00: n=14 max on-vs-off rel_fro=3.070e-02 D_off=1.302e-01 D_on=1.295e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 01: n=14 max on-vs-off rel_fro=4.438e-02 D_off=2.074e-01 D_on=2.086e-01 max ratio=1.03
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 02: n=14 max on-vs-off rel_fro=2.305e-02 D_off=3.387e-01 D_on=3.390e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 03: n=14 max on-vs-off rel_fro=1.747e-02 D_off=5.026e-01 D_on=5.028e-01 max ratio=1.03
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 04: n=14 max on-vs-off rel_fro=2.095e-02 D_off=1.123e-01 D_on=1.129e-01 max ratio=1.07
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 05: n=14 max on-vs-off rel_fro=2.347e-02 D_off=1.204e-01 D_on=1.200e-01 max ratio=1.07
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 06: n=14 max on-vs-off rel_fro=2.036e-02 D_off=1.176e-01 D_on=1.170e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 07: n=14 max on-vs-off rel_fro=2.127e-02 D_off=1.414e-01 D_on=1.379e-01 max ratio=1.05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 08: n=14 max on-vs-off rel_fro=1.467e-02 D_off=1.174e-01 D_on=1.172e-01 max ratio=1.02
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 09: n=14 max on-vs-off rel_fro=1.447e-02 D_off=1.098e-01 D_on=1.097e-01 max ratio=1.02
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 10: n=14 max on-vs-off rel_fro=2.245e-02 D_off=1.230e-01 D_on=1.221e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 11: n=14 max on-vs-off rel_fro=1.429e-02 D_off=1.425e-01 D_on=1.405e-01 max ratio=1.01
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 12: n=14 max on-vs-off rel_fro=2.051e-02 D_off=1.068e-01 D_on=1.056e-01 max ratio=1.04
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 13: n=14 max on-vs-off rel_fro=1.624e-02 D_off=8.975e-02 D_on=8.989e-02 max ratio=1.07
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 14: n=14 max on-vs-off rel_fro=1.724e-02 D_off=7.514e-02 D_on=7.523e-02 max ratio=1.01
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 15: n=14 max on-vs-off rel_fro=1.513e-02 D_off=7.380e-02 D_on=7.431e-02 max ratio=1.08
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 16: n=14 max on-vs-off rel_fro=1.291e-02 D_off=6.650e-02 D_on=6.672e-02 max ratio=1.03
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 17: n=14 max on-vs-off rel_fro=1.094e-02 D_off=6.832e-02 D_on=6.801e-02 max ratio=1.03
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 18: n=14 max on-vs-off rel_fro=1.294e-02 D_off=7.005e-02 D_on=6.997e-02 max ratio=1.10
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 19: n=14 max on-vs-off rel_fro=1.254e-02 D_off=9.969e-02 D_on=9.968e-02 max ratio=1.07
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 20: n=14 max on-vs-off rel_fro=1.078e-02 D_off=7.497e-02 D_on=7.512e-02 max ratio=1.02
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 21: n=14 max on-vs-off rel_fro=9.128e-03 D_off=4.795e-01 D_on=4.797e-01 max ratio=1.01
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 22: n=14 max on-vs-off rel_fro=9.673e-03 D_off=9.709e-02 D_on=9.741e-02 max ratio=1.02
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad layer 23: n=14 max on-vs-off rel_fro=7.049e-03 D_off=7.839e-02 D_on=7.855e-02 max ratio=1.01
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] grad: pooled rel_fro=1.204e-02 max_abs=2.930e-03 worst grad/_fsdp_wrapped_module.base_model.model.model.layers.1._fsdp_wrapped_module.self_attn.q_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=4.438e-02
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] param: pooled rel_fro=8.713e-07 max_abs=2.930e-06 worst param/_fsdp_wrapped_module.base_model.model.model.layers.0._fsdp_wrapped_module.self_attn.v_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=2.527e-04
+[response_only_lm_head][fsdp/lora-ckpt/1rank/bf16] update: pooled rel_fro=1.205e-02 max_abs=2.930e-06 worst update/_fsdp_wrapped_module.base_model.model.model.layers.1._fsdp_wrapped_module.self_attn.q_proj.lora_A.default._fsdp_wrapped_module._flat_param rel_fro=6.222e-02 min sign agreement=0.9830
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  43%|████▎     | 125/290 [00:00<00:00, 1234.47it/s]Loading weights:  86%|████████▌ | 249/290 [00:00<00:00, 1233.93it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1275.66it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 7.56, memory reserved (GB): 7.78, device memory used/total (GB): 9.07/79.17
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:478: UserWarning: FSDP is switching to use `NO_SHARD` instead of ShardingStrategy.FULL_SHARD since the world size is 1.
+  _init_core_state(
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:513: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 9.42, memory reserved (GB): 10.16, device memory used/total (GB): 11.45/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] flag=on: gradients on 336 tensors
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] forward/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] sgd/grad_norm: off=1.579 on=1.579
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] sgd/residual_ulps: off=0.225 on=0.225
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] train/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 00: n=14 max on-vs-off rel_fro=1.679e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 01: n=14 max on-vs-off rel_fro=1.719e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 02: n=14 max on-vs-off rel_fro=1.717e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 03: n=14 max on-vs-off rel_fro=1.798e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 04: n=14 max on-vs-off rel_fro=2.284e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 05: n=14 max on-vs-off rel_fro=2.169e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 06: n=14 max on-vs-off rel_fro=1.724e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 07: n=14 max on-vs-off rel_fro=2.088e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 08: n=14 max on-vs-off rel_fro=2.043e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 09: n=14 max on-vs-off rel_fro=1.813e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 10: n=14 max on-vs-off rel_fro=2.137e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 11: n=14 max on-vs-off rel_fro=1.756e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 12: n=14 max on-vs-off rel_fro=2.378e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 13: n=14 max on-vs-off rel_fro=1.849e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 14: n=14 max on-vs-off rel_fro=2.251e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 15: n=14 max on-vs-off rel_fro=2.135e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 16: n=14 max on-vs-off rel_fro=2.469e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 17: n=14 max on-vs-off rel_fro=3.910e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 18: n=14 max on-vs-off rel_fro=1.754e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 19: n=14 max on-vs-off rel_fro=1.886e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 20: n=14 max on-vs-off rel_fro=3.285e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 21: n=14 max on-vs-off rel_fro=1.511e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 22: n=14 max on-vs-off rel_fro=1.672e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad layer 23: n=14 max on-vs-off rel_fro=1.369e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] grad: pooled rel_fro=1.398e-05 max_abs=1.647e-06 worst grad/_fsdp_wrapped_module.base_model.model.model.layers.17._fsdp_wrapped_module.self_attn.k_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=3.910e-05
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] param: pooled rel_fro=2.133e-09 max_abs=3.725e-09 worst param/_fsdp_wrapped_module.base_model.model.model.layers.0._fsdp_wrapped_module.self_attn.v_proj.lora_B.default._fsdp_wrapped_module._flat_param rel_fro=2.086e-07
+[response_only_lm_head][fsdp/lora-ckpt/1rank/fp32] update: pooled rel_fro=2.868e-05 max_abs=3.725e-09 worst update/_fsdp_wrapped_module.base_model.model.model.layers.13._fsdp_wrapped_module.self_attn.q_proj.lora_A.default._fsdp_wrapped_module._flat_param rel_fro=1.521e-03 min sign agreement=0.9999
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp2, variant lora-ckpt, ranks 1
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:43:52,357:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  42%|████▏     | 123/290 [00:00<00:00, 1218.41it/s]Loading weights:  88%|████████▊ | 254/290 [00:00<00:00, 1263.55it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1286.54it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:43:53.744266246 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.16/79.17
+After FSDP, memory allocated (GB): 1.86, memory reserved (GB): 2.55, device memory used/total (GB): 3.71/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank0]:W1029 17:43:56.244000 6413 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] flag=off: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  34%|███▍      | 99/290 [00:00<00:00, 972.39it/s]Loading weights:  79%|███████▉  | 229/290 [00:00<00:00, 1161.35it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1152.05it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 1.99, memory reserved (GB): 2.56, device memory used/total (GB): 3.85/79.17
+After FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.61, device memory used/total (GB): 5.90/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] flag-off twice: bitwise identical (1353 tensors)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  42%|████▏     | 121/290 [00:00<00:00, 1193.85it/s]Loading weights:  87%|████████▋ | 253/290 [00:00<00:00, 1266.62it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1296.43it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.17, device memory used/total (GB): 5.45/79.17
+After FSDP, memory allocated (GB): 5.70, memory reserved (GB): 6.61, device memory used/total (GB): 7.89/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] flag=on: gradients on 336 tensors
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  51%|█████▏    | 149/290 [00:00<00:00, 1474.00it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1347.37it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 0.19, memory reserved (GB): 6.13, device memory used/total (GB): 7.42/79.17
+After FSDP, memory allocated (GB): 2.05, memory reserved (GB): 6.13, device memory used/total (GB): 7.42/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] flag=off: gradients on 336 tensors
+[response_only_lm_head][fsdp2/lora-ckpt/1rank] fp32 vs bf16 flag-off log-probs: mean=3.197e-02 max=3.385e-01
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] forward/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] sgd/grad_norm: off=1.535 on=1.534
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] sgd/residual_ulps: off=0.229 on=0.228
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] train/sum_pi_squared: max_abs=6.333e-08 mean_delta=1.573e-10 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 00: n=14 max on-vs-off rel_fro=3.070e-02 D_off=1.302e-01 D_on=1.295e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 01: n=14 max on-vs-off rel_fro=4.438e-02 D_off=2.074e-01 D_on=2.086e-01 max ratio=1.03
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 02: n=14 max on-vs-off rel_fro=2.305e-02 D_off=3.387e-01 D_on=3.390e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 03: n=14 max on-vs-off rel_fro=1.747e-02 D_off=5.026e-01 D_on=5.028e-01 max ratio=1.03
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 04: n=14 max on-vs-off rel_fro=2.095e-02 D_off=1.123e-01 D_on=1.129e-01 max ratio=1.07
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 05: n=14 max on-vs-off rel_fro=2.347e-02 D_off=1.204e-01 D_on=1.200e-01 max ratio=1.07
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 06: n=14 max on-vs-off rel_fro=2.036e-02 D_off=1.176e-01 D_on=1.170e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 07: n=14 max on-vs-off rel_fro=2.127e-02 D_off=1.414e-01 D_on=1.379e-01 max ratio=1.05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 08: n=14 max on-vs-off rel_fro=1.467e-02 D_off=1.174e-01 D_on=1.172e-01 max ratio=1.02
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 09: n=14 max on-vs-off rel_fro=1.447e-02 D_off=1.098e-01 D_on=1.097e-01 max ratio=1.02
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 10: n=14 max on-vs-off rel_fro=2.245e-02 D_off=1.230e-01 D_on=1.221e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 11: n=14 max on-vs-off rel_fro=1.429e-02 D_off=1.425e-01 D_on=1.405e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 12: n=14 max on-vs-off rel_fro=2.051e-02 D_off=1.068e-01 D_on=1.056e-01 max ratio=1.04
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 13: n=14 max on-vs-off rel_fro=1.624e-02 D_off=8.975e-02 D_on=8.989e-02 max ratio=1.07
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 14: n=14 max on-vs-off rel_fro=1.724e-02 D_off=7.514e-02 D_on=7.523e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 15: n=14 max on-vs-off rel_fro=1.513e-02 D_off=7.380e-02 D_on=7.431e-02 max ratio=1.08
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 16: n=14 max on-vs-off rel_fro=1.291e-02 D_off=6.650e-02 D_on=6.672e-02 max ratio=1.03
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 17: n=14 max on-vs-off rel_fro=1.094e-02 D_off=6.832e-02 D_on=6.801e-02 max ratio=1.03
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 18: n=14 max on-vs-off rel_fro=1.294e-02 D_off=7.005e-02 D_on=6.997e-02 max ratio=1.10
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 19: n=14 max on-vs-off rel_fro=1.254e-02 D_off=9.969e-02 D_on=9.968e-02 max ratio=1.07
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 20: n=14 max on-vs-off rel_fro=1.078e-02 D_off=7.497e-02 D_on=7.512e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 21: n=14 max on-vs-off rel_fro=9.128e-03 D_off=4.795e-01 D_on=4.797e-01 max ratio=1.01
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 22: n=14 max on-vs-off rel_fro=9.673e-03 D_off=9.709e-02 D_on=9.741e-02 max ratio=1.02
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad layer 23: n=14 max on-vs-off rel_fro=7.049e-03 D_off=7.839e-02 D_on=7.855e-02 max ratio=1.01
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] grad: pooled rel_fro=1.204e-02 max_abs=2.930e-03 worst grad/base_model.model.model.layers.1.self_attn.q_proj.lora_B.default.weight rel_fro=4.438e-02
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] param: pooled rel_fro=8.713e-07 max_abs=2.930e-06 worst param/base_model.model.model.layers.0.self_attn.v_proj.lora_B.default.weight rel_fro=2.527e-04
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/bf16] update: pooled rel_fro=1.205e-02 max_abs=2.930e-06 worst update/base_model.model.model.layers.1.self_attn.q_proj.lora_A.default.weight rel_fro=6.222e-02 min sign agreement=0.9830
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  49%|████▉     | 142/290 [00:00<00:00, 1407.04it/s]Loading weights:  98%|█████████▊| 283/290 [00:00<00:00, 1275.26it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1320.93it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+PeftModelForCausalLM contains 498.43M parameters
+Before FSDP, memory allocated (GB): 1.99, memory reserved (GB): 2.57, device memory used/total (GB): 3.86/79.17
+After FSDP, memory allocated (GB): 3.84, memory reserved (GB): 4.61, device memory used/total (GB): 5.90/79.17
+Total steps: -1, num_warmup_steps: 0
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] flag=on: gradients on 336 tensors
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] forward/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] forward/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] forward/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] loss/ppo: max_abs=0.000e+00 mean_delta=0.000e+00 rows=1
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] sgd/grad_norm: off=1.579 on=1.579
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] sgd/residual_ulps: off=0.225 on=0.225
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] train/entropy: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] train/log_probs: max_abs=0.000e+00 mean_delta=0.000e+00 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] train/sum_pi_squared: max_abs=1.071e-08 mean_delta=5.784e-11 rows=498
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 00: n=14 max on-vs-off rel_fro=1.679e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 01: n=14 max on-vs-off rel_fro=1.719e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 02: n=14 max on-vs-off rel_fro=1.717e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 03: n=14 max on-vs-off rel_fro=1.798e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 04: n=14 max on-vs-off rel_fro=2.284e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 05: n=14 max on-vs-off rel_fro=2.169e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 06: n=14 max on-vs-off rel_fro=1.724e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 07: n=14 max on-vs-off rel_fro=2.088e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 08: n=14 max on-vs-off rel_fro=2.043e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 09: n=14 max on-vs-off rel_fro=1.813e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 10: n=14 max on-vs-off rel_fro=2.137e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 11: n=14 max on-vs-off rel_fro=1.756e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 12: n=14 max on-vs-off rel_fro=2.378e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 13: n=14 max on-vs-off rel_fro=1.849e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 14: n=14 max on-vs-off rel_fro=2.251e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 15: n=14 max on-vs-off rel_fro=2.135e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 16: n=14 max on-vs-off rel_fro=2.469e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 17: n=14 max on-vs-off rel_fro=3.910e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 18: n=14 max on-vs-off rel_fro=1.754e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 19: n=14 max on-vs-off rel_fro=1.886e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 20: n=14 max on-vs-off rel_fro=3.285e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 21: n=14 max on-vs-off rel_fro=1.511e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 22: n=14 max on-vs-off rel_fro=1.672e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad layer 23: n=14 max on-vs-off rel_fro=1.369e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] grad: pooled rel_fro=1.398e-05 max_abs=1.647e-06 worst grad/base_model.model.model.layers.17.self_attn.k_proj.lora_B.default.weight rel_fro=3.910e-05
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] param: pooled rel_fro=2.133e-09 max_abs=3.725e-09 worst param/base_model.model.model.layers.0.self_attn.v_proj.lora_B.default.weight rel_fro=2.086e-07
+[response_only_lm_head][fsdp2/lora-ckpt/1rank/fp32] update: pooled rel_fro=2.868e-05 max_abs=3.725e-09 worst update/base_model.model.model.layers.13.self_attn.q_proj.lora_A.default.weight rel_fro=1.521e-03 min sign agreement=0.9999
+.[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp, variant plain, ranks 2
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:44:29,610:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 17:44:29,623:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  41%|████▏     | 120/290 [00:00<00:00, 1196.37it/s]Loading weights:  34%|███▍      | 100/290 [00:00<00:00, 981.23it/s]Loading weights:  83%|████████▎ | 240/290 [00:00<00:00, 1177.28it/s]Loading weights:  72%|███████▏  | 208/290 [00:00<00:00, 1030.45it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1208.40it/s]
+Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1067.13it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:44:30.833331902 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.46/79.17
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:519: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+After FSDP, memory allocated (GB): 0.92, memory reserved (GB): 2.10, device memory used/total (GB): 3.57/79.17
+Total steps: -1, num_warmup_steps: 0
+/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:519: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FSDP.set_state_dict_type(
+[rank0]:W1029 17:44:32.269000 7287 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[rank1]:W1029 17:44:32.269000 7288 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+W1029 17:44:41.161000 244 .venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:165] Terminating process 7288 via signal SIGTERM
+F[response_only_lm_head] model /root/models/Qwen/Qwen2.5-0.5B, strategy fsdp2, variant plain, ranks 2
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 17:44:56,644:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 17:44:56,646:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen2Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 110/290 [00:00<00:00, 1087.22it/s]Loading weights:  33%|███▎      | 97/290 [00:00<00:00, 967.08it/s]Loading weights:  72%|███████▏  | 208/290 [00:00<00:00, 1038.70it/s]Loading weights:  79%|███████▊  | 228/290 [00:00<00:00, 1119.68it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1135.78it/s]
+Loading weights: 100%|██████████| 290/290 [00:00<00:00, 1094.28it/s]
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 17:44:57.858017267 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+Skipping monkey patch for Qwen2ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+Qwen2ForCausalLM contains 494.03M parameters
+Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 1.46/79.17
+After FSDP, memory allocated (GB): 0.93, memory reserved (GB): 1.55, device memory used/total (GB): 3.01/79.17
+Total steps: -1, num_warmup_steps: 0
+[rank1]:W1029 17:44:59.967000 7952 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[rank0]:W1029 17:44:59.977000 7951 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+[rank0]:[W1029 17:45:08.412280492 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+W1029 17:45:09.939000 244 .venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:165] Terminating process 7952 via signal SIGTERM
+F
+
+=================================== FAILURES ===================================
+_______________ test_flag_on_matches_flag_off[plain-fsdp-2rank] ________________
+
+variant = 'plain', strategy = 'fsdp', world_size = 2
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_flag_on_matches_flag_off_8')
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
+    @pytest.mark.skipif(
+        not MODEL_PATH,
+        reason=f"no model directory among {MODEL_CANDIDATES}; link it or set VERL_RESPONSE_ONLY_LM_HEAD_MODEL",
+    )
+    @pytest.mark.parametrize("variant, strategy, world_size", CASES, ids=[f"{v}-{s}-{w}rank" for v, s, w in CASES])
+    def test_flag_on_matches_flag_off(variant, strategy, world_size, tmp_path):
+        if torch.cuda.device_count() < world_size:
+            pytest.skip(f"needs {world_size} CUDA devices")
+        print(f"[response_only_lm_head] model {MODEL_PATH}, strategy {strategy}, variant {variant}, ranks {world_size}")
+        rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}_{world_size}")
+>       mp.spawn(fn=_worker, args=(world_size, rendezvous_file, variant, strategy), nprocs=world_size, join=True)
+
+tests/workers/test_response_only_lm_head_on_gpu.py:538: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:340: in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:296: in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <torch.multiprocessing.spawn.ProcessContext object at 0x2ac1855f4290>
+timeout = None, grace_period = None
+
+    def join(self, timeout: float | None = None, grace_period: float | None = None):
+        r"""Join one or more processes within spawn context.
+    
+        Attempt to join one or more processes in this spawn context.
+        If one of them exited with a non-zero exit status, this function
+        kills the remaining processes (optionally with a grace period)
+        and raises an exception with the cause of the first process exiting.
+    
+        Returns ``True`` if all processes have been joined successfully,
+        ``False`` if there are more processes that need to be joined.
+    
+        Args:
+            timeout (float): Wait this long (in seconds) before giving up on waiting.
+            grace_period (float): When any processes fail, wait this long (in seconds)
+                for others to shutdown gracefully before terminating them. If they
+                still don't exit, wait another grace period before killing them.
+        """
+        # Ensure this function can be called even when we're done.
+        if len(self.sentinels) == 0:
+            return True
+    
+        # Wait for any process to fail or all of them to succeed.
+        ready = multiprocessing.connection.wait(
+            self.sentinels.keys(),
+            timeout=timeout,
+        )
+    
+        error_index = None
+        for sentinel in ready:
+            index = self.sentinels.pop(sentinel)
+            process = self.processes[index]
+            process.join()
+            if process.exitcode != 0:
+                error_index = index
+                break
+    
+        # Return if there was no error.
+        if error_index is None:
+            # Return whether or not all processes have been joined.
+            return len(self.sentinels) == 0
+        # An error occurred. Clean-up all processes before returning.
+        # First, allow a grace period for processes to shutdown themselves.
+        if grace_period is not None:
+            self._join_procs_with_timeout(grace_period)
+        # Then, terminate processes that are still alive. Try SIGTERM first.
+        for process in self.processes:
+            if process.is_alive():
+                log.warning("Terminating process %s via signal SIGTERM", process.pid)
+                process.terminate()
+    
+        # Try SIGKILL if the process isn't going down after another grace_period.
+        # The reason is related to python signal handling is limited
+        # to main thread and if that is in c/c++ land and stuck it won't
+        # to handle it. We have seen processes getting stuck not handling
+        # SIGTERM for the above reason.
+        self._join_procs_with_timeout(30 if grace_period is None else grace_period)
+        for process in self.processes:
+            if process.is_alive():
+                log.warning(
+                    "Unable to shutdown process %s via SIGTERM , forcefully exiting via SIGKILL",
+                    process.pid,
+                )
+                process.kill()
+            process.join()
+    
+        # The file will only be created if the process crashed.
+        failed_process = self.processes[error_index]
+        if not os.access(self.error_files[error_index], os.R_OK):
+            exitcode = self.processes[error_index].exitcode
+            if exitcode < 0:
+                try:
+                    name = signal.Signals(-exitcode).name
+                except ValueError:
+                    name = f"<Unknown signal {-exitcode}>"
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with signal {name}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                    signal_name=name,
+                )
+            else:
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with exit code {exitcode:d}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                )
+    
+        with open(self.error_files[error_index], "rb") as fh:
+            original_trace = pickle.load(fh)
+        msg = f"\n\n-- Process {error_index:d} terminated with the following error:\n"
+        msg += original_trace
+>       raise ProcessRaisedException(msg, error_index, failed_process.pid)
+E       torch.multiprocessing.spawn.ProcessRaisedException: 
+E       
+E       -- Process 0 terminated with the following error:
+E       Traceback (most recent call last):
+E         File "/workspace/verl/.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+E           fn(i, *args)
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 498, in _worker
+E           reference = run(precision="bf16", freeze=True, label=f"{label}/bf16", flag=False)
+E                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 305, in _run_arm
+E           train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 833, in forward_backward_batch
+E           loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only)
+E                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 1715, in forward_step
+E           loss, metrics = loss_function(
+E                           ^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/utils/losses.py", line 117, in ppo_loss
+E           pg_loss, pg_metrics = policy_loss_fn(
+E                                 ^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/trainer/ppo/core_algos.py", line 1336, in compute_policy_loss_vanilla
+E           negative_approx_kl = log_prob - old_log_prob
+E                                ~~~~~~~~~^~~~~~~~~~~~~~
+E       RuntimeError: The size of tensor a (256) must match the size of tensor b (40) at non-singleton dimension 1
+
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:211: ProcessRaisedException
+------------------------------ Captured log call -------------------------------
+WARNING  torch.multiprocessing.spawn:spawn.py:165 Terminating process 7288 via signal SIGTERM
+_______________ test_flag_on_matches_flag_off[plain-fsdp2-2rank] _______________
+
+variant = 'plain', strategy = 'fsdp2', world_size = 2
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_flag_on_matches_flag_off_9')
+
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
+    @pytest.mark.skipif(
+        not MODEL_PATH,
+        reason=f"no model directory among {MODEL_CANDIDATES}; link it or set VERL_RESPONSE_ONLY_LM_HEAD_MODEL",
+    )
+    @pytest.mark.parametrize("variant, strategy, world_size", CASES, ids=[f"{v}-{s}-{w}rank" for v, s, w in CASES])
+    def test_flag_on_matches_flag_off(variant, strategy, world_size, tmp_path):
+        if torch.cuda.device_count() < world_size:
+            pytest.skip(f"needs {world_size} CUDA devices")
+        print(f"[response_only_lm_head] model {MODEL_PATH}, strategy {strategy}, variant {variant}, ranks {world_size}")
+        rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}_{world_size}")
+>       mp.spawn(fn=_worker, args=(world_size, rendezvous_file, variant, strategy), nprocs=world_size, join=True)
+
+tests/workers/test_response_only_lm_head_on_gpu.py:538: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:340: in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:296: in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <torch.multiprocessing.spawn.ProcessContext object at 0x2ac1855f7f50>
+timeout = None, grace_period = None
+
+    def join(self, timeout: float | None = None, grace_period: float | None = None):
+        r"""Join one or more processes within spawn context.
+    
+        Attempt to join one or more processes in this spawn context.
+        If one of them exited with a non-zero exit status, this function
+        kills the remaining processes (optionally with a grace period)
+        and raises an exception with the cause of the first process exiting.
+    
+        Returns ``True`` if all processes have been joined successfully,
+        ``False`` if there are more processes that need to be joined.
+    
+        Args:
+            timeout (float): Wait this long (in seconds) before giving up on waiting.
+            grace_period (float): When any processes fail, wait this long (in seconds)
+                for others to shutdown gracefully before terminating them. If they
+                still don't exit, wait another grace period before killing them.
+        """
+        # Ensure this function can be called even when we're done.
+        if len(self.sentinels) == 0:
+            return True
+    
+        # Wait for any process to fail or all of them to succeed.
+        ready = multiprocessing.connection.wait(
+            self.sentinels.keys(),
+            timeout=timeout,
+        )
+    
+        error_index = None
+        for sentinel in ready:
+            index = self.sentinels.pop(sentinel)
+            process = self.processes[index]
+            process.join()
+            if process.exitcode != 0:
+                error_index = index
+                break
+    
+        # Return if there was no error.
+        if error_index is None:
+            # Return whether or not all processes have been joined.
+            return len(self.sentinels) == 0
+        # An error occurred. Clean-up all processes before returning.
+        # First, allow a grace period for processes to shutdown themselves.
+        if grace_period is not None:
+            self._join_procs_with_timeout(grace_period)
+        # Then, terminate processes that are still alive. Try SIGTERM first.
+        for process in self.processes:
+            if process.is_alive():
+                log.warning("Terminating process %s via signal SIGTERM", process.pid)
+                process.terminate()
+    
+        # Try SIGKILL if the process isn't going down after another grace_period.
+        # The reason is related to python signal handling is limited
+        # to main thread and if that is in c/c++ land and stuck it won't
+        # to handle it. We have seen processes getting stuck not handling
+        # SIGTERM for the above reason.
+        self._join_procs_with_timeout(30 if grace_period is None else grace_period)
+        for process in self.processes:
+            if process.is_alive():
+                log.warning(
+                    "Unable to shutdown process %s via SIGTERM , forcefully exiting via SIGKILL",
+                    process.pid,
+                )
+                process.kill()
+            process.join()
+    
+        # The file will only be created if the process crashed.
+        failed_process = self.processes[error_index]
+        if not os.access(self.error_files[error_index], os.R_OK):
+            exitcode = self.processes[error_index].exitcode
+            if exitcode < 0:
+                try:
+                    name = signal.Signals(-exitcode).name
+                except ValueError:
+                    name = f"<Unknown signal {-exitcode}>"
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with signal {name}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                    signal_name=name,
+                )
+            else:
+                raise ProcessExitedException(
+                    f"process {error_index:d} terminated with exit code {exitcode:d}",
+                    error_index=error_index,
+                    error_pid=failed_process.pid,
+                    exit_code=exitcode,
+                )
+    
+        with open(self.error_files[error_index], "rb") as fh:
+            original_trace = pickle.load(fh)
+        msg = f"\n\n-- Process {error_index:d} terminated with the following error:\n"
+        msg += original_trace
+>       raise ProcessRaisedException(msg, error_index, failed_process.pid)
+E       torch.multiprocessing.spawn.ProcessRaisedException: 
+E       
+E       -- Process 0 terminated with the following error:
+E       Traceback (most recent call last):
+E         File "/workspace/verl/.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+E           fn(i, *args)
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 498, in _worker
+E           reference = run(precision="bf16", freeze=True, label=f"{label}/bf16", flag=False)
+E                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/tests/workers/test_response_only_lm_head_on_gpu.py", line 305, in _run_arm
+E           train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))
+E                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 833, in forward_backward_batch
+E           loss, meta_info = self.forward_step(micro_batch, loss_function=loss_function, forward_only=forward_only)
+E                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/engine/fsdp/transformer_impl.py", line 1715, in forward_step
+E           loss, metrics = loss_function(
+E                           ^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/workers/utils/losses.py", line 117, in ppo_loss
+E           pg_loss, pg_metrics = policy_loss_fn(
+E                                 ^^^^^^^^^^^^^^^
+E         File "/workspace/verl/verl/trainer/ppo/core_algos.py", line 1336, in compute_policy_loss_vanilla
+E           negative_approx_kl = log_prob - old_log_prob
+E                                ~~~~~~~~~^~~~~~~~~~~~~~
+E       RuntimeError: The size of tensor a (256) must match the size of tensor b (40) at non-singleton dimension 1
+
+.venv/lib/python3.12/site-packages/torch/multiprocessing/spawn.py:211: ProcessRaisedException
+------------------------------ Captured log call -------------------------------
+WARNING  torch.multiprocessing.spawn:spawn.py:165 Terminating process 7952 via signal SIGTERM
+---------- generated xml file: /results/gpu-identity-p1-6/pytest.xml -----------
+=================== 2 failed, 8 passed in 323.62s (0:05:23) ====================
+/usr/lib/python3.12/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 2 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

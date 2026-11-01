@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "<repo>/research/bench-a3/bench_tq.py", line 29, in <module>
+    N = int(sys.argv[1]) if len(sys.argv) > 1 else 1024
+        ^^^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: '4096 32768'

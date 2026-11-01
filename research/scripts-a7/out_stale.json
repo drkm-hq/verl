@@ -1,0 +1,6916 @@
+[
+ {
+  "number": 6107,
+  "title": "[megatron, ckpt] feat: make fully parallel dist checkpoint wrappers configurable",
+  "age": 189,
+  "last_commit": 63,
+  "draft": false,
+  "author": "jmaicher",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 200,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ETOgaosion",
+   "jmaicher"
+  ],
+  "touched": [
+   "verl/utils/megatron/dist_checkpointing.py"
+  ],
+  "nums": [
+   "4x",
+   "220 GiB"
+  ]
+ },
+ {
+  "number": 7102,
+  "title": "[trainer] feat: add V1 trainer support for the RemoteBackend plugin abstraction",
+  "age": 99,
+  "last_commit": 70,
+  "draft": false,
+  "author": "sfc-gh-kganesan",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 1040,
+  "files": 19,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 11,
+  "human_reviewers": [
+   "sfc-gh-kganesan",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/checkpoint_engine/__init__.py",
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/remote_backend.py",
+   "verl/trainer/ppo/v1/__init__.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/trainer/ppo/v1/trainer_remote_backend.py"
+  ],
+  "nums": [
+   "8\u00d7",
+   "2.30\u00d7",
+   "0.96\u00d7",
+   "0.98\u00d7",
+   "1.67\u00d7"
+  ]
+ },
+ {
+  "number": 7439,
+  "title": "fix(kernel): stabilize fused entropy for negative logits",
+  "age": 73,
+  "last_commit": 73,
+  "draft": false,
+  "author": "WangBD2023hdu",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 139,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/kernel/kernels.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7415,
+  "title": "[rollout, trainer] feat: add pluggable rollout data backends",
+  "age": 75,
+  "last_commit": 75,
+  "draft": true,
+  "author": "zxpdemonio",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 2680,
+  "files": 25,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/protocol.py",
+   "verl/trainer/ppo/v1/agent_loop_tq.py",
+   "verl/trainer/ppo/v1/replay_buffer.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/trainer/ppo/v1/trainer_separate_async.py",
+   "verl/workers/utils/padding.py"
+  ],
+  "nums": [
+   "12.44 MiB",
+   "3.11 MiB",
+   "12.44 MiB",
+   "1.50x",
+   "3.34x faster"
+  ]
+ },
+ {
+  "number": 7371,
+  "title": "[hardware, fsdp, vllm] feat: add Intel GPU (XPU) support",
+  "age": 77,
+  "last_commit": 77,
+  "draft": false,
+  "author": "kahlun",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 1252,
+  "files": 22,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/torch_functional.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7342,
+  "title": "fix(megatron): fall back to non-pinned CPU copy when pin_memory() fails on resume",
+  "age": 79,
+  "last_commit": 79,
+  "draft": false,
+  "author": "shotsan",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 132,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/megatron_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7312,
+  "title": "[trainer, ray] feat: support worker-scoped environment variables",
+  "age": 82,
+  "last_commit": 82,
+  "draft": false,
+  "author": "YolandaLyj",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 73,
+  "files": 9,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": [
+   "8 x",
+   "89.066 GB",
+   "89.437 GB",
+   "89.408 GB",
+   "82.1%"
+  ]
+ },
+ {
+  "number": 7292,
+  "title": "[wip] ref model cross-step prompt KV cache via native past_key_values",
+  "age": 83,
+  "last_commit": 83,
+  "draft": false,
+  "author": "0hujun",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 621,
+  "files": 6,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": [
+   "16x",
+   "13x",
+   "0.9x",
+   "8GB",
+   "0.9x"
+  ]
+ },
+ {
+  "number": 7281,
+  "title": "[trainer, perf] refactor: avoid scalar tensor dispatch in batch balancing",
+  "age": 83,
+  "last_commit": 83,
+  "draft": false,
+  "author": "ai-yang",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 89,
+  "files": 5,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/utils/seqlen_balancing.py"
+  ],
+  "nums": [
+   "22.26\u00d7",
+   "95.51%",
+   "24.89\u00d7",
+   "95.98%",
+   "27.26\u00d7"
+  ]
+ },
+ {
+  "number": 7150,
+  "title": "[algo] fix: dense group ids in as_torch_index and RLOO vectorized parity",
+  "age": 94,
+  "last_commit": 84,
+  "draft": false,
+  "author": "keepkeen",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 187,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7277,
+  "title": "[rollout] FlexKV KV cache offload for dynamic resource",
+  "age": 83,
+  "last_commit": 89,
+  "draft": false,
+  "author": "DylanChen-NV",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 785,
+  "files": 12,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/experimental/fully_async_policy/dynamic_schedule/dynamic_resource_controller.py",
+   "verl/experimental/fully_async_policy/fully_async_main.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/workers/rollout/flexkv_service.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7131,
+  "title": "[gemma4] Support attn_implementation=flash_attention_2 (global layers fall back to SDPA)",
+  "age": 97,
+  "last_commit": 98,
+  "draft": false,
+  "author": "nanastassacos",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 638,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/gemma4.py",
+   "verl/models/transformers/monkey_patch.py"
+  ],
+  "nums": [
+   "0.5\u00d7",
+   "1150 tok/s",
+   "2131 tok/s",
+   "1.85\u00d7",
+   "1.88\u00d7"
+  ]
+ },
+ {
+  "number": 7108,
+  "title": "[ckpt, sglang, megatron] feat: P2P checkpoint engine for trainer-to-rollout weight sync via Mooncake RDMA",
+  "age": 99,
+  "last_commit": 99,
+  "draft": false,
+  "author": "AkiRusProd",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 3418,
+  "files": 31,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "AkiRusProd"
+  ],
+  "touched": [
+   "verl/checkpoint_engine/__init__.py",
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/p2p/__init__.py",
+   "verl/checkpoint_engine/p2p/checkpoint_engine.py",
+   "verl/checkpoint_engine/p2p/trainer_updater.py",
+   "verl/checkpoint_engine/p2p/transfer_utils.py"
+  ],
+  "nums": [
+   "78\u00d7 faster"
+  ]
+ },
+ {
+  "number": 7097,
+  "title": "[training_utils, perf] feat: reuse jagged rows across dynamic batches",
+  "age": 101,
+  "last_commit": 100,
+  "draft": false,
+  "author": "zhangxin81",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 217,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "zhangxin81"
+  ],
+  "touched": [
+   "verl/utils/seqlen_balancing.py"
+  ],
+  "nums": [
+   "95%",
+   "2.133x",
+   "2.113x",
+   "2.136x",
+   "52.50%"
+  ]
+ },
+ {
+  "number": 7096,
+  "title": "[worker, perf] feat: defer scalar metric materialization",
+  "age": 101,
+  "last_commit": 101,
+  "draft": false,
+  "author": "zhangxin81",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 418,
+  "files": 14,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "zhangxin81"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/workers/engine/automodel/transformer_impl.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/engine/torchtitan/transformer_impl.py",
+   "verl/workers/utils/losses.py"
+  ],
+  "nums": [
+   "95%",
+   "2.445x",
+   "2.296x",
+   "2.524x",
+   "4.073x"
+  ]
+ },
+ {
+  "number": 6992,
+  "title": "[fsdp, vllm, doc] feat: add experimental W4A8 QAT simulation",
+  "age": 111,
+  "last_commit": 111,
+  "draft": true,
+  "author": "zhangyimi",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 629,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/kernel/fp8_kernel.py",
+   "verl/utils/qat/__init__.py",
+   "verl/utils/qat/linear.py",
+   "verl/utils/qat/quantizer.py",
+   "verl/utils/qat/vllm_patch.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": [
+   "1 x",
+   "1 x"
+  ]
+ },
+ {
+  "number": 6990,
+  "title": "[vllm, rollout, perf]feat: add extra-prefix-cache for agentic system prefix rollout",
+  "age": 111,
+  "last_commit": 111,
+  "draft": false,
+  "author": "HanlinDu",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 1308,
+  "files": 17,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/trainer_colocate_async.py",
+   "verl/trainer/ppo/v1/trainer_separate_async.py",
+   "verl/trainer/ppo/v1/trainer_sync.py",
+   "verl/trainer/ppo/v1/weight_update_hooks.py",
+   "verl/workers/rollout/extra_prefix_cache/README.md",
+   "verl/workers/rollout/extra_prefix_cache/__init__.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6940,
+  "title": "[rollout, vllm] feat: KV-cache-aware request load balancer",
+  "age": 114,
+  "last_commit": 113,
+  "draft": true,
+  "author": "zhaizhiqiangA",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 3581,
+  "files": 43,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/llm_router/README.md",
+   "verl/workers/rollout/llm_router/__init__.py",
+   "verl/workers/rollout/llm_router/balancer.py",
+   "verl/workers/rollout/llm_router/collectors/__init__.py",
+   "verl/workers/rollout/llm_router/collectors/collector.py",
+   "verl/workers/rollout/llm_router/collectors/decoder/__init__.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6737,
+  "title": "[fsdp, veomni] fix: wire fused top-k distillation outputs",
+  "age": 135,
+  "last_commit": 135,
+  "draft": false,
+  "author": "zhangxin81",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 189,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "Luosuu"
+  ],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/veomni/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6110,
+  "title": "[fsdp, training_utils] feat: support per-sample temperature with fused linear cross entropy",
+  "age": 189,
+  "last_commit": 140,
+  "draft": false,
+  "author": "KimmiShi",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 307,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 8,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/kernel/linear_cross_entropy.py",
+   "verl/utils/torch_functional.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6533,
+  "title": "[rollout] feat: load-balance away from sticky sessions under imbalance",
+  "age": 152,
+  "last_commit": 145,
+  "draft": true,
+  "author": "aoshen02",
+  "assoc": "COLLABORATOR",
+  "perf_claim": true,
+  "lines": 180,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "aoshen02",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/workers/rollout/llm_server.py"
+  ],
+  "nums": [
+   "1.5x",
+   "2\u00d7",
+   "0.05%",
+   "3.7%",
+   "8.4%"
+  ]
+ },
+ {
+  "number": 5338,
+  "title": "[fsdp,algo] feat: add use_length_grouped_bsz to reduce padding waste in FSDP training",
+  "age": 253,
+  "last_commit": 171,
+  "draft": false,
+  "author": "roeeh21",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 123,
+  "files": 12,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 7,
+  "human_reviewers": [
+   "ai21shakedmeirom",
+   "asafkar",
+   "roeeh21"
+  ],
+  "touched": [
+   "verl/utils/seqlen_balancing.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/utils.py"
+  ],
+  "nums": [
+   "1x",
+   "4.7x faster",
+   "10.7% slower",
+   "1x"
+  ]
+ },
+ {
+  "number": 5976,
+  "title": "[rollout] feat: trainer-side FP8 weight quantization for colocated and disaggregated modes",
+  "age": 199,
+  "last_commit": 176,
+  "draft": false,
+  "author": "yxs",
+  "assoc": "COLLABORATOR",
+  "perf_claim": true,
+  "lines": 368,
+  "files": 14,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [
+   "wuxibin89",
+   "yxs"
+  ],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/kimi_checkpoint_engine.py",
+   "verl/checkpoint_engine/mooncake_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py"
+  ],
+  "nums": [
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7",
+   "8\u00d7"
+  ]
+ },
+ {
+  "number": 6122,
+  "title": "[rollout] feat: global group-level load balancer",
+  "age": 188,
+  "last_commit": 182,
+  "draft": false,
+  "author": "EricWuji",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 242,
+  "files": 16,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/load_balance.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py"
+  ],
+  "nums": [
+   "15.2%",
+   "53.2%"
+  ]
+ },
+ {
+  "number": 6194,
+  "title": "[fsdp, megatron, vllm, trainer, algo, cfg] feat: Nitrobrew on-policy distillation (teacher hidden states communication + constant-memory fused KL)",
+  "age": 183,
+  "last_commit": 183,
+  "draft": true,
+  "author": "tea-more",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 1669,
+  "files": 16,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/utils/padding.py"
+  ],
+  "nums": [
+   "2 \u00d7",
+   "2 \u00d7",
+   "14\u00d7 speedup"
+  ]
+ },
+ {
+  "number": 5948,
+  "title": "[model] fix: Align Qwen VLM Ulysses + fused-kernel paths and harden multimodal position-id / vision-embed handling",
+  "age": 202,
+  "last_commit": 187,
+  "draft": false,
+  "author": "jamindy",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 695,
+  "files": 14,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/common/__init__.py",
+   "verl/models/transformers/common/vision_pos_embed_utils.py",
+   "verl/models/transformers/monkey_patch.py",
+   "verl/models/transformers/qwen2_vl.py",
+   "verl/models/transformers/qwen3_5.py",
+   "verl/models/transformers/qwen3_vl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5800,
+  "title": "[trtllm] fix: sleep mode ignores gpu_memory_utilization causing OOM",
+  "age": 212,
+  "last_commit": 201,
+  "draft": false,
+  "author": "Superjomn",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 16,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5838,
+  "title": "[perf, fsdp, trainer] feat: Skip training for zero-advantage responses to speed up RL.",
+  "age": 210,
+  "last_commit": 202,
+  "draft": false,
+  "author": "sheilaliuxl",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 1142,
+  "files": 14,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "sheilaliuxl"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": [
+   "25%",
+   "40.9%",
+   "1.7x",
+   "60.7%",
+   "2.5x"
+  ]
+ },
+ {
+  "number": 5541,
+  "title": "[vllm, rollout] feat: per-request TTFT/TPOT metrics and standalone rollout benchmark",
+  "age": 232,
+  "last_commit": 204,
+  "draft": false,
+  "author": "Siritao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 880,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5778,
+  "title": "[perf] feat: batch acquire/release RPCs, work-stealing scheduling, and empty cache dedup",
+  "age": 215,
+  "last_commit": 215,
+  "draft": false,
+  "author": "zzxxxl",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 1412,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "zzxxxl"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/utils/memory_utils.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5751,
+  "title": "[megatron, ckpt] fix: reclaim host memory leaked by dist_checkpointin\u2026",
+  "age": 217,
+  "last_commit": 217,
+  "draft": true,
+  "author": "Superjomn",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 290,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/megatron_workers.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py"
+  ],
+  "nums": [
+   "13GB",
+   "13GB"
+  ]
+ },
+ {
+  "number": 5651,
+  "title": "[Megatron] feat: offload optimizer fp32 params to CPU to save GPU memory",
+  "age": 224,
+  "last_commit": 223,
+  "draft": false,
+  "author": "sherry-huang-997",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 38,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/megatron_utils.py"
+  ],
+  "nums": [
+   "2x",
+   "2x"
+  ]
+ },
+ {
+  "number": 5617,
+  "title": "[megatron, ckpt, worker] fix: clear CUDA cache after checkpoint save",
+  "age": 226,
+  "last_commit": 224,
+  "draft": false,
+  "author": "yuki731",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 5,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "ETOgaosion",
+   "yuki731"
+  ],
+  "touched": [
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5619,
+  "title": "[perf] optimize the bucketed weight transfer using double buffer in vllm rollout weight synchronization",
+  "age": 226,
+  "last_commit": 226,
+  "draft": true,
+  "author": "jianjunzhong",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 2012,
+  "files": 23,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/kimi_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py",
+   "verl/workers/rollout/vllm_rollout/bucketed_weight_transfer.py"
+  ],
+  "nums": [
+   "2x",
+   "3.27%",
+   "4.94%",
+   "0.88%",
+   "2.46%"
+  ]
+ },
+ {
+  "number": 5600,
+  "title": "[feat][training_utils] State-based metrics",
+  "age": 227,
+  "last_commit": 227,
+  "draft": false,
+  "author": "JacobHelwig",
+  "assoc": "COLLABORATOR",
+  "perf_claim": true,
+  "lines": 501,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/utils/losses.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5426,
+  "title": "[tool, rollout] refactor: cache tool list initialization with MCP timeout",
+  "age": 243,
+  "last_commit": 237,
+  "draft": false,
+  "author": "denismegerle",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 164,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5391,
+  "title": "[perf, trtllm] feat: Add Nsight support for rollout server mode (trtllm)",
+  "age": 245,
+  "last_commit": 243,
+  "draft": false,
+  "author": "davidmlw",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 364,
+  "files": 21,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "davidmlw",
+   "tardis-key"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/rollout/replica.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5398,
+  "title": "[Feature]: enable kv cache sharing using lmcache",
+  "age": 245,
+  "last_commit": 245,
+  "draft": false,
+  "author": "kilig917",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 566,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5332,
+  "title": "fix: handle labels=None in fused forward to avoid crash without MTP (#5273)",
+  "age": 254,
+  "last_commit": 255,
+  "draft": false,
+  "author": "devchilll",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 8,
+  "files": 1,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ArronHZG"
+  ],
+  "touched": [
+   "verl/models/mcore/model_forward_fused.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5081,
+  "title": "[fsdp]Optimizing old logp onload/offload with non-blocking copy",
+  "age": 273,
+  "last_commit": 273,
+  "draft": true,
+  "author": "Shangwei-Li",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 29,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/fsdp2_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4677,
+  "title": "perf(ppo): vectorize advantage estimators and optimize tensor ops",
+  "age": 307,
+  "last_commit": 309,
+  "draft": false,
+  "author": "herniqeu",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 197,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/utils/torch_functional.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4435,
+  "title": "[rollout, vllm] feat: support KV cache FP8",
+  "age": 327,
+  "last_commit": 321,
+  "draft": false,
+  "author": "sharonyu-115",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 445,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 8,
+  "human_reviewers": [
+   "sharonyu-115",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/utils/vllm/vllm_fp8_utils.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": [
+   "32x",
+   "3x",
+   "20% speedup",
+   "38%",
+   "44% speedup"
+  ]
+ },
+ {
+  "number": 4257,
+  "title": "[Draft,Don't reivew][fsdp_workers] fix: Skip FSDP loading in async rollout mode to save GPU memory",
+  "age": 338,
+  "last_commit": 338,
+  "draft": false,
+  "author": "JobQiu",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 74,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": [
+   "50%",
+   "14GB",
+   "22GB",
+   "22GB",
+   "24GB"
+  ]
+ },
+ {
+  "number": 3852,
+  "title": "[fsdp] feat: Restructure logprobs_from_logits impl and always compile the naive impl",
+  "age": 372,
+  "last_commit": 343,
+  "draft": false,
+  "author": "StrongerXi",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 88,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 6,
+  "human_reviewers": [
+   "StrongerXi",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/utils/torch_functional.py"
+  ],
+  "nums": [
+   "8x",
+   "139.55gb",
+   "115.91gb",
+   "129.19gb",
+   "115.91gb"
+  ]
+ },
+ {
+  "number": 4174,
+  "title": "[megatron] fix: correct weight passing in fused forward",
+  "age": 344,
+  "last_commit": 344,
+  "draft": false,
+  "author": "tangyc314",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 6,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/model_forward_fused.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3724,
+  "title": "[model]{bug-fix}: Fix wrong log prob calculations using fused kernels and USP",
+  "age": 383,
+  "last_commit": 383,
+  "draft": false,
+  "author": "joshyan1",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 17,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/qwen2_vl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3479,
+  "title": "[RFC]Implements Group Filtering Policy Optimization",
+  "age": 408,
+  "last_commit": 395,
+  "draft": false,
+  "author": "jianfeng-Liu",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 440,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "APPROVED",
+  "comments": 6,
+  "human_reviewers": [
+   "FightingZhen",
+   "jianfeng-Liu",
+   "tardis-key"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": [
+   "2.4\u00d7",
+   "4\u00d7 speed-up"
+  ]
+ },
+ {
+  "number": 3467,
+  "title": "[sglang] fix: make sglang generation faster by passing image tensor",
+  "age": 410,
+  "last_commit": 410,
+  "draft": true,
+  "author": "nanjiangwill",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 9,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2629,
+  "title": "[rollout, trainer] feat: Enabling Request Skewness Scheduler towards near-equal generated token in rollout",
+  "age": 466,
+  "last_commit": 442,
+  "draft": false,
+  "author": "Tyizhanshen",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 1562,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 12,
+  "human_reviewers": [
+   "Tyizhanshen",
+   "eric-haibin-lin"
+  ],
+  "touched": [
+   "verl/protocol.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py",
+   "verl/workers/sharding_manager/fsdp_vllm.py"
+  ],
+  "nums": [
+   "25%"
+  ]
+ },
+ {
+  "number": 2875,
+  "title": "feat: Enhanced Reward Manager API - Solve 3 Key Pain Points in VERL Reward System",
+  "age": 452,
+  "last_commit": 452,
+  "draft": false,
+  "author": "Tingberer",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 1336,
+  "files": 8,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "Tingberer"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": [
+   "100%"
+  ]
+ },
+ {
+  "number": 2605,
+  "title": "[sglang] feat: Support flatten buckets to speed up resharding by 20%",
+  "age": 468,
+  "last_commit": 468,
+  "draft": true,
+  "author": "hebiao064",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 129,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "hebiao064"
+  ],
+  "touched": [
+   "verl/workers/sharding_manager/fsdp_sglang.py"
+  ],
+  "nums": [
+   "20%"
+  ]
+ },
+ {
+  "number": 2220,
+  "title": "[fsdp] fix: no pad rm_score to avoid oom",
+  "age": 489,
+  "last_commit": 489,
+  "draft": false,
+  "author": "zengwz",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 9,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": [
+   "40GB"
+  ]
+ },
+ {
+  "number": 1686,
+  "title": "Fix async SGLang rollout OOM and illegal memory access",
+  "age": 520,
+  "last_commit": 519,
+  "draft": false,
+  "author": "jybsuper",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 3,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "feifeibear",
+   "jybsuper"
+  ],
+  "touched": [
+   "verl/workers/sharding_manager/fsdp_sglang.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1295,
+  "title": "Optimizer-in-backward Fusion Implementation",
+  "age": 548,
+  "last_commit": 539,
+  "draft": false,
+  "author": "tinuademargaret",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 401,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 5,
+  "human_reviewers": [
+   "eric-haibin-lin"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/torch_functional.py",
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1349,
+  "title": "Explicitly initialize optimizer states to prevent OOM during rollout",
+  "age": 545,
+  "last_commit": 544,
+  "draft": false,
+  "author": "llkn-2",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": true,
+  "lines": 23,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "llkn-2",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 956,
+  "title": "Make DAPO rollout faster and more efficient (Refactor ShardingManager)",
+  "age": 569,
+  "last_commit": 567,
+  "draft": false,
+  "author": "sanghyun-son",
+  "assoc": "NONE",
+  "perf_claim": true,
+  "lines": 109,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/sharding_manager/base.py",
+   "verl/workers/sharding_manager/fsdp_sglang.py",
+   "verl/workers/sharding_manager/fsdp_ulysses.py",
+   "verl/workers/sharding_manager/fsdp_vllm.py",
+   "verl/workers/sharding_manager/megatron_vllm.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7590,
+  "title": "[trainer] feat: add reverse KL top-k distillation loss",
+  "age": 61,
+  "last_commit": 61,
+  "draft": false,
+  "author": "YichenZW",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 200,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "APPROVED",
+  "comments": 8,
+  "human_reviewers": [
+   "Luosuu"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/workers/engine/veomni/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7588,
+  "title": "[trainer] fix: dump reward_extra_info in v1 train rollout JSONL",
+  "age": 62,
+  "last_commit": 62,
+  "draft": false,
+  "author": "jmaicher",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 100,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7543,
+  "title": "[sglang, rollout] fix: re-key spec-decode stats to SGLang's current `meta_info` names",
+  "age": 64,
+  "last_commit": 64,
+  "draft": false,
+  "author": "jsfanfanfan",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 4,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7531,
+  "title": "[ray, trainer, rollout] feat: support accelerator-affine resource pools",
+  "age": 66,
+  "last_commit": 66,
+  "draft": false,
+  "author": "zhang-cheng-hao",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 525,
+  "files": 14,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/config/fully_async_ppo_megatron_trainer.yaml",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/workers/rollout/replica.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7516,
+  "title": "[trainer, ckpt] fix: save final checkpoint when epochs exhaust",
+  "age": 67,
+  "last_commit": 67,
+  "draft": false,
+  "author": "kekellllll",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 198,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7496,
+  "title": "[rollout, fully_async] fix: sync LoRA adapters to disaggregated rollout engines",
+  "age": 69,
+  "last_commit": 68,
+  "draft": false,
+  "author": "ChaoyuWang04",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 262,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7473,
+  "title": "[trainer] feat: pass non_tensor_batch to advantage estimators that can accept it",
+  "age": 70,
+  "last_commit": 70,
+  "draft": false,
+  "author": "waple0820",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 105,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7435,
+  "title": "[rollout] feat: re-evaluate sticky sessions against replica load",
+  "age": 74,
+  "last_commit": 74,
+  "draft": false,
+  "author": "ralovets",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 230,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/llm_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7432,
+  "title": "[ckpt] feat: add NCCL M2N Reshard layout primitives",
+  "age": 74,
+  "last_commit": 74,
+  "draft": false,
+  "author": "ss16118",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 466,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/reshard_layout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7421,
+  "title": "[model] fix: DSA for mcore >= 0.16.2: route x/qr kwargs and add PyTorch WHT fa\u2026",
+  "age": 75,
+  "last_commit": 75,
+  "draft": false,
+  "author": "theely",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 58,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7420,
+  "title": "Working async megatron large models",
+  "age": 75,
+  "last_commit": 75,
+  "draft": true,
+  "author": "theely",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 97,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/patch.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7019,
+  "title": "[rollout] fix: accept dataset output fields in agent loop",
+  "age": 109,
+  "last_commit": 75,
+  "draft": false,
+  "author": "Epochex",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 33,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/v1/agent_loop_tq.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7396,
+  "title": "[ckpt, fsdp] fix: enforce max-one SFT retention after restart",
+  "age": 76,
+  "last_commit": 76,
+  "draft": false,
+  "author": "ai-yang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 376,
+  "files": 7,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/base.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7390,
+  "title": "[fsdp, trainer] feat: support WSD LR scheduling",
+  "age": 76,
+  "last_commit": 76,
+  "draft": false,
+  "author": "Sunbeam23333",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 384,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/torch_functional.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7380,
+  "title": "[megatron] fix: avoid duplicate training hook registration with VPP",
+  "age": 76,
+  "last_commit": 76,
+  "draft": false,
+  "author": "xiaoali0708-cloud",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 159,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/megatron_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6670,
+  "title": "feat(rollout): conditionally enable tower connector LoRA for VLMs",
+  "age": 141,
+  "last_commit": 76,
+  "draft": false,
+  "author": "luoshijiang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 22,
+  "files": 1,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [
+   "Luosuu",
+   "luoshijiang"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7375,
+  "title": "[wip][feat]: add opd full-vocab",
+  "age": 77,
+  "last_commit": 77,
+  "draft": true,
+  "author": "wucong25",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 1285,
+  "files": 22,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/models/mcore/model_forward.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/vllm/patch.py",
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/rollout/replica.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7352,
+  "title": "[fsdp, lora] fix: support disabling adapters after FSDP wrapping",
+  "age": 78,
+  "last_commit": 78,
+  "draft": false,
+  "author": "oops-debug",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 20,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7323,
+  "title": "[model, fsdp] fix: align Qwen3.5 vision calls across ranks",
+  "age": 81,
+  "last_commit": 81,
+  "draft": false,
+  "author": "yangzhou24",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 475,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/qwen3_5.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7318,
+  "title": "[ckpt] fix: align packed tensor offsets to dtype itemsize for mixed-dtype streams",
+  "age": 82,
+  "last_commit": 82,
+  "draft": false,
+  "author": "savaresejeremy",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 220,
+  "files": 5,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7304,
+  "title": "fix: set sleep_level before first resume on LoRA adapter path (#7289)",
+  "age": 83,
+  "last_commit": 82,
+  "draft": false,
+  "author": "shotsan",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 115,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7255,
+  "title": "[fully_async, trainer] fix: report compute score timing metrics",
+  "age": 85,
+  "last_commit": 83,
+  "draft": false,
+  "author": "YolandaLyj",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 48,
+  "files": 3,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "YolandaLyj",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7217,
+  "title": "fix(agent_loop): propagate validation metadata to async rewards",
+  "age": 89,
+  "last_commit": 84,
+  "draft": false,
+  "author": "YAO-001",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 70,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [
+   "ErenAta16"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/v1/agent_loop_tq.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7151,
+  "title": "[reward, rollout] fix: align sparse reward_extra_info across batch paths",
+  "age": 94,
+  "last_commit": 84,
+  "draft": false,
+  "author": "keepkeen",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 506,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7058,
+  "title": "[BREAKING] [rollout, trainer, worker] feat: implement multiteacher fusenode opd",
+  "age": 104,
+  "last_commit": 84,
+  "draft": false,
+  "author": "msz12345",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1975,
+  "files": 19,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/trainer/ppo/v1/trainer_separate_async.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7237,
+  "title": "[trainer] refactor: move shared PPO helpers out of RayPPOTrainer",
+  "age": 86,
+  "last_commit": 86,
+  "draft": false,
+  "author": "zzzzzzzxh",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 481,
+  "files": 9,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/detach_utils.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py",
+   "verl/trainer/ppo/v1/utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7215,
+  "title": "[BREAKING][fsdp, trainer] fix: apply selective weight decay",
+  "age": 89,
+  "last_commit": 89,
+  "draft": false,
+  "author": "YAO-001",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 321,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7186,
+  "title": "  [rollout] feat: support MXFP8 rollout quantization",
+  "age": 91,
+  "last_commit": 91,
+  "draft": true,
+  "author": "jQizhang",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 239,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/http_server_engine.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7169,
+  "title": "[model] fix: import crash on transformers >= 5.4.0 (is_flash_attn_greater_or_equal_2_10 removed)",
+  "age": 93,
+  "last_commit": 92,
+  "draft": false,
+  "author": "thuwyh",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 22,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/glm4v.py",
+   "verl/models/transformers/qwen2_vl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7170,
+  "title": "[rollout] fix: fail fast on invalid replica topologies",
+  "age": 93,
+  "last_commit": 93,
+  "draft": false,
+  "author": "MagellaX",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 423,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/workers/rollout/llm_server.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/rollout/topology.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7137,
+  "title": "[model] Pass explicit cu_seqlens through the Ulysses FA-varlen path, eliminating position_ids dependency",
+  "age": 96,
+  "last_commit": 96,
+  "draft": false,
+  "author": "Zhanli-Li",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 100,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/monkey_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7013,
+  "title": "[trainer, ckpt] fix: persist adaptive KL controller state across checkpoint resume",
+  "age": 110,
+  "last_commit": 97,
+  "draft": false,
+  "author": "Epochex",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 385,
+  "files": 5,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "Epochex",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7086,
+  "title": "[vllm, rollout, worker] fix: refresh Ascend MoE comm state after L2 wake to fix ep+sleep level2 precision issue",
+  "age": 103,
+  "last_commit": 98,
+  "draft": false,
+  "author": "zgh-99",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 39,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "wucong25",
+   "wuxibin89",
+   "zgh-99"
+  ],
+  "touched": [
+   "verl/utils/vllm/npu_vllm_patch.py",
+   "verl/workers/rollout/vllm_rollout/utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6833,
+  "title": "[rollout, trainer, cfg] feat: privileged-context teacher scoring for OPSD",
+  "age": 126,
+  "last_commit": 101,
+  "draft": false,
+  "author": "HaozheZhang6",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 733,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 10,
+  "human_reviewers": [
+   "HaozheZhang6",
+   "JacobHelwig",
+   "ytchx1999"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7062,
+  "title": "[fsdp] fix: remove CPU offloading in collect_lora_params",
+  "age": 104,
+  "last_commit": 103,
+  "draft": false,
+  "author": "Secbone",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 18,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "APPROVED",
+  "comments": 0,
+  "human_reviewers": [
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/utils/fsdp_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7089,
+  "title": "[megatron, model, doc] fix: improve Megatron-Bridge ImportError guidance and Dockerfile smoke",
+  "age": 103,
+  "last_commit": 104,
+  "draft": false,
+  "author": "chethanuk",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 284,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/bridge.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7079,
+  "title": "[trainer] fix: support linked-list speculative metrics",
+  "age": 104,
+  "last_commit": 104,
+  "draft": false,
+  "author": "1ring2rta",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 48,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7070,
+  "title": "[rollout, vllm] fix: strip .base_layer suffix from param names in vLLM weight update",
+  "age": 104,
+  "last_commit": 104,
+  "draft": false,
+  "author": "Secbone",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 32,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7022,
+  "title": "[algo, doc] feat: add UP-GRPO unbounded positive asymmetric policy loss",
+  "age": 108,
+  "last_commit": 108,
+  "draft": false,
+  "author": "a-F1",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 385,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7021,
+  "title": "[trainer] feat: queue TransferQueue agent batches",
+  "age": 108,
+  "last_commit": 108,
+  "draft": false,
+  "author": "luzy99",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 58,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/agent_loop_tq.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7010,
+  "title": "[fully_async] fix: release state lock while waiting for rollout capacity",
+  "age": 110,
+  "last_commit": 110,
+  "draft": false,
+  "author": "kdubovikov",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 98,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 7000,
+  "title": "[single_controller] fix: remove transfer queue and restore RayPPOTrainer",
+  "age": 111,
+  "last_commit": 111,
+  "draft": false,
+  "author": "zw0610",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 1484,
+  "files": 39,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/protocol.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6987,
+  "title": "[fully_async] fix: pre-compute total_training_steps before trainer init",
+  "age": 111,
+  "last_commit": 111,
+  "draft": false,
+  "author": "gaohongkui",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 31,
+  "files": 1,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_main.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6986,
+  "title": "[algo] feat: add TOPR (Tapered Off-Policy REINFORCE) policy loss",
+  "age": 111,
+  "last_commit": 111,
+  "draft": false,
+  "author": "abtonmoy",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 543,
+  "files": 12,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6920,
+  "title": "[trainer, fsdp, worker, algo, cfg, recipe] feat: add reverse-KL on-policy distillation with FSDP teacher",
+  "age": 118,
+  "last_commit": 114,
+  "draft": false,
+  "author": "YangxSong",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 6116,
+  "files": 23,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/utils/padding.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5990,
+  "title": "[fully_async] feat: standalone log prob server (Model Engine Server) support",
+  "age": 198,
+  "last_commit": 118,
+  "draft": false,
+  "author": "sl-1314",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1348,
+  "files": 23,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "ArronHZG",
+   "sl-1314",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/MODEL_ENGINE_SERVER.md",
+   "verl/experimental/fully_async_policy/README.md",
+   "verl/experimental/fully_async_policy/config/fully_async_ppo_megatron_trainer.yaml"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6917,
+  "title": "[trainer] fix: gracefully finalize tracking and dataloader workers at fit() exits",
+  "age": 118,
+  "last_commit": 119,
+  "draft": false,
+  "author": "seokhyunan",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 141,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6909,
+  "title": "[algo] Add On Policy Self Distiation with e2e recipe",
+  "age": 119,
+  "last_commit": 119,
+  "draft": true,
+  "author": "gxlvera",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1579,
+  "files": 12,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [
+   "XiangZheng2002"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6868,
+  "title": "[trainer, fully_async] feat: add streaming rollouter mode to the V1 PPO trainer",
+  "age": 123,
+  "last_commit": 119,
+  "draft": false,
+  "author": "huaiyizhao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 2046,
+  "files": 16,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/__init__.py",
+   "verl/trainer/ppo/v1/agent_loop_tq_rollout.py",
+   "verl/trainer/ppo/v1/replay_buffer.py",
+   "verl/trainer/ppo/v1/replay_buffer_session.py",
+   "verl/trainer/ppo/v1/trainer_fully_async.py",
+   "verl/trainer/ppo/v1/trainer_separate_async.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6803,
+  "title": "[algo] fix: remove dead code in GPG advantage estimator",
+  "age": 129,
+  "last_commit": 120,
+  "draft": false,
+  "author": "EazyReal",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 57,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6870,
+  "title": "[fully_async, reward, docs] fix: skip reward function call when use_task_rewards=False",
+  "age": 122,
+  "last_commit": 121,
+  "draft": false,
+  "author": "kenkenpa2126",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 78,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6874,
+  "title": "[trainer, rollout] feat: opt-in rollout-level dispatch for the V1 agent-loop trainer",
+  "age": 122,
+  "last_commit": 122,
+  "draft": false,
+  "author": "huaiyizhao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 682,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/v1/agent_loop_tq.py",
+   "verl/trainer/ppo/v1/replay_buffer.py",
+   "verl/trainer/ppo/v1/trainer_base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6731,
+  "title": "[algo] feat: add CPPO (position-weighted cumulative-prefix-divergence token mask)",
+  "age": 135,
+  "last_commit": 122,
+  "draft": false,
+  "author": "chongqichuizi875",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 695,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [
+   "chongqichuizi875",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6869,
+  "title": "[megatron] fix: balanced sequence split in dynamic_cp_split_batch (#6786)",
+  "age": 123,
+  "last_commit": 123,
+  "draft": false,
+  "author": "ajinkyajawale14499",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 105,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/megatron_utils.py",
+   "verl/utils/seqlen_balancing.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6857,
+  "title": "[sglang] fix seed collisions in deterministic GRPO rollouts",
+  "age": 124,
+  "last_commit": 124,
+  "draft": false,
+  "author": "tntnnlrw",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 242,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6735,
+  "title": "[training_utils] fix: cap micro-batch tokens at max_token_len",
+  "age": 135,
+  "last_commit": 135,
+  "draft": false,
+  "author": "Li-bf",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 162,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/seqlen_balancing.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6713,
+  "title": "[Draft]Support Megatron LoRA adapter export for rollout",
+  "age": 138,
+  "last_commit": 138,
+  "draft": true,
+  "author": "hbhflw2000",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 365,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/bridge.py",
+   "verl/models/mcore/model_forward_fused.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6603,
+  "title": "[megatron] feat: add DeepSeek-V4-Flash SFT example (Megatron-Bridge backend)",
+  "age": 146,
+  "last_commit": 138,
+  "draft": false,
+  "author": "Meirtz",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 142,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [
+   "ISEEKYAN",
+   "Meirtz",
+   "shyoshyo"
+  ],
+  "touched": [
+   "verl/models/mcore/mtp_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6408,
+  "title": "[megatron] feat: NCCL communicator suspend/resume for Megatron in colocated mode",
+  "age": 162,
+  "last_commit": 140,
+  "draft": false,
+  "author": "xiefan46",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 790,
+  "files": 19,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [
+   "ETOgaosion"
+  ],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/engine/base.py",
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/engine/megatron/utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6578,
+  "title": "[model] feat: add InternVL2_5\uff0cInternVL3\uff0cInternVL3_5 models support",
+  "age": 148,
+  "last_commit": 144,
+  "draft": false,
+  "author": "sunshine-JLU",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 832,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "sunshine-JLU"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/models/transformers/monkey_patch.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/rollout/utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6519,
+  "title": "[fsdp, algo] no grad for entropy and kl if the loss coef is 0",
+  "age": 153,
+  "last_commit": 145,
+  "draft": false,
+  "author": "huaiyizhao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 61,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "huaiyizhao",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/utils/losses.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6611,
+  "title": "feat: analytical auto-parallel for Megatron PPO (auto_parallelization + main_ppo)",
+  "age": 146,
+  "last_commit": 146,
+  "draft": false,
+  "author": "aminmalekisadr",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 2704,
+  "files": 19,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/fsdp_utils.py",
+   "verl/utils/memory_utils.py",
+   "verl/workers/rollout/hf_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6434,
+  "title": "[rollout] feat: add reasoning parser to strip think blocks before tool extraction (fixes #6424)",
+  "age": 160,
+  "last_commit": 147,
+  "draft": false,
+  "author": "abinggo",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 991,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 6,
+  "human_reviewers": [
+   "abinggo",
+   "wuxibin89",
+   "wyt2000"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/reasoning_parser.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/agent_loop/tool_parser.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6232,
+  "title": "[trainer] fix: skip extra step when resume already exceeds total_training_steps",
+  "age": 180,
+  "last_commit": 148,
+  "draft": false,
+  "author": "startju",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 188,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "ArronHZG",
+   "startju"
+  ],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5805,
+  "title": "[ray_trainer] fix: honor total_training_steps after resume in step mode",
+  "age": 212,
+  "last_commit": 148,
+  "draft": false,
+  "author": "chenshui223",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 112,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6565,
+  "title": "[fully_async] fix: allow custom agent loop manager in fully async",
+  "age": 149,
+  "last_commit": 149,
+  "draft": false,
+  "author": "cmunley1",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 8,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6564,
+  "title": "[training_utils,megatron] fix: keep rmpad logprob labels within sequence",
+  "age": 149,
+  "last_commit": 149,
+  "draft": false,
+  "author": "Jiang020609",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 168,
+  "files": 3,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/megatron/tensor_parallel.py",
+   "verl/utils/torch_functional.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6219,
+  "title": "[ci, vllm] test: add CI for process_weights_after_loading correctness",
+  "age": 181,
+  "last_commit": 149,
+  "draft": false,
+  "author": "Kamleecoder",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 256,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 8,
+  "human_reviewers": [
+   "Kamleecoder"
+  ],
+  "touched": [
+   "verl/utils/vllm/npu_vllm_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6538,
+  "title": "[algo] fix: stabilize PPO policy-loss ratio computation",
+  "age": 152,
+  "last_commit": 152,
+  "draft": false,
+  "author": "anzhsoft",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 47,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6497,
+  "title": "[algo] fix: normalize GDPO advantages over responses",
+  "age": 154,
+  "last_commit": 154,
+  "draft": false,
+  "author": "lucky9-cyou",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 6,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6459,
+  "title": "[rollout, vllm] fix: avoid SIGSEGV on ROCm TP=1 by conditionally omitting distributed_executor_backend",
+  "age": 156,
+  "last_commit": 156,
+  "draft": false,
+  "author": "HeShiLie",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 29,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "HeShiLie"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6395,
+  "title": "[fully_async] fix rollout failure propagation",
+  "age": 162,
+  "last_commit": 156,
+  "draft": false,
+  "author": "anzhsoft",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 204,
+  "files": 4,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ArronHZG",
+   "anzhsoft"
+  ],
+  "touched": [
+   "verl/experimental/fully_async_policy/detach_utils.py",
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6455,
+  "title": "debug w4a4 trtllm rollout ipc",
+  "age": 157,
+  "last_commit": 157,
+  "draft": true,
+  "author": "Superjomn",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 187,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/qat/linear.py",
+   "verl/workers/rollout/trtllm_rollout/_w4a4_compat.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_rollout.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_worker_extension.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6452,
+  "title": "[algo] fix rollout rejected rows in group advantages",
+  "age": 158,
+  "last_commit": 158,
+  "draft": false,
+  "author": "Sun-Conure",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 205,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "Sun-Conure"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5920,
+  "title": "[fsdp] feat: add sp for qwen3.5 fsdp grpo training",
+  "age": 203,
+  "last_commit": 158,
+  "draft": false,
+  "author": "Zhang1Sheng",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 244,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "wucong25"
+  ],
+  "touched": [
+   "verl/models/transformers/monkey_patch.py",
+   "verl/models/transformers/qwen3_5.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6404,
+  "title": "[rollout, tool, cfg] feat: add per-assistant-turn cap for multi-turn agent loop",
+  "age": 162,
+  "last_commit": 160,
+  "draft": false,
+  "author": "nev8rz",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 119,
+  "files": 8,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6212,
+  "title": "[model] fix: Ulysses SP support for Qwen3.5/Qwen3.5-MoE",
+  "age": 182,
+  "last_commit": 160,
+  "draft": false,
+  "author": "nev8rz",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 8,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 15,
+  "human_reviewers": [
+   "nev8rz"
+  ],
+  "touched": [
+   "verl/models/transformers/monkey_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6320,
+  "title": "[trainer, fsdp, megatron, veomni, torchtitan] feat: add freeze_module_pattern for partial parameter freezing",
+  "age": 169,
+  "last_commit": 161,
+  "draft": false,
+  "author": "wzhgba",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 213,
+  "files": 12,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/engine/torchtitan/transformer_impl.py",
+   "verl/workers/engine/veomni/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6349,
+  "title": "[algo] fix: mask invalid sequence loss values",
+  "age": 167,
+  "last_commit": 163,
+  "draft": false,
+  "author": "Sun-Conure",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 22,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "Sun-Conure",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5869,
+  "title": "[megatron] fix: dynamic context parallel batch splitting and loss normalization",
+  "age": 209,
+  "last_commit": 163,
+  "draft": false,
+  "author": "Kite0011",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 671,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 6,
+  "human_reviewers": [
+   "ISEEKYAN",
+   "Kite0011"
+  ],
+  "touched": [
+   "verl/models/mcore/patch.py",
+   "verl/utils/megatron_utils.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6342,
+  "title": "[rollout] feat: support suffix speculative decoding in vLLM rollout",
+  "age": 167,
+  "last_commit": 167,
+  "draft": false,
+  "author": "walterchenchn",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 56,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5757,
+  "title": "[rollout] feat: Support decoupled speculation with dynamic adjustment feature for rollout (WIP)",
+  "age": 216,
+  "last_commit": 167,
+  "draft": true,
+  "author": "sisyphus111",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 638,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/workers/rollout/replica.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6245,
+  "title": "[experimental] Build direct vLLM MultiModalInput from preprocessed Qwen multimodal tensors",
+  "age": 176,
+  "last_commit": 173,
+  "draft": false,
+  "author": "aoshen02",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 1196,
+  "files": 12,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "aoshen02",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/preprocessed_multimodal.py",
+   "verl/experimental/agent_loop/preprocessed_multimodal_dispatch.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5947,
+  "title": "[rollout, vllm] feat: Add BAGEL RL rollout support via vLLMOmniHttpServer",
+  "age": 202,
+  "last_commit": 178,
+  "draft": false,
+  "author": "timzsu",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 2282,
+  "files": 22,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 9,
+  "human_reviewers": [
+   "SamitHuang",
+   "knlnguyen1802",
+   "timzsu",
+   "zhtmike"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/models/diffusers_model/base.py",
+   "verl/workers/engine/fsdp/diffusers_impl.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_omni_async_server.py",
+   "verl/workers/utils/padding.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6204,
+  "title": "[npu] feat: add true_on_policy_npu runtime consistency patch package",
+  "age": 182,
+  "last_commit": 182,
+  "draft": true,
+  "author": "ZhangRan-Zora",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 1471,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ji-huazhong"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5514,
+  "title": "[recipe, algo] feat: atropos RL environment integration",
+  "age": 235,
+  "last_commit": 190,
+  "draft": false,
+  "author": "daspartho",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 16,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5966,
+  "title": "Example for Async Multiturn Training on Geo3K",
+  "age": 201,
+  "last_commit": 191,
+  "draft": false,
+  "author": "HwCARI",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 265,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [
+   "HwCARI"
+  ],
+  "touched": [
+   "verl/experimental/fully_async_policy/config/fully_async_ppo_megatron_trainer_geo3k_multiturn.yaml",
+   "verl/experimental/fully_async_policy/config/geo3k_tool_config.yaml",
+   "verl/experimental/fully_async_policy/shell/geo3k_qwen3vl_30b_megatron_async_multiturn.sh"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5636,
+  "title": "[algo] feat: supporting agentic rl with context management",
+  "age": 225,
+  "last_commit": 191,
+  "draft": false,
+  "author": "ZhentaoFan",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1962,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 7,
+  "human_reviewers": [
+   "ArronHZG"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/__init__.py",
+   "verl/experimental/agent_loop/agent_loop_with_context_management.py",
+   "verl/experimental/agent_loop/context_manager.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 6045,
+  "title": "feat:support exporting fp8 weights in FP8 E2E",
+  "age": 194,
+  "last_commit": 194,
+  "draft": true,
+  "author": "eternally-z",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 56,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/megatron/transformer_impl.py",
+   "verl/workers/megatron_workers.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5925,
+  "title": "[vllm, rollout, cfg, doc] feat: Accelerate RL rollouts with EAGLE/EAGLE3 speculative decoding",
+  "age": 203,
+  "last_commit": 202,
+  "draft": false,
+  "author": "alekseymalakhov11",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 349,
+  "files": 14,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 9,
+  "human_reviewers": [
+   "ArronHZG"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/prometheus_utils.py",
+   "verl/workers/rollout/vllm_rollout/utils.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5886,
+  "title": "fix: flatten multi-component position_ids to 1D for nested tensor compatibility",
+  "age": 205,
+  "last_commit": 205,
+  "draft": false,
+  "author": "yifannnwu",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 28,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/utils/padding.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5783,
+  "title": "[misc] chore: add to control shm/ipc with parameters",
+  "age": 215,
+  "last_commit": 208,
+  "draft": false,
+  "author": "nuerxiati",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 4,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ji-huazhong",
+   "wucong25"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5810,
+  "title": "[trainer] fix: serialize numpy rollout metadata in rollout_data_dir dumps",
+  "age": 212,
+  "last_commit": 212,
+  "draft": false,
+  "author": "chenshui223",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 148,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5793,
+  "title": "[trainer, ray] feat: log numeric reward_extra_info in training metrics",
+  "age": 213,
+  "last_commit": 213,
+  "draft": false,
+  "author": "ChinaStark",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 10,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5780,
+  "title": "[rollout, data] feat: integrate TransferQueue for multi-modal image data transfer",
+  "age": 215,
+  "last_commit": 215,
+  "draft": false,
+  "author": "RobotGF",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 909,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 7,
+  "human_reviewers": [
+   "0oshowero0",
+   "RobotGF",
+   "SamitHuang"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5761,
+  "title": "[model] fix: handle both tuple and object return types from Qwen3-VL visual encoder",
+  "age": 216,
+  "last_commit": 216,
+  "draft": false,
+  "author": "MaxwellJryao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 23,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/qwen3_vl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4933,
+  "title": "GIFT: group implicit fine tuning",
+  "age": 286,
+  "last_commit": 221,
+  "draft": false,
+  "author": "ZhichaoWang970201",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 334,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5676,
+  "title": "[trainer,ray] fix: avoid serializing remote-code critic config in legacy ray workers",
+  "age": 222,
+  "last_commit": 222,
+  "draft": false,
+  "author": "Weicheng-Gu1",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 63,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5509,
+  "title": "[rollout] feat: support eagle3 speculative decode in rollout",
+  "age": 236,
+  "last_commit": 222,
+  "draft": false,
+  "author": "miracle0517",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 55,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/utils.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5614,
+  "title": "[geo_mean] Fix DP-inconsistent loss aggregation bypassing agg_loss()",
+  "age": 226,
+  "last_commit": 226,
+  "draft": false,
+  "author": "dubin555",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 13,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "dubin555"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5613,
+  "title": "[gdpo] Fix reward misplacement for fully-padded responses",
+  "age": 226,
+  "last_commit": 226,
+  "draft": false,
+  "author": "dubin555",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 9,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5378,
+  "title": "[ckpt] feat: implement large tensor slicing in vllm rollout and CheckpointEngine for weight updating",
+  "age": 246,
+  "last_commit": 226,
+  "draft": false,
+  "author": "jianjunzhong",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1843,
+  "files": 15,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/checkpoint_engine/hccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/kimi_checkpoint_engine.py",
+   "verl/checkpoint_engine/nccl_checkpoint_engine.py",
+   "verl/checkpoint_engine/nixl_checkpoint_engine.py",
+   "verl/workers/rollout/vllm_rollout/bucketed_weight_transfer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5594,
+  "title": "[trainer] feat: Support CP with TorchtitanEngine",
+  "age": 228,
+  "last_commit": 228,
+  "draft": true,
+  "author": "acisseJZhong",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 66,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "ETOgaosion",
+   "acisseJZhong"
+  ],
+  "touched": [
+   "verl/workers/engine/torchtitan/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5590,
+  "title": "[trainer,ckpt,rollout] fix: wake up rollout replicas when actor update is skipped by critic warmup",
+  "age": 228,
+  "last_commit": 228,
+  "draft": false,
+  "author": "lwzhenglittle",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 86,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5537,
+  "title": "[rollout] feat: add optional tags parameter to release()",
+  "age": 233,
+  "last_commit": 229,
+  "draft": false,
+  "author": "cavities12",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 431,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ETOgaosion"
+  ],
+  "touched": [
+   "verl/workers/rollout/_tag_utils.py",
+   "verl/workers/rollout/base.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/rollout/trtllm_rollout/trtllm_rollout.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5513,
+  "title": "[fsdp] fix: use non-inplace div for activation-offloaded logits views",
+  "age": 235,
+  "last_commit": 229,
+  "draft": false,
+  "author": "cavities12",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 139,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5574,
+  "title": "[megatron] fix: avoid mindspeed rope and attention synchronization",
+  "age": 230,
+  "last_commit": 230,
+  "draft": true,
+  "author": "Shangwei-Li",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 8,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/util.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4930,
+  "title": "fix: Bypass Mode Configuration Timing Issue",
+  "age": 287,
+  "last_commit": 231,
+  "draft": false,
+  "author": "zhangsheng377",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 38,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5291,
+  "title": "[misc,trainer,rollout] feat: add Prometheus metrics logging to experiment tracking",
+  "age": 259,
+  "last_commit": 233,
+  "draft": false,
+  "author": "guillemgt",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 236,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ArronHZG"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/prometheus_utils.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5148,
+  "title": "[data] feat: Support cross attention VLMs",
+  "age": 270,
+  "last_commit": 233,
+  "draft": false,
+  "author": "SchumiDing",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 35,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5138,
+  "title": "[rollout] feat: add custom sampling parameters for rollout generation",
+  "age": 271,
+  "last_commit": 233,
+  "draft": false,
+  "author": "guillemgt",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 28,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "APPROVED",
+  "comments": 0,
+  "human_reviewers": [
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5506,
+  "title": "[data] fix: Fix tensor size mismatch in AgentLoopWorker",
+  "age": 236,
+  "last_commit": 236,
+  "draft": false,
+  "author": "gaotiexinqu",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 73,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5499,
+  "title": "[algo,trainer,worker,fsdp,cfg,doc] feat: add SDPO (Self-Distillation Policy Optimization)",
+  "age": 237,
+  "last_commit": 237,
+  "draft": true,
+  "author": "jonhue",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 1430,
+  "files": 18,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/actor/__init__.py",
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5249,
+  "title": "[fsdp] feat: upcast MoE routing to FP32 for better accuracy",
+  "age": 261,
+  "last_commit": 237,
+  "draft": false,
+  "author": "Shangwei-Li",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 65,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "tardis-key"
+  ],
+  "touched": [
+   "verl/models/transformers/npu_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5463,
+  "title": "[BREAKING][single_controller] refactor: remove Ray leakage from base interface",
+  "age": 240,
+  "last_commit": 240,
+  "draft": true,
+  "author": "JenniferWang",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 509,
+  "files": 41,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "JenniferWang",
+   "zw0610"
+  ],
+  "touched": [
+   "verl/checkpoint_engine/base.py",
+   "verl/experimental/fully_async_policy/fully_async_main.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/rollout/replica.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5346,
+  "title": "[fsdp] fix: make GDN work correctly when using ulysses and varlen sequence",
+  "age": 252,
+  "last_commit": 243,
+  "draft": false,
+  "author": "nono-Sang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 322,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/monkey_patch.py",
+   "verl/models/transformers/qwen3_next.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5352,
+  "title": "[config] remove deprecated actor_rollout_ref.rollout.mode config field",
+  "age": 251,
+  "last_commit": 244,
+  "draft": false,
+  "author": "dhruvnigam93",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 289,
+  "files": 71,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 6,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/fully_async_rollouter.py",
+   "verl/experimental/fully_async_policy/fully_async_trainer.py",
+   "verl/experimental/fully_async_policy/shell/dapo_30b_a3b_base_math_fsdp.sh",
+   "verl/experimental/fully_async_policy/shell/dapo_7b_async_retool.sh",
+   "verl/experimental/fully_async_policy/shell/dapo_7b_math_fsdp2_16_16.sh",
+   "verl/experimental/fully_async_policy/shell/dapo_7b_math_fsdp2_32_32.sh"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5369,
+  "title": "[megatron] refactor: Refactor policy update failure handling from exception to warning in MegatronPPOActor to support FP16 training",
+  "age": 248,
+  "last_commit": 248,
+  "draft": false,
+  "author": "mirrorboat",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 2,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/megatron_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5026,
+  "title": "[feat] Atropos integration with GRPO (#1782)",
+  "age": 279,
+  "last_commit": 249,
+  "draft": false,
+  "author": "vyomakesh0728",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 273,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5360,
+  "title": "[tool, rollout] fix: handle optional interaction kwargs",
+  "age": 250,
+  "last_commit": 250,
+  "draft": false,
+  "author": "denismegerle",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 224,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/tool_agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/partial_tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5419,
+  "title": "[fsdp, model] fix: Allow flash attention 2 to be used for NemotronH model on FSDP",
+  "age": 244,
+  "last_commit": 252,
+  "draft": false,
+  "author": "thvasilo",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 94,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/nemotron_h.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5334,
+  "title": "[algo] feat: add Focal-GRPO implementation",
+  "age": 254,
+  "last_commit": 253,
+  "draft": false,
+  "author": "alekseymalakhov11",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 108,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5278,
+  "title": "[vllm] feat: add model saving func to dump vllm state_dict before and after update weights",
+  "age": 259,
+  "last_commit": 259,
+  "draft": false,
+  "author": "RobotGF",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 25,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5277,
+  "title": "[rollout] fix: prompt2text decoding for `SingleTurnAgentLoop`",
+  "age": 259,
+  "last_commit": 259,
+  "draft": false,
+  "author": "jnash10",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 4,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/single_turn_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5271,
+  "title": "[rollout] fix: use the same request_ids in each rollout turn for better tracking in rollout backend",
+  "age": 260,
+  "last_commit": 260,
+  "draft": false,
+  "author": "PeterSH6",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 2,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 1,
+  "human_reviewers": [
+   "ccclyu",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5252,
+  "title": "adding CFPO to verl",
+  "age": 261,
+  "last_commit": 260,
+  "draft": false,
+  "author": "asparius",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 95,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4567,
+  "title": "[megatron] fix: Fix RouterReplay/TopKRouter mismatch to support qwen3vl",
+  "age": 315,
+  "last_commit": 261,
+  "draft": false,
+  "author": "Kairosxy",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 69,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "ISEEKYAN"
+  ],
+  "touched": [
+   "verl/utils/megatron/router_replay_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5233,
+  "title": "[rollout,vllm] Fix DP args and local_rank for Ray NOSET_VISIBLE_DEVICES",
+  "age": 263,
+  "last_commit": 263,
+  "draft": false,
+  "author": "JohnConnor123",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 54,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "JohnConnor123"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/utils.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5220,
+  "title": "[sglang_rollout] feat: enable dynamic LoRA refresh for SGLang rollout",
+  "age": 264,
+  "last_commit": 264,
+  "draft": false,
+  "author": "JohnConnor123",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 259,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/http_server_engine.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5097,
+  "title": "[rollout] fix: fix cpu allocation error in tensorrt_llm rollout manager, with more robust option",
+  "age": 272,
+  "last_commit": 266,
+  "draft": true,
+  "author": "SchumiDing",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 182,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "SchumiDing",
+   "joyang-nv"
+  ],
+  "touched": [
+   "verl/workers/rollout/trtllm_rollout/trtllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5153,
+  "title": "[vllm_fp8_utils] fix: preserve vLLM>=0.12 FP8 Marlin workspace init",
+  "age": 270,
+  "last_commit": 270,
+  "draft": false,
+  "author": "JohnConnor123",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 97,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/vllm/vllm_fp8_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5130,
+  "title": "[megatron] integrate MCore blackwell linear_cross_entropy fusion kernel",
+  "age": 271,
+  "last_commit": 271,
+  "draft": false,
+  "author": "HaochenYuan",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 226,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/model_forward_fused.py",
+   "verl/models/mcore/util.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/actor/megatron_actor.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5082,
+  "title": "[rollout,vllm] feat: add exceptioin handle for vllm in async mode",
+  "age": 273,
+  "last_commit": 273,
+  "draft": false,
+  "author": "RobotGF",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 192,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4953,
+  "title": "[rollout] fix: add note for running deepseek v31 with vllm 0.12.0",
+  "age": 285,
+  "last_commit": 273,
+  "draft": false,
+  "author": "none0663",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 35,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5028,
+  "title": "[rollout, vllm, sglang] fix: forward max_tokens/max_new_tokens from rollout config to vllm/sglang backends",
+  "age": 278,
+  "last_commit": 278,
+  "draft": false,
+  "author": "psyloy",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 27,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 2,
+  "human_reviewers": [
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/fully_async_policy/agent_loop/agent_loop.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4679,
+  "title": "[rollout, hardware] feat: support MXFP8 rollout on Ascend NPU",
+  "age": 306,
+  "last_commit": 284,
+  "draft": true,
+  "author": "SlightwindSec",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 139,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/vllm/vllm_fp8_utils.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4939,
+  "title": "fix(vllm): Python 3.10+ event loop compatibility for sync mode",
+  "age": 286,
+  "last_commit": 286,
+  "draft": false,
+  "author": "KradThed",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 8,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "KradThed",
+   "ji-huazhong"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4914,
+  "title": "[fsdp] fix: Disable load_checkpoint In Standalone Rollout",
+  "age": 288,
+  "last_commit": 288,
+  "draft": false,
+  "author": "fabianlim",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 32,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4792,
+  "title": "[ray, worker] feat: create one placement group across all nodes in resource pool and implement IP-based worker sorting",
+  "age": 296,
+  "last_commit": 288,
+  "draft": false,
+  "author": "jianjunzhong",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 570,
+  "files": 12,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/fully_async_policy/vllm_rollout/vllm_async_server.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/replica.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4876,
+  "title": "[vllm, rollout] fix: Add TP-aware weight loading for async rollout with different parallelism configs",
+  "age": 291,
+  "last_commit": 291,
+  "draft": true,
+  "author": "jreiml",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 190,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/vllm/patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4784,
+  "title": "[sglang] feat: Support SGLang `remote_instance`",
+  "age": 297,
+  "last_commit": 296,
+  "draft": true,
+  "author": "EduardDurech",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 435,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/utils.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4241,
+  "title": "[BREAKING][trainer, worker] feat: multi generative reward models",
+  "age": 340,
+  "last_commit": 296,
+  "draft": false,
+  "author": "alek6kun",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 809,
+  "files": 25,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/workers/rollout/replica.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4602,
+  "title": "[WIP][BREAKING][worker, ckpt] support checkpoint engine for sync parameters in hybrid mode",
+  "age": 314,
+  "last_commit": 307,
+  "draft": false,
+  "author": "kip-cxj",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 145,
+  "files": 10,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/megatron_workers.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3405,
+  "title": "[trainer, worker] feat: Add CPU/MPS fallback support for local debugging",
+  "age": 415,
+  "last_commit": 309,
+  "draft": false,
+  "author": "awinml",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 145,
+  "files": 9,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4644,
+  "title": "[fsdp] feat: FSDP2 Only Load Rank0",
+  "age": 310,
+  "last_commit": 310,
+  "draft": false,
+  "author": "EduardDurech",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 138,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "EduardDurech",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4580,
+  "title": "DeepSpeed Merging ",
+  "age": 314,
+  "last_commit": 310,
+  "draft": false,
+  "author": "NenoL2001",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 4095,
+  "files": 20,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/sharding_manager/deepspeed_ulysses.py",
+   "verl/workers/sharding_manager/deepspeed_vllm.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4501,
+  "title": "[BREAKING][model, misc] feat: Support Meituan LongCatFlash 562B Model",
+  "age": 320,
+  "last_commit": 310,
+  "draft": false,
+  "author": "VegetaPn",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 261,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 8,
+  "human_reviewers": [
+   "VegetaPn",
+   "ccclyu"
+  ],
+  "touched": [
+   "verl/models/mcore/registry.py",
+   "verl/utils/megatron_utils.py",
+   "verl/workers/megatron_workers.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/sglang_rollout/http_server_engine.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4600,
+  "title": "[SingleTurnAgentLoop] fix: Take care of truncation",
+  "age": 314,
+  "last_commit": 314,
+  "draft": false,
+  "author": "fabianlim",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 26,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "fabianlim"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/single_turn_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4599,
+  "title": "fix: improve robustness of tool parameter handling in agent loop",
+  "age": 314,
+  "last_commit": 314,
+  "draft": false,
+  "author": "albertimff",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 10,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4598,
+  "title": "fix adv numerical error when all reward is the same",
+  "age": 314,
+  "last_commit": 314,
+  "draft": false,
+  "author": "zui-jiang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 4,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4530,
+  "title": "[megatron] chore: clean legacy code path part 3, make megatron_worker use mbridge",
+  "age": 317,
+  "last_commit": 314,
+  "draft": false,
+  "author": "ISEEKYAN",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 322,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/megatron_actor.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4515,
+  "title": "[BREAKING][ray,rollout] feat: add resource_pool_specs and route resource_pool to rollout server",
+  "age": 317,
+  "last_commit": 315,
+  "draft": false,
+  "author": "davidmlw",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 490,
+  "files": 32,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/megatron_workers.py",
+   "verl/workers/rollout/base.py",
+   "verl/workers/rollout/replica.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4513,
+  "title": "[vLLM] feat: Adds video input support to vLLM rollout",
+  "age": 317,
+  "last_commit": 315,
+  "draft": false,
+  "author": "Miku2G",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 198,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 9,
+  "human_reviewers": [
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py",
+   "verl/workers/rollout/schemas.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4551,
+  "title": "Enable attention sink support under ulysses sequence-parallel training",
+  "age": 316,
+  "last_commit": 316,
+  "draft": false,
+  "author": "JasonZhu1313",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 43,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/monkey_patch.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4539,
+  "title": "[megatron] feat: support MTP training, patch the post_process function to support more modes",
+  "age": 316,
+  "last_commit": 316,
+  "draft": true,
+  "author": "ISEEKYAN",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 235,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/mcore/mtp_patch.py",
+   "verl/workers/actor/megatron_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4517,
+  "title": "[algo] fix: add routed_experts to AgentData",
+  "age": 317,
+  "last_commit": 317,
+  "draft": false,
+  "author": "litianjian",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 7,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "APPROVED",
+  "comments": 0,
+  "human_reviewers": [
+   "ISEEKYAN"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4496,
+  "title": "[WIP][BREAKING][megatron] [1/n] clean legacy megatron model path",
+  "age": 321,
+  "last_commit": 317,
+  "draft": false,
+  "author": "ISEEKYAN",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 13895,
+  "files": 104,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "ISEEKYAN",
+   "ccclyu",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/models/llama/__init__.py",
+   "verl/models/llama/megatron/__init__.py",
+   "verl/models/llama/megatron/checkpoint_utils/__init__.py",
+   "verl/models/llama/megatron/checkpoint_utils/llama_loader.py",
+   "verl/models/llama/megatron/checkpoint_utils/llama_loader_depracated.py",
+   "verl/models/llama/megatron/checkpoint_utils/llama_saver.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4325,
+  "title": "[WIP][FSDP,Training] feat: Support FSDP2 FP8 training",
+  "age": 335,
+  "last_commit": 321,
+  "draft": false,
+  "author": "eternally-z",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1491,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4470,
+  "title": "[fsdp] fix: optimize model updating in rollout mode in LoRA training with FSDP",
+  "age": 322,
+  "last_commit": 322,
+  "draft": false,
+  "author": "Zhikaiiii",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 58,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4349,
+  "title": "[rollout] partial rollout",
+  "age": 334,
+  "last_commit": 323,
+  "draft": false,
+  "author": "HelloWorldBeginner",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 5596,
+  "files": 11,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ccclyu"
+  ],
+  "touched": [
+   "verl/protocol.py",
+   "verl/workers/rollout/base.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4443,
+  "title": "Routing replay implemented with SGLang and FSDP",
+  "age": 325,
+  "last_commit": 325,
+  "draft": false,
+  "author": "KawaiiNotHawaii",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 3146,
+  "files": 15,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 6,
+  "human_reviewers": [],
+  "touched": [
+   "verl/protocol.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4394,
+  "title": "[trainer] feat: add gpt-oss sglang-megatron example",
+  "age": 329,
+  "last_commit": 327,
+  "draft": false,
+  "author": "yiakwy-xpu-ml-framework-team",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 311,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "PeterSH6",
+   "vermouth1992",
+   "wuxibin89",
+   "yiakwy-xpu-ml-framework-team"
+  ],
+  "touched": [
+   "verl/models/mcore/mbridge.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4407,
+  "title": "[trainer] feat: Optimize tokenizer decode calls in validation",
+  "age": 328,
+  "last_commit": 328,
+  "draft": false,
+  "author": "none0663",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 16,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "APPROVED",
+  "comments": 0,
+  "human_reviewers": [
+   "none0663",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4342,
+  "title": "[rollout] feat: Support load sampling params from config for vLLMHttpServerBase & SGLangHttpServer",
+  "age": 334,
+  "last_commit": 331,
+  "draft": false,
+  "author": "moehanabi",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 37,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [
+   "moehanabi"
+  ],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4344,
+  "title": "[worker] fix: critic/rm support VLM with Ulysses sequence parallel",
+  "age": 334,
+  "last_commit": 334,
+  "draft": false,
+  "author": "dongju-2",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 144,
+  "files": 6,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4298,
+  "title": "[rollout, vllm] fix: add compatibility shim for vllm process_weights_after_loading",
+  "age": 336,
+  "last_commit": 336,
+  "draft": false,
+  "author": "Kidand",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 9,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4294,
+  "title": "[algo] fix: correctly aggregate metrics in actor/critic",
+  "age": 337,
+  "last_commit": 336,
+  "draft": false,
+  "author": "dongju-2",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 17,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4197,
+  "title": "[trainer] feat: make max_colocate_count configurable in ResourcePoolManager",
+  "age": 343,
+  "last_commit": 336,
+  "draft": false,
+  "author": "JobQiu",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 45,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "JobQiu",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4192,
+  "title": "[rollout, vllm] feat: respect max_tokens from sampling_params",
+  "age": 343,
+  "last_commit": 337,
+  "draft": false,
+  "author": "chenchun",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 9,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/async_sglang_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4160,
+  "title": "[trainer,vllm] feat: add a recipe to support reorder rollout",
+  "age": 345,
+  "last_commit": 337,
+  "draft": false,
+  "author": "echo-rain",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1382,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 12,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4275,
+  "title": "[fsdp] fix: shard LoRA modules separately to prevent dtype mismatch errors with FSDP2",
+  "age": 338,
+  "last_commit": 338,
+  "draft": false,
+  "author": "xxnpark",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 33,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4030,
+  "title": "[trainer] fix: DataProto concat bug when timing generate_sequences is sightly different",
+  "age": 356,
+  "last_commit": 338,
+  "draft": false,
+  "author": "jingshenghang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 25,
+  "files": 1,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 8,
+  "human_reviewers": [
+   "FightingZhen",
+   "jingshenghang"
+  ],
+  "touched": [
+   "verl/protocol.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4252,
+  "title": "[trainer] fix: use unscaled logits for accurate pearson correlation metric",
+  "age": 339,
+  "last_commit": 339,
+  "draft": false,
+  "author": "JobQiu",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 268,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/actor/megatron_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4214,
+  "title": "[megatron] fix: Pass optimizer config betas to Megatron optimizer config",
+  "age": 342,
+  "last_commit": 341,
+  "draft": false,
+  "author": "guillemgt",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 7,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "guillemgt"
+  ],
+  "touched": [
+   "verl/utils/megatron/optimizer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4150,
+  "title": "[misc] fix: `compute_throughout_metrics` -> `compute_throughput_metrics`",
+  "age": 346,
+  "last_commit": 346,
+  "draft": false,
+  "author": "ysjprojects",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 50,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4131,
+  "title": "[algo] feat: add m2po trust region clipping and policy loss functions",
+  "age": 348,
+  "last_commit": 348,
+  "draft": false,
+  "author": "chenjiaoAngel",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 636,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3870,
+  "title": "[fsdp] feat: Enable torch.compile on FSDP wrapped models",
+  "age": 370,
+  "last_commit": 349,
+  "draft": false,
+  "author": "StrongerXi",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 14,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "StrongerXi",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 4092,
+  "title": "[RFC][BREAKING][misc]\u00a0refactor: Abstract and unify attention utils",
+  "age": 351,
+  "last_commit": 351,
+  "draft": false,
+  "author": "EduardDurech",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 731,
+  "files": 45,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/llama/megatron/layers/parallel_attention.py",
+   "verl/models/llama/megatron/modeling_llama_megatron.py",
+   "verl/models/qwen2/megatron/layers/parallel_attention.py",
+   "verl/models/qwen2/megatron/modeling_qwen2_megatron.py",
+   "verl/models/transformers/glm4v.py",
+   "verl/models/transformers/kimi_vl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3957,
+  "title": "[trainer, training_utils] feat: add reward_extra_info in logging metrics",
+  "age": 364,
+  "last_commit": 364,
+  "draft": false,
+  "author": "huaiyizhao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 49,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3954,
+  "title": "[trainer, training_utils] feat: add ground truth to val logger",
+  "age": 364,
+  "last_commit": 364,
+  "draft": false,
+  "author": "huaiyizhao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 38,
+  "files": 2,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3729,
+  "title": "[trainer] feat: vlm support for sft engine",
+  "age": 382,
+  "last_commit": 366,
+  "draft": false,
+  "author": "techkang",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 919,
+  "files": 20,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [
+   "ccclyu"
+  ],
+  "touched": [
+   "verl/models/mcore/model_forward.py",
+   "verl/models/mcore/registry.py",
+   "verl/models/transformers/qwen2_vl.py",
+   "verl/workers/engine/base.py",
+   "verl/workers/engine/fsdp/transformer_impl.py",
+   "verl/workers/engine/megatron/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3863,
+  "title": "[loss, trainer, worker] use correct token-level-loss normalize by total mini-batch tokens",
+  "age": 371,
+  "last_commit": 371,
+  "draft": false,
+  "author": "foreverpiano",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 91,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "foreverpiano",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3728,
+  "title": "[recipe] [WIP] feat: TPPO [passed continuous running] [accuracy unverified]",
+  "age": 382,
+  "last_commit": 373,
+  "draft": true,
+  "author": "HanlinDu",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 3737,
+  "files": 13,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3751,
+  "title": "[WIP] feat: support humanline for GRPO/PPO trainer",
+  "age": 380,
+  "last_commit": 380,
+  "draft": true,
+  "author": "sijial430",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 181,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3710,
+  "title": "Feat/log fit sub reward",
+  "age": 384,
+  "last_commit": 384,
+  "draft": false,
+  "author": "Arinlzy",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 52,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3429,
+  "title": "The previous sequential method for math verification often got stuck, leading to timeout errors on complex expressions. This commit resolves the issue by parallelizing the computation for greater stability and efficiency.",
+  "age": 413,
+  "last_commit": 391,
+  "draft": false,
+  "author": "Chenluye99",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 209,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2988,
+  "title": "[trainer] feat: Upstream Dynamic Sampling",
+  "age": 445,
+  "last_commit": 392,
+  "draft": false,
+  "author": "Hecate0821",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 480,
+  "files": 12,
+  "mergeable": "UNKNOWN",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 7,
+  "human_reviewers": [
+   "Hecate0821",
+   "PrinsYin",
+   "tongyx361",
+   "zhaochenyang20"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3637,
+  "title": "[algo] feat: Add SVD-LoRA GRPO",
+  "age": 396,
+  "last_commit": 396,
+  "draft": false,
+  "author": "alekseymalakhov11",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 164,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3590,
+  "title": "add VLM SFT engine pipeline",
+  "age": 400,
+  "last_commit": 400,
+  "draft": false,
+  "author": "The-Hierophant",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 541,
+  "files": 6,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/seqlen_balancing.py",
+   "verl/workers/engine/fsdp/transformer_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3397,
+  "title": "[recipe] feat: add rstar2-agent training recipe",
+  "age": 415,
+  "last_commit": 406,
+  "draft": false,
+  "author": "J-shang",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 4857,
+  "files": 48,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3357,
+  "title": "[new recipe, algo, ci, doc]{feat} DisCO algorithm implementation with related recipe, CI tests and docs updates",
+  "age": 418,
+  "last_commit": 407,
+  "draft": false,
+  "author": "GangLii",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 1934,
+  "files": 15,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "GangLii",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3247,
+  "title": "[trainer] feat: Enable data shuffling across epochs when ppo_epoch > 1, following MegatronWorker\u2019s approach.",
+  "age": 426,
+  "last_commit": 408,
+  "draft": false,
+  "author": "none0663",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 691,
+  "files": 13,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 14,
+  "human_reviewers": [
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3078,
+  "title": "support npu for Verl + sglang fsdp",
+  "age": 439,
+  "last_commit": 415,
+  "draft": true,
+  "author": "lbk-sys",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 148,
+  "files": 7,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py",
+   "verl/workers/sharding_manager/fsdp_sglang.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3180,
+  "title": "[tool] feat: enhance tool rewards handling in AgentLoop by integrating tool metrics and refactoring reward calculations",
+  "age": 432,
+  "last_commit": 419,
+  "draft": false,
+  "author": "Damon-GSY",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 349,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/tool_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3326,
+  "title": "sever based multi-turn training load balance with request completion tracking",
+  "age": 420,
+  "last_commit": 420,
+  "draft": true,
+  "author": "LiangTengwen",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 43,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3297,
+  "title": "[WIP, Draft][model, data] feat: add support for qwen-2.5-omni and audio input",
+  "age": 422,
+  "last_commit": 420,
+  "draft": false,
+  "author": "TomQunChao",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 1255,
+  "files": 15,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 8,
+  "human_reviewers": [],
+  "touched": [
+   "verl/models/transformers/monkey_patch.py",
+   "verl/models/transformers/qwen2_5_omni.py",
+   "verl/models/transformers/qwen2_vl.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2792,
+  "title": "[tool] feat: integration to a variety of different multi-turn, tool-use environments via benchmax",
+  "age": 456,
+  "last_commit": 430,
+  "draft": false,
+  "author": "girishbarca",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 1209,
+  "files": 17,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "chenhaiq",
+   "girishbarca"
+  ],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3168,
+  "title": "[WIP] DistDataProto: An Easy-to-Use Transparent Distributed Data Layer",
+  "age": 433,
+  "last_commit": 433,
+  "draft": false,
+  "author": "The-Hierophant",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 10134,
+  "files": 39,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/protocol.py",
+   "verl/workers/engine/base.py",
+   "verl/workers/engine/config.py",
+   "verl/workers/engine/fsdp/engine_impl.py",
+   "verl/workers/engine/megatron/engine_impl.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 3155,
+  "title": "[vllm, rollout] fix: Fix training interruptions caused by image token generation during rollout.",
+  "age": 434,
+  "last_commit": 434,
+  "draft": false,
+  "author": "TianYu0313",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 8,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2983,
+  "title": "[trainer] fix: fixing the estimation bias of the KL divergence term in the GRPO algorithm",
+  "age": 446,
+  "last_commit": 441,
+  "draft": false,
+  "author": "EasonZhong668",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 15,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2927,
+  "title": "WIP: Unified Engine Config and New ActorWorker Implementaion Based on the Engine Interface",
+  "age": 449,
+  "last_commit": 441,
+  "draft": true,
+  "author": "ZihengJiang",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 2123,
+  "files": 16,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/engine/base.py",
+   "verl/workers/engine/config.py",
+   "verl/workers/engine/fsdp/engine_impl.py",
+   "verl/workers/engine/megatron/engine_impl.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1971,
+  "title": "[trainer] feat: Add support for training from existing LoRA Adapter for SFT and RL  ",
+  "age": 504,
+  "last_commit": 441,
+  "draft": false,
+  "author": "thelongestusernameofall",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 179,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 5,
+  "human_reviewers": [
+   "eric-haibin-lin",
+   "tongyx361"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2851,
+  "title": "[rollout] feat: add vllm pipeline parallel support for zmq executor",
+  "age": 454,
+  "last_commit": 447,
+  "draft": false,
+  "author": "snie2012",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 171,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 22,
+  "human_reviewers": [],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py",
+   "verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2845,
+  "title": "[fsdp, trainer] feat: Run vLLM-based Generative Reward Model with Multi-Workgroup Support",
+  "age": 454,
+  "last_commit": 448,
+  "draft": false,
+  "author": "imboaba",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 2788,
+  "files": 15,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 7,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2076,
+  "title": "[trainer] feat: add the minimax CISPO loss",
+  "age": 497,
+  "last_commit": 450,
+  "draft": false,
+  "author": "jzstudent",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 206,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 10,
+  "human_reviewers": [
+   "eric-haibin-lin",
+   "jzstudent",
+   "tongyx361",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2510,
+  "title": "[sglang] feat: Adds video input support to SGLang rollout",
+  "age": 472,
+  "last_commit": 453,
+  "draft": false,
+  "author": "JustinTong0323",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 47,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "Fazziekey"
+  ],
+  "touched": [
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2815,
+  "title": "[misc] chore: Use UID for grouping in validation to avoid prompt confusion in multimodal tasks",
+  "age": 455,
+  "last_commit": 455,
+  "draft": false,
+  "author": "xs1997zju",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 9,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2748,
+  "title": "[trainer]add:actor evaluates the response it generates and gets a reward",
+  "age": 460,
+  "last_commit": 460,
+  "draft": false,
+  "author": "rorozi",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 313,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2690,
+  "title": "[fix] rollout: Fix rollout_trace_op not tracing decoded prompt and response",
+  "age": 463,
+  "last_commit": 461,
+  "draft": false,
+  "author": "shuyhere",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 7,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "chenhaiq"
+  ],
+  "touched": [
+   "verl/experimental/agent_loop/agent_loop.py",
+   "verl/experimental/agent_loop/single_turn_agent_loop.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2623,
+  "title": "[hardware] feat: unify flash attention imports into verl.utils.kernel.flash_attn",
+  "age": 467,
+  "last_commit": 466,
+  "draft": false,
+  "author": "eric-haibin-lin",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 89,
+  "files": 16,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "ErenAta16",
+   "vermouth1992",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/models/llama/megatron/layers/parallel_attention.py",
+   "verl/models/llama/megatron/modeling_llama_megatron.py",
+   "verl/models/qwen2/megatron/layers/parallel_attention.py",
+   "verl/models/qwen2/megatron/modeling_qwen2_megatron.py",
+   "verl/utils/kernel/flash_attn.py",
+   "verl/utils/megatron/pipeline_parallel.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2334,
+  "title": "[trainer, fsdp, worker, recipe] feat: S3 checkpointing Support for FSDP",
+  "age": 483,
+  "last_commit": 467,
+  "draft": false,
+  "author": "ragingpandas",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 828,
+  "files": 17,
+  "mergeable": "UNKNOWN",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 7,
+  "human_reviewers": [
+   "WindowsXp-Beta",
+   "eric-haibin-lin",
+   "ragingpandas",
+   "stevewx",
+   "vadimkantorov"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2323,
+  "title": "[trainer] feat: add rollout saving and more training log to DAPO",
+  "age": 483,
+  "last_commit": 469,
+  "draft": false,
+  "author": "Cccei000",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 112,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 4,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2530,
+  "title": "[Ignore] slurm math launcher",
+  "age": 471,
+  "last_commit": 471,
+  "draft": true,
+  "author": "sshleifer",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 787,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/fsdp_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2120,
+  "title": "[trainer] feat: enhance the feature of asynchronous computing rewards",
+  "age": 495,
+  "last_commit": 471,
+  "draft": false,
+  "author": "nono-Sang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 22,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2495,
+  "title": "[misc] feat: add MPS/CPU fallback support for local debugging",
+  "age": 473,
+  "last_commit": 473,
+  "draft": false,
+  "author": "askender",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 146,
+  "files": 10,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "askender",
+   "eric-haibin-lin"
+  ],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2435,
+  "title": "Fix length bias in masked_mean for PPO loss",
+  "age": 476,
+  "last_commit": 476,
+  "draft": false,
+  "author": "johnhaofu",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 51,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/utils/torch_functional.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2297,
+  "title": "[rollout] feat: Support Multi-stage Awake for SGLang+Megatron",
+  "age": 484,
+  "last_commit": 476,
+  "draft": false,
+  "author": "SuperCB",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 92,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 6,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/megatron_workers.py",
+   "verl/workers/sharding_manager/megatron_sglang.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2338,
+  "title": "[BREAKING][model, data] feat: add support for Mistral3",
+  "age": 482,
+  "last_commit": 479,
+  "draft": false,
+  "author": "diqiuzhuanzhuan",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 342,
+  "files": 13,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [
+   "ISEEKYAN",
+   "diqiuzhuanzhuan",
+   "eric-haibin-lin",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/utils/fsdp_utils.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2328,
+  "title": "[trainer] feat: Add `max_grad_norm` parameter to PPO trainer configur\u2026",
+  "age": 483,
+  "last_commit": 483,
+  "draft": false,
+  "author": "zwhe99",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 9,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2123,
+  "title": "[recipe] feat: prototyping agent mode with task loop",
+  "age": 495,
+  "last_commit": 493,
+  "draft": false,
+  "author": "zw0610",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 678,
+  "files": 21,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "yufansong"
+  ],
+  "touched": [
+   "verl/protocol.py",
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/rollout/async_server.py",
+   "verl/workers/rollout/chat_scheduler.py",
+   "verl/workers/rollout/client.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2132,
+  "title": "[algo] feat:  A more Efficient implementation of GAE",
+  "age": 494,
+  "last_commit": 494,
+  "draft": false,
+  "author": "Clement25",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 20,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 7,
+  "human_reviewers": [
+   "eric-haibin-lin",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2097,
+  "title": "[sglang] feat: Enable LangGraph-based rollout with per-message chat template arguments and sampling param overrides",
+  "age": 496,
+  "last_commit": 496,
+  "draft": true,
+  "author": "jybsuper",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 505,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "eric-haibin-lin"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/rollout/schemas.py",
+   "verl/workers/rollout/sglang_rollout/sglang_langchain.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2056,
+  "title": "[logging] feat: wandb entity logging for collaboration in teams",
+  "age": 498,
+  "last_commit": 498,
+  "draft": false,
+  "author": "rhinosaur0",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 16,
+  "files": 10,
+  "mergeable": "UNKNOWN",
+  "decision": "APPROVED",
+  "comments": 1,
+  "human_reviewers": [
+   "ccclyu",
+   "eric-haibin-lin",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 2021,
+  "title": "[trainer] Adding multithread_reward_computation",
+  "age": 501,
+  "last_commit": 501,
+  "draft": false,
+  "author": "gty1829",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 245,
+  "files": 5,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 15,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1953,
+  "title": "[ray, worker] feat: DAPO x LLM as a Judge (GenRM)",
+  "age": 505,
+  "last_commit": 504,
+  "draft": false,
+  "author": "llm-player-01",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 852,
+  "files": 9,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 13,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1835,
+  "title": "fix: micro_batch_size => ppo_micro_batch_size",
+  "age": 511,
+  "last_commit": 511,
+  "draft": false,
+  "author": "shinytang6",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 4,
+  "files": 1,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1754,
+  "title": "fix: support empty val dataset",
+  "age": 517,
+  "last_commit": 517,
+  "draft": false,
+  "author": "shinytang6",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 76,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "shinytang6",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1693,
+  "title": "[Feat] accelerate reward_fn execution via parallel ray task",
+  "age": 520,
+  "last_commit": 520,
+  "draft": false,
+  "author": "llkn-2",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 31,
+  "files": 5,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1610,
+  "title": "Add geo3k tool",
+  "age": 526,
+  "last_commit": 526,
+  "draft": false,
+  "author": "xieck13",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 484,
+  "files": 8,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/sglang_rollout/async_sglang_rollout.py",
+   "verl/workers/rollout/sglang_rollout/sglang_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1541,
+  "title": "update __getitem__ and __setitem__ for DataProto",
+  "age": 530,
+  "last_commit": 530,
+  "draft": false,
+  "author": "flishwang",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 24,
+  "files": 1,
+  "mergeable": "MERGEABLE",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/protocol.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1490,
+  "title": "WIP: FP8 train",
+  "age": 534,
+  "last_commit": 534,
+  "draft": false,
+  "author": "horsebridge",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 56,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1231,
+  "title": "[feat] PPO: synchronise the reference model with the actor model every X steps",
+  "age": 553,
+  "last_commit": 534,
+  "draft": false,
+  "author": "thibautbar",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 125,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "jychen630",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1358,
+  "title": "[BREAKING] feat: decouple PPO epochs from critic",
+  "age": 544,
+  "last_commit": 544,
+  "draft": false,
+  "author": "emergenz",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 14,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "eric-haibin-lin"
+  ],
+  "touched": [
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/megatron_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1301,
+  "title": "add length penalty in reward + tracker avg positive & negative token length",
+  "age": 548,
+  "last_commit": 548,
+  "draft": false,
+  "author": "paulinebourigault",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 340,
+  "files": 8,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1234,
+  "title": "Add Adaptive Entropy Adjustment",
+  "age": 552,
+  "last_commit": 548,
+  "draft": false,
+  "author": "none0663",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 67,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/actor/dp_actor.py",
+   "verl/workers/actor/megatron_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1225,
+  "title": "tracker average token lengths for both positive and negative samples",
+  "age": 553,
+  "last_commit": 551,
+  "draft": false,
+  "author": "paulinebourigault",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 60,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 6,
+  "human_reviewers": [
+   "mertunsall",
+   "paulinebourigault",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1153,
+  "title": "Add Multi-turn Reward/Critic Model Training Support",
+  "age": 558,
+  "last_commit": 558,
+  "draft": true,
+  "author": "xingyaoww",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 714,
+  "files": 8,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/utils/torch_functional.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1123,
+  "title": "add support for gemma3",
+  "age": 560,
+  "last_commit": 558,
+  "draft": false,
+  "author": "rasoolfa",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 81,
+  "files": 7,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 12,
+  "human_reviewers": [
+   "2t2c",
+   "ZSL98",
+   "eric-haibin-lin",
+   "rasoolfa"
+  ],
+  "touched": [
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1124,
+  "title": "Support unbiased off-policy GRPO",
+  "age": 560,
+  "last_commit": 560,
+  "draft": false,
+  "author": "LYMDLUT",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 15,
+  "files": 2,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "LYMDLUT",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/trainer/ppo/core_algos.py",
+   "verl/workers/actor/dp_actor.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 1020,
+  "title": "Integrate AdaRFT (Adaptive Curriculum Reinforcement Finetuning) into veRL",
+  "age": 566,
+  "last_commit": 566,
+  "draft": false,
+  "author": "maksimstw",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 180,
+  "files": 6,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 359,
+  "title": "Support FSDP model ckpt loading and do evaluation on specific dataset: Issue #298",
+  "age": 611,
+  "last_commit": 569,
+  "draft": false,
+  "author": "jankinf",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 566,
+  "files": 12,
+  "mergeable": "UNKNOWN",
+  "decision": "CHANGES_REQUESTED",
+  "comments": 7,
+  "human_reviewers": [
+   "eric-haibin-lin",
+   "jankinf"
+  ],
+  "touched": [
+   "verl/utils/fsdp_utils.py",
+   "verl/workers/fsdp_workers.py",
+   "verl/workers/rollout/hf_rollout.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 738,
+  "title": "[feat] add continue_final_message option to RLHFDataset",
+  "age": 583,
+  "last_commit": 575,
+  "draft": true,
+  "author": "tsteffek",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 68,
+  "files": 4,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 808,
+  "title": "WIP: support agent with mockek llm server and buffer dataset",
+  "age": 579,
+  "last_commit": 579,
+  "draft": false,
+  "author": "zw0610",
+  "assoc": "COLLABORATOR",
+  "perf_claim": false,
+  "lines": 310,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/workers/sharding_manager/fsdp_vllm.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 794,
+  "title": "tentative approach to sync ref model",
+  "age": 579,
+  "last_commit": 579,
+  "draft": false,
+  "author": "gameofdimension",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 89,
+  "files": 4,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 2,
+  "human_reviewers": [
+   "eric-haibin-lin"
+  ],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py",
+   "verl/workers/fsdp_workers.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 743,
+  "title": "Support InternLM3 in Verl",
+  "age": 582,
+  "last_commit": 582,
+  "draft": false,
+  "author": "guox18",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 7,
+  "files": 1,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 3,
+  "human_reviewers": [
+   "guox18",
+   "wuxibin89"
+  ],
+  "touched": [
+   "verl/models/registry.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 547,
+  "title": "Regularise Prime RM",
+  "age": 596,
+  "last_commit": 596,
+  "draft": false,
+  "author": "cemiu",
+  "assoc": "NONE",
+  "perf_claim": false,
+  "lines": 27,
+  "files": 2,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [
+   "cemiu",
+   "vermouth1992"
+  ],
+  "touched": [
+   "verl/protocol.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 515,
+  "title": "[bugfix] multimodal input length check",
+  "age": 599,
+  "last_commit": 597,
+  "draft": false,
+  "author": "NIL-zhuang",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 167,
+  "files": 3,
+  "mergeable": "UNKNOWN",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 1,
+  "human_reviewers": [],
+  "touched": [
+   "verl/trainer/ppo/ray_trainer.py"
+  ],
+  "nums": []
+ },
+ {
+  "number": 5608,
+  "title": "[rollout] feat: Add MXFP8 rollout support for Ascend 950 hardware",
+  "age": 226,
+  "last_commit": 9797,
+  "draft": true,
+  "author": "zhijie-os",
+  "assoc": "CONTRIBUTOR",
+  "perf_claim": false,
+  "lines": 174,
+  "files": 3,
+  "mergeable": "CONFLICTING",
+  "decision": "REVIEW_REQUIRED",
+  "comments": 0,
+  "human_reviewers": [],
+  "touched": [
+   "verl/utils/vllm/npu_vllm_patch.py",
+   "verl/utils/vllm/vllm_fp8_utils.py",
+   "verl/workers/rollout/vllm_rollout/vllm_async_server.py"
+  ],
+  "nums": []
+ }
+]

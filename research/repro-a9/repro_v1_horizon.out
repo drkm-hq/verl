@@ -1,0 +1,14 @@
+W1028 21:50:12.059000 25986 torch/fx/_symbolic_trace.py:57] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+B=8 resp_lens=[12, 1, 3, 7, 12, 2, 9, 5] valid_response_tokens=48
+OK  token-mean               loss_scale_factor=None  split[1,2,5] micro-batch widths=[12, 3, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  token-mean               loss_scale_factor=None  split[4,4]   micro-batch widths=[12, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-mean      loss_scale_factor=None  split[1,2,5] micro-batch widths=[12, 3, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-mean      loss_scale_factor=None  split[4,4]   micro-batch widths=[12, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-sum       loss_scale_factor=None  split[1,2,5] micro-batch widths=[12, 3, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-sum       loss_scale_factor=None  split[4,4]   micro-batch widths=[12, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+BAD seq-mean-token-sum-norm  loss_scale_factor=None  split[1,2,5] micro-batch widths=[12, 3, 12] whole width=[12] loss split/whole= 3.442 max rel grad err=1.88e+00
+OK  seq-mean-token-sum-norm  loss_scale_factor=None  split[4,4]   micro-batch widths=[12, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-sum-norm  loss_scale_factor=12    split[1,2,5] micro-batch widths=[12, 3, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-sum-norm  loss_scale_factor=12    split[4,4]   micro-batch widths=[12, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-sum-norm  loss_scale_factor=4096  split[1,2,5] micro-batch widths=[12, 3, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00
+OK  seq-mean-token-sum-norm  loss_scale_factor=4096  split[4,4]   micro-batch widths=[12, 12] whole width=[12] loss split/whole= 1.000 max rel grad err=0.00e+00

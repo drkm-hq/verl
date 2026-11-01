@@ -1,0 +1,8 @@
+{
+  "from": "<repo>/bench/gsm8k_tool",
+  "files": {
+    "bench_extras/gsm8k_tool.py": "3e287955a0c64769991dd8089971a78bac4c86e1af8a1d7d9109814c82ebee36",
+    "bench_extras/gsm8k_tool_config.yaml": "76e02e7a68b464659abb478634ee608c69262deb66bc55a2142fe2713861b15c",
+    "bench_extras/gsm8k_tool_reward.py": "9fd5401814dd9e71915c8af2d63d4410faa495214e56bbe5e1b0cf95acb1db4f"
+  }
+}

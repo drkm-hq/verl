@@ -1,0 +1,1592 @@
+diff --git a/docs/perf/perf_tuning.rst b/docs/perf/perf_tuning.rst
+index 174ba5e7..bcec01ed 100644
+--- a/docs/perf/perf_tuning.rst
++++ b/docs/perf/perf_tuning.rst
+@@ -1,7 +1,7 @@
+ Performance Tuning Guide
+ ==============================
+ 
+-Last updated: 10/22/2026.
++Last updated: 10/28/2026.
+ 
+ Author: `Guangming Sheng <https://github.com/PeterSH6>`_, `Jiali Zheng <https://github.com/CurryRice233>`_
+ 
+@@ -27,6 +27,8 @@ In this section, we will discuss how to tune the performance of all the stages i
+ 
+ 10. Node-local low-precision gradient communication with VeOmni
+ 
++11. Project the LM head only for loss rows (FSDP)
++
+ Rollout Generation Tuning
+ --------------------------
+ 
+@@ -367,3 +369,31 @@ This processes the tensor in chunks of shape ``[chunk_size, voc]`` (e.g., 2048)
+ Additionally, during training, standard gradient checkpointing (``enable_gradient_checkpointing=True``) does not apply to entropy calculations. To reduce memory peaks in this context, set:
+ ``actor_rollout_ref.actor.entropy_checkpointing = True``
+ This enables entropy recomputation specifically for the entropy calculation, lowering memory usage during training.
++
++Project the LM head only for loss rows (FSDP)
++----------------------------------------------
++
++On the default FSDP path (``use_remove_padding=True``, ``use_fused_kernels=False``) the actor
++and reference forwards project the LM head, and compute log-probs and entropy, for every packed
++token, although the PPO loss and the metrics only read the row before each response token. The
++``(tokens, vocab)`` logits tensor is usually the largest activation of these passes (7.5 GB in
++bf16 at 24k tokens for a 152k vocabulary) and the head is 7-17 % of the forward FLOPs for
++1.7B-8B models.
++
++Set ``actor_rollout_ref.actor.fsdp_config.response_only_lm_head=True`` to hand the model only
++those rows (HF's tensor-valued ``logits_to_keep``). The reference model follows the actor
++unless ``actor_rollout_ref.ref.fsdp_config.response_only_lm_head`` is set explicitly. Head FLOPs,
++the logits tensor and the log-prob / entropy work all shrink by the prompt fraction of the packed
++micro-batch: 7.4 % for GSM8K-style 80-token prompts with 1k responses, 33 % at 1k/2k, 86 % for a
++6k-token prompt with a 1k response, and more for agentic prompts. Response log-probs, entropy and
++gradients are identical to the full projection (the rows nobody reads come back as zeros), so
++training curves do not change; on GPUs the GEMM runs with a different row count, which may
++change bf16 rounding at the noise level.
++
++``use_remove_padding=False`` with the flag on is rejected at start-up. Where the layout rules the
++flag out, the engine logs one warning on rank 0 at start-up and keeps the full projection:
++``use_fused_kernels=True`` (the fused forwards project every row),
++``ulysses_sequence_parallel_size > 1``, the ``fsdp_turbo`` strategy, vision-language models, the
++critic, and models whose ``forward`` does not accept ``logits_to_keep``. Per micro-batch it
++silently keeps the full projection for top-K distillation, score centering and batches without
++``responses`` (SFT). It applies to the engine-based FSDP workers.
+diff --git a/tests/workers/test_response_only_lm_head_on_cpu.py b/tests/workers/test_response_only_lm_head_on_cpu.py
+new file mode 100644
+index 00000000..651f84c0
+--- /dev/null
++++ b/tests/workers/test_response_only_lm_head_on_cpu.py
+@@ -0,0 +1,397 @@
++# Copyright 2024 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""``response_only_lm_head``: the FSDP engine projects the LM head for loss rows only.
++
++The eager ``use_remove_padding`` path runs the vocabulary projection, the log-prob and the
++entropy math on every packed token, while every PPO consumer reads only the row before each
++response token (:func:`verl.workers.utils.padding.no_padding_2_padding`,
++:func:`verl.workers.utils.padding.response_from_nested`). With the flag on,
++``prepare_model_inputs`` hands the model that row index as ``logits_to_keep`` and
++``prepare_model_outputs`` scatters the K results back into the packed layout.
++
++These tests run the real ``FSDPEngineWithLMHead.prepare_model_inputs`` /
++``prepare_model_outputs`` on a bare engine instance (the pattern of
++``test_packed_pad_to_length_on_cpu.py``) around a tiny random Qwen3 model and check that
++what both consumers read, plus the gradients through the head and the embedding, are
++bitwise identical to the full projection while the head only sees the loss rows.
++"""
++
++import logging
++from types import SimpleNamespace
++
++import pytest
++import torch
++from tensordict import TensorDict
++from transformers import Qwen3Config, Qwen3ForCausalLM
++
++from verl.utils import tensordict_utils as tu
++from verl.utils.dataset.dataset_utils import DatasetPadMode
++from verl.utils.torch_functional import entropy_from_logits
++from verl.workers.engine.fsdp import transformer_impl
++from verl.workers.engine.fsdp.transformer_impl import (
++    FSDPEngineWithLMHead,
++    FSDPEngineWithValueHead,
++    _probe_logits_to_keep_kwarg,
++)
++from verl.workers.utils.padding import loss_row_index, no_padding_2_padding, response_from_nested
++
++VOCAB, HIDDEN = 512, 64
++PROMPT_LENS = [37, 5, 20, 11]
++RESPONSE_LENS = [9, 14, 3, 6]
++
++
++def _nested(rows):
++    return torch.nested.as_nested_tensor([torch.tensor(r, dtype=torch.long) for r in rows], layout=torch.jagged)
++
++
++def _make_micro_batch(temperature=1.0, *, with_responses=True, **non_tensor_overrides):
++    """Four packed sequences with the fields the V1 trainer hands the actor / ref engine."""
++    generator = torch.Generator().manual_seed(0)
++    prompts, responses, input_ids, position_ids, loss_mask = [], [], [], [], []
++    for prompt_len, response_len in zip(PROMPT_LENS, RESPONSE_LENS, strict=True):
++        prompt = torch.randint(0, VOCAB, (prompt_len,), generator=generator).tolist()
++        response = torch.randint(0, VOCAB, (response_len,), generator=generator).tolist()
++        prompts.append(prompt)
++        responses.append(response)
++        input_ids.append(prompt + response)
++        position_ids.append(list(range(prompt_len + response_len)))
++        loss_mask.append([1] * response_len)
++    tensors = {"input_ids": _nested(input_ids), "position_ids": _nested(position_ids), "loss_mask": _nested(loss_mask)}
++    if with_responses:
++        tensors.update(prompts=_nested(prompts), responses=_nested(responses), response_mask=_nested(loss_mask))
++    micro_batch = TensorDict(tensors, batch_size=[len(PROMPT_LENS)])
++    if isinstance(temperature, torch.Tensor):
++        micro_batch["temperature"] = temperature  # per-sample (bsz,)
++    else:
++        tu.assign_non_tensor(micro_batch, temperature=temperature)  # scalar, as the V1 trainer passes it
++    non_tensor = dict(
++        use_remove_padding=True,
++        use_fused_kernels=False,
++        pad_mode=DatasetPadMode.NO_PADDING,
++        pad_token_id=0,
++        max_response_len=max(RESPONSE_LENS),
++        max_response_length=max(RESPONSE_LENS),
++        calculate_entropy=True,
++    )
++    non_tensor.update(non_tensor_overrides)
++    tu.assign_non_tensor(micro_batch, **non_tensor)
++    return micro_batch
++
++
++def _make_engine(response_only_lm_head: bool, *, pad_to_length: bool = False, bucket: int = 64):
++    """Bare instance: prepare_model_inputs / prepare_model_outputs only read the attributes set here."""
++    engine = FSDPEngineWithLMHead.__new__(FSDPEngineWithLMHead)
++    engine.pad_to_length = pad_to_length
++    engine.pad_to_length_bucket = bucket
++    engine.use_ulysses_sp = False
++    engine.ulysses_sequence_parallel_size = 1
++    engine.pass_packed_cu_seqlens = False
++    engine.engine_config = SimpleNamespace(
++        entropy_checkpointing=False, entropy_from_logits_with_chunking=False, entropy_from_logits_chunk_size=2048
++    )
++    engine.compute_entropy_from_logits = entropy_from_logits
++    engine.response_only_lm_head = response_only_lm_head
++    engine.logits_to_keep_kwarg = "logits_to_keep"
++    return engine
++
++
++def _make_model():
++    torch.manual_seed(0)
++    config = Qwen3Config(
++        vocab_size=VOCAB,
++        hidden_size=HIDDEN,
++        intermediate_size=128,
++        num_hidden_layers=2,
++        num_attention_heads=4,
++        num_key_value_heads=2,
++        head_dim=16,
++        max_position_embeddings=256,
++        tie_word_embeddings=False,
++        attn_implementation="eager",
++    )
++    return Qwen3ForCausalLM(config).float().eval()
++
++
++def _make_lora_model():
++    """The tiny model under a PEFT wrapper, the way ``_build_lora_module`` wraps it for LoRA."""
++    from peft import LoraConfig, TaskType, get_peft_model
++
++    model = _make_model()
++    torch.manual_seed(1)
++    config = LoraConfig(task_type=TaskType.CAUSAL_LM, r=4, lora_alpha=8, target_modules=["q_proj", "v_proj"])
++    return get_peft_model(model, config)
++
++
++def _forward_backward(engine, model, micro_batch):
++    """Run the engine's input / output path around the model.
++
++    Returns what the two consumers read plus the head and embedding gradients, the model inputs,
++    the output args, the raw model output and the number of rows the LM head projected.
++    """
++    projected_rows = []
++    handle = model.lm_head.register_forward_hook(lambda _m, inputs, _o: projected_rows.append(inputs[0].shape[1]))
++    model.zero_grad(set_to_none=True)
++    try:
++        model_inputs, output_args = engine.prepare_model_inputs(micro_batch)
++        output = model(**model_inputs, use_cache=False)
++        model_output = engine.prepare_model_outputs(output, output_args, micro_batch, None)
++    finally:
++        handle.remove()
++    log_probs = no_padding_2_padding(model_output["log_probs"], micro_batch)
++    response_mask = torch.nested.to_padded_tensor(micro_batch["response_mask"], 0, output_size=log_probs.shape).bool()
++    (log_probs * response_mask).sum().backward()
++    read = {
++        "log_probs": log_probs,
++        "log_probs_nested": response_from_nested(model_output["log_probs"], micro_batch["response_mask"]).values(),
++        "entropy": no_padding_2_padding(model_output["entropy"], micro_batch),
++        "lm_head.weight.grad": model.lm_head.weight.grad.clone(),
++        "embed_tokens.weight.grad": model.model.embed_tokens.weight.grad.clone(),
++    }
++    if "sum_pi_squared" in model_output:
++        read["sum_pi_squared"] = no_padding_2_padding(model_output["sum_pi_squared"], micro_batch)
++    return read, model_inputs, output_args, model_output, projected_rows[0]
++
++
++class TestLossRowIndex:
++    def test_matches_the_consumers_slicing_rule(self):
++        micro_batch = _make_micro_batch()
++        offsets = micro_batch["input_ids"].offsets().tolist()
++        expected = [
++            row
++            for end, response_len in zip(offsets[1:], RESPONSE_LENS, strict=True)
++            for row in range(end - response_len - 1, end - 1)
++        ]
++        index = loss_row_index(micro_batch)
++        assert index.dtype == torch.long
++        assert index.tolist() == expected
++        # the rows the forward-only consumer reads are exactly the indexed rows of the packed stream
++        packed = torch.arange(offsets[-1], dtype=torch.float32)
++        nested = torch.nested.nested_tensor_from_jagged(packed, micro_batch["input_ids"].offsets())
++        assert torch.equal(response_from_nested(nested, micro_batch["response_mask"]).values(), packed[index])
++
++    def test_an_empty_prompt_is_rejected_by_name(self):
++        micro_batch = TensorDict(
++            {"input_ids": _nested([[1, 2, 3], [4, 5]]), "responses": _nested([[2, 3], [4, 5]])}, batch_size=[2]
++        )
++        with pytest.raises(ValueError, match=r"sequence 1 has prompt length 0 and response length 2"):
++            loss_row_index(micro_batch)
++
++
++class TestIdentityWithTheFullProjection:
++    @pytest.mark.parametrize(
++        "temperature, pad_to_length, overrides",
++        [
++            (1.0, False, {}),
++            (torch.tensor([1.0, 0.7, 1.3, 1.0]), True, {}),
++            (0.8, False, {"calculate_sum_pi_squared": True}),
++        ],
++        ids=["unit-temperature", "per-sample-temperature-pad-to-length", "sum-pi-squared"],
++    )
++    def test_consumers_and_gradients_are_bitwise_identical(self, temperature, pad_to_length, overrides):
++        model = _make_model()
++        micro_batch = _make_micro_batch(temperature, **overrides)
++        full, full_inputs, _, _, full_rows = _forward_backward(
++            _make_engine(False, pad_to_length=pad_to_length), model, micro_batch
++        )
++        kept, kept_inputs, kept_args, kept_output, kept_rows = _forward_backward(
++            _make_engine(True, pad_to_length=pad_to_length), model, micro_batch
++        )
++
++        assert "logits_to_keep" not in full_inputs
++        assert torch.equal(kept_inputs["logits_to_keep"], loss_row_index(micro_batch))
++        assert torch.equal(kept_args["loss_row_index"], kept_inputs["logits_to_keep"])
++        # the head projected the loss rows only (static pad included in the full count)
++        assert (full_rows, kept_rows) == (full_inputs["input_ids"].shape[1], sum(RESPONSE_LENS))
++        assert set(full) == set(kept)
++        # row-wise maths on identical hidden states: bitwise
++        for name in (n for n in full if not n.endswith(".grad")):
++            assert torch.equal(full[name], kept[name]), (
++                f"{name}: max |diff| {(full[name] - kept[name]).abs().max().item():.3e}"
++            )
++        # the weight-gradient GEMMs reduce over K rows instead of T rows: the same terms, but a different
++        # blocking may round differently (up to 5.6e-7 relative on a 1-token layout), hence a tolerance
++        torch.testing.assert_close(kept["lm_head.weight.grad"], full["lm_head.weight.grad"], rtol=1e-5, atol=1e-6)
++        torch.testing.assert_close(
++            kept["embed_tokens.weight.grad"], full["embed_tokens.weight.grad"], rtol=1e-5, atol=1e-6
++        )
++        # the rows nobody reads are zero in the packed layout every consumer still sees
++        packed_log_probs = kept_output["log_probs"].values()
++        unread = torch.ones(packed_log_probs.shape[0], dtype=torch.bool)
++        unread[kept_args["loss_row_index"]] = False
++        assert packed_log_probs.shape[0] == micro_batch["input_ids"].offsets()[-1]
++        assert (packed_log_probs[unread] == 0).all()
++
++    def test_the_index_passes_through_a_peft_wrapper_to_the_base_model(self):
++        """``PeftModelForCausalLM.forward`` names no ``logits_to_keep`` but forwards ``**kwargs``."""
++        micro_batch = _make_micro_batch()
++        peft_model = _make_lora_model()
++        lm_head = peft_model.get_base_model().lm_head
++        read = {}
++        for flag in (False, True):
++            projected_rows = []
++            handle = lm_head.register_forward_hook(
++                lambda _m, inputs, _o, rows=projected_rows: rows.append(inputs[0].shape[1])
++            )
++            peft_model.zero_grad(set_to_none=True)
++            try:
++                model_inputs, output_args = _make_engine(flag).prepare_model_inputs(micro_batch)
++                output = peft_model(**model_inputs, use_cache=False)
++                model_output = _make_engine(flag).prepare_model_outputs(output, output_args, micro_batch, None)
++            finally:
++                handle.remove()
++            log_probs = no_padding_2_padding(model_output["log_probs"], micro_batch)
++            mask = torch.nested.to_padded_tensor(micro_batch["response_mask"], 0, output_size=log_probs.shape)
++            (log_probs * mask).sum().backward()
++            grads = {n: p.grad.clone() for n, p in peft_model.named_parameters() if p.grad is not None}
++            read[flag] = (projected_rows[0], log_probs.detach(), grads)
++        assert read[True][0] == sum(RESPONSE_LENS) < read[False][0] == model_inputs["input_ids"].shape[1]
++        assert torch.equal(read[True][1], read[False][1])
++        assert read[True][2].keys() == read[False][2].keys() and all("lora_" in n for n in read[True][2])
++        for name, grad in read[True][2].items():
++            torch.testing.assert_close(grad, read[False][2][name], rtol=1e-5, atol=1e-6)
++
++
++class TestTheFlagIsANoOpWhenIneligible:
++    @pytest.mark.parametrize(
++        "flag, batch_kwargs",
++        [
++            (False, {}),
++            (True, {"use_fused_kernels": True}),
++            (True, {"with_responses": False}),
++            (True, {"distillation_use_topk": True}),
++            (True, {"distillation_only": True}),
++            (True, {"score_centering": True}),
++        ],
++        ids=[
++            "flag-off",
++            "fused-kernels",
++            "sft-shaped-batch",
++            "topk-distillation",
++            "distillation-only",
++            "score-centering",
++        ],
++    )
++    def test_no_index_is_passed_or_recorded(self, flag, batch_kwargs):
++        model_inputs, output_args = _make_engine(flag).prepare_model_inputs(_make_micro_batch(**batch_kwargs))
++        assert "logits_to_keep" not in model_inputs
++        assert "loss_row_index" not in output_args
++
++    def test_an_eligible_engine_still_runs_the_full_path_for_an_ineligible_batch(self):
++        model, micro_batch = _make_model(), _make_micro_batch(with_responses=False)
++        engine = _make_engine(True)
++        model_inputs, output_args = engine.prepare_model_inputs(micro_batch)
++        model_output = engine.prepare_model_outputs(
++            model(**model_inputs, use_cache=False), output_args, micro_batch, None
++        )
++        assert model_output["log_probs"].values().shape[0] == model_inputs["input_ids"].shape[1]
++
++    def test_a_model_that_ignores_the_index_is_rejected(self):
++        model, micro_batch = _make_model(), _make_micro_batch()
++        engine = _make_engine(True)
++        model_inputs, output_args = engine.prepare_model_inputs(micro_batch)
++        model_inputs.pop("logits_to_keep")  # a wrapper that swallowed the kwarg: every row comes back
++        with pytest.raises(RuntimeError, match="ignored the row index"):
++            engine.prepare_model_outputs(model(**model_inputs, use_cache=False), output_args, micro_batch, None)
++
++
++def _bare_engine(cls, **attrs):
++    engine = cls.__new__(cls)
++    engine.engine_config = SimpleNamespace(response_only_lm_head=True, strategy="fsdp2")
++    engine.use_remove_padding = True
++    engine.use_ulysses_sp = False
++    engine.model_config = SimpleNamespace(use_fused_kernels=False)
++    engine.logits_to_keep_kwarg = "logits_to_keep"
++    for name, value in attrs.items():
++        setattr(engine, name, value)
++    return engine
++
++
++class TestBuildTimeResolution:
++    def test_probe_requires_the_named_parameter(self):
++        def hf_forward(self, input_ids=None, logits_to_keep=0): ...
++
++        def renamed_forward(self, input_ids=None, keep_rows=0): ...
++
++        def patched_vlm_forward(self, input_ids=None, **kwargs): ...
++
++        assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=hf_forward)) == "logits_to_keep"
++        assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=renamed_forward)) is None
++        assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=patched_vlm_forward)) is None
++        assert _probe_logits_to_keep_kwarg(SimpleNamespace(forward=None)) is None
++        assert _probe_logits_to_keep_kwarg(_make_model()) == "logits_to_keep"
++
++    def test_probe_and_resolver_see_the_base_model_through_a_peft_wrapper(self, caplog):
++        peft_model = _make_lora_model()
++        assert _probe_logits_to_keep_kwarg(peft_model) == "logits_to_keep"
++        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
++            assert _bare_engine(FSDPEngineWithLMHead)._resolve_response_only_lm_head(peft_model) is True
++        assert "ignored" not in caplog.text
++
++    def test_a_text_causal_lm_on_the_default_layout_is_eligible(self, caplog):
++        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
++            assert _bare_engine(FSDPEngineWithLMHead)._resolve_response_only_lm_head(_make_model()) is True
++        assert "ignored" not in caplog.text
++
++    def test_flag_off_resolves_false_without_a_warning(self, caplog):
++        engine = _bare_engine(FSDPEngineWithLMHead)
++        engine.engine_config.response_only_lm_head = False
++        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
++            assert engine._resolve_response_only_lm_head(_make_model()) is False
++        assert "ignored" not in caplog.text
++
++    @pytest.mark.parametrize(
++        "cls, attrs, module, reason",
++        [
++            (FSDPEngineWithValueHead, {}, None, "vocabulary projection"),
++            (
++                FSDPEngineWithLMHead,
++                {"model_config": SimpleNamespace(use_fused_kernels=True)},
++                None,
++                "use_fused_kernels=True",
++            ),
++            (FSDPEngineWithLMHead, {"use_ulysses_sp": True}, None, "ulysses_sequence_parallel_size"),
++            (
++                FSDPEngineWithLMHead,
++                {"engine_config": SimpleNamespace(response_only_lm_head=True, strategy="fsdp_turbo")},
++                None,
++                "fsdp_turbo",
++            ),
++            (
++                FSDPEngineWithLMHead,
++                {},
++                SimpleNamespace(config=SimpleNamespace(vision_config={}), forward=lambda logits_to_keep=0: None),
++                "vision-language",
++            ),
++            (FSDPEngineWithLMHead, {"logits_to_keep_kwarg": None}, None, "does not accept logits_to_keep"),
++        ],
++        ids=["value-head", "fused-kernels", "ulysses-sp", "fsdp-turbo", "vlm", "no-kwarg"],
++    )
++    def test_ineligible_layouts_warn_once_and_project_every_row(self, caplog, cls, attrs, module, reason):
++        engine = _bare_engine(cls, **attrs)
++        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
++            assert engine._resolve_response_only_lm_head(module or _make_model()) is False
++        assert caplog.text.count("response_only_lm_head=True is ignored") == 1
++        assert reason in caplog.text
++
++    def test_other_ranks_resolve_the_same_without_logging(self, caplog):
++        engine = _bare_engine(FSDPEngineWithLMHead, use_ulysses_sp=True, rank=1)
++        with caplog.at_level(logging.WARNING, logger=transformer_impl.logger.name):
++            assert engine._resolve_response_only_lm_head(_make_model()) is False
++        assert "ignored" not in caplog.text
++
++    def test_padded_inputs_with_the_flag_on_are_rejected(self):
++        engine = _bare_engine(FSDPEngineWithLMHead, use_remove_padding=False)
++        with pytest.raises(ValueError, match="use_remove_padding=True"):
++            engine._resolve_response_only_lm_head(_make_model())
+diff --git a/tests/workers/test_response_only_lm_head_on_gpu.py b/tests/workers/test_response_only_lm_head_on_gpu.py
+new file mode 100644
+index 00000000..aaf20e61
+--- /dev/null
++++ b/tests/workers/test_response_only_lm_head_on_gpu.py
+@@ -0,0 +1,584 @@
++# Copyright 2025 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""Numerical comparison of ``response_only_lm_head`` on the real FSDP engine: flag on against flag off.
++
++One frozen packed micro-batch (six sequences, prompt / response lengths from one token to a few
++hundred, ``use_remove_padding=True``) goes through ``FSDPEngineWithLMHead`` built from the same
++checkpoint and seed with ``fsdp_config.response_only_lm_head`` off and on. Compared after an fp32
++upcast: (a) response log-probs, (b) entropy and (c) ``sum_pi_squared`` from a forward-only pass
++and from the training forward, (d) every parameter gradient after one backward of the real PPO
++policy loss with ``entropy_coeff > 0`` (the entropy is in the loss), (e) the parameters before and
++after one optimizer step. Cases: plain, gradient checkpointing, LoRA (PEFT rank 8; ``lora_B`` is
++seeded with small non-zero values, since a fresh zero ``lora_B`` gives ``lora_A`` a zero gradient
++at the first backward) and LoRA with checkpointing, each on ``fsdp`` (FSDP1, the default strategy)
++and ``fsdp2`` on one rank, plus the plain case on two ranks (``FULL_SHARD`` for both strategies;
++rank r keeps sequences r::2 of the frozen batch with its own rank-local ``max_response_len``, which
++``ppo_loss`` pads every field to, while the comparison view is padded to the width over all ranks;
++every rank compares its own shard after the gradient all-reduce, rank 0 prints). Each case runs
++five engines:
++
++1. bf16 (the default mixed precision: fp32 master weights, bf16 compute, flash-attn 2), flag off;
++2. the same again, the determinism baseline: bitwise equal to 1 (flash-attn runs with
++   ``FLASH_ATTENTION_DETERMINISTIC=1``), so every flag-on delta is the feature's;
++3. bf16, flag on;
++4. the fp32 reference (``mixed_precision`` param / reduce / buffer dtype fp32, so no autocast; sdpa
++   attention on torch's math kernel, since flash-attn has no fp32; TF32 off), flag off;
++5. fp32, flag on.
++
++Scope: one model and shape (Qwen2.5-0.5B; 1589 packed tokens, 498 loss rows), plain SGD (lr 1e-3,
++no momentum, no weight decay, clipping disabled) rather than AdamW, one rank except for the
++two-rank plain cases (FSDP1 runs ``NO_SHARD`` at world size 1), a fresh adapter rather than a
++trained one. It is a numerical comparison on this workload, not a proof for every GPU or GEMM
++implementation.
++
++Measured on 1x H100 (torch 2.13 cu130, transformers 5.16.1, flash-attn 2.8.3;
++``bench/results/gpu-identity-p1-3`` .. ``-p1-5``), the same in the six one-rank cases of that run:
++
++* forward: response log-probs, entropy and the loss were bitwise identical with the flag on and
++  off, in bf16 and in fp32, and ``sum_pi_squared`` within 1.1e-7. That is an observation on one
++  device and shape, not a portable requirement: a GEMM that tiles the K rows differently may round
++  a bf16 logit by one ulp (0.125 at logit 20), which moves a row's entropy by ~0.03 and its
++  ``sum_pi_squared`` by ~0.02. The bf16 assertion is therefore per row ``rtol=2e-2, atol=5e-2``
++  on log-probs, entropy and ``sum_pi_squared`` (the random labels keep |log-prob| large, so the
++  rtol term also covers a one-ulp flip of the label's own logit), the batch mean within that row
++  tolerance divided by sqrt(rows), and the loss (a mean) within ``rtol=1e-2, atol=5e-3``; in fp32
++  everything within 1e-4 absolute (accumulation-order noise on a logit of 20 is ~1e-5). The
++  measured maxima are printed.
++* fp32 gradients: flag on and off agree on every tensor, 1.1e-5 .. 1.4e-5 relative Frobenius
++  pooled per layer (worst tensor 5.7e-5, a layer-norm weight). The K-row and T-row GEMMs are the
++  same math in fp32, so this is the correctness argument; asserted at 1e-4 per tensor.
++* bf16 gradients: flag on and off differ by 1.7e-2 relative Frobenius pooled at layer 0, falling
++  to 2.2e-3 at layer 23; the worst single tensor is 3.9e-2 (``layers.4.input_layernorm.weight``;
++  3.2e-2 for LoRA). The head's backward GEMMs split the vocabulary reduction differently for K and
++  T rows and every bf16 backward layer re-rounds that one-ulp difference; the fp32 agreement says
++  the gradient itself is the same. Two assertions: the direct bound
++  ``|g_on - g_off| <= 0.1 |g_off| + 1e-12`` per tensor (0.1 is ~2.5x the worst measured; the
++  absolute term only matters for a tensor with no gradient at all, so a negated tensor never passes;
++  tensors below 1e-6 of their layer's largest gradient norm are listed with the table), and a
++  relative-error guard against the truth: with ``g32`` the fp32 flag-off gradient,
++  ``D_off = |g_off - g32|`` and ``D_on = |g_on - g32|``, ``D_on <= 2 D_off + 1e-6 |g32|``
++  (independent rounding noise gives sqrt(2); 2 is margin). The guard admits on/off differences up
++  to the baseline's own bf16 error (measured ratios 0.97 .. 1.22), so it is not an identity
++  statement; the direct bound is the identity bound. Both distances and the on/off difference are
++  printed per layer.
++* optimizer step: within every arm ``param_after == param_before - lr * grad`` up to fp32
++  rounding (a residual of at most 4 ulp of ``|param| + |lr * grad|``), the step's gradient norm is
++  finite and positive, and the update is non-zero wherever the reference gradient is (the engine
++  skips the step on non-finite gradients and leaves the parameters unchanged); the weights before
++  the step must be bitwise identical across arms. The update is not compared across arms:
++  ``param_after - param_before`` cancels catastrophically (``eps_fp32 |param| / |update|`` of
++  noise: 1.0e-4 .. 1.3e-4 relative on FSDP1 flat params in fp32, 1.4e-1 on a bias in bf16; those
++  are update numbers, not gradient numbers) and across arms it is the gradient again. Its
++  difference and sign agreement are printed; the parameters after the step may differ by two
++  first-step updates plus 1e-2 relative (the form that also holds for AdamW's sign-like step).
++* every inspected tensor of every arm (and of the truth) must be finite before any of the above
++  is evaluated: a comparison with NaN is false, so NaN would otherwise pass. Every key of the
++  reference must exist in the truth; an empty shard (a leading dimension below the world size) is
++  skipped with a note; the row checks run on the response mask, and rows that are zero in both arms
++  are reported, not treated as padding.
++* fp32 reference sanity: its flag-off log-probs must agree with the bf16 flag-off ones within bf16
++  noise (mean |delta| below 0.5 nat; measured 2.9e-2), which rules out a broken packed-attention
++  mask behind an fp32 identity.
++
++verl's stock GPU unit-test selection collects this file and runs it with ``-x``, so the measured
++deltas are printed and the bounds carry margin. Run it with
++``pytest -s -rs tests/workers/test_response_only_lm_head_on_gpu.py`` on one CUDA device (two for
++the two-rank cases, which skip otherwise) with Qwen2.5-0.5B at ``~/models/Qwen/Qwen2.5-0.5B`` or
++``/root/models/Qwen/Qwen2.5-0.5B`` (or set ``VERL_RESPONSE_ONLY_LM_HEAD_MODEL``); without a device
++or a model the cases skip and the skip reason names the paths tried.
++"""
++
++import os
++
++os.environ.setdefault("FLASH_ATTENTION_DETERMINISTIC", "1")  # flash-attn backward without atomics
++os.environ.setdefault("NCCL_DEBUG", "WARN")
++
++import re
++from functools import partial
++
++import pytest
++import torch
++import torch.distributed as dist
++import torch.multiprocessing as mp
++from tensordict import TensorDict
++from torch.distributed.tensor import DTensor
++
++from verl.trainer.config import CheckpointConfig
++from verl.utils import tensordict_utils as tu
++from verl.utils.dataset.dataset_utils import DatasetPadMode
++from verl.utils.device import get_nccl_backend, get_torch_device
++from verl.workers.config import ActorConfig, FSDPEngineConfig, FSDPOptimizerConfig, HFModelConfig
++from verl.workers.utils.losses import ppo_loss
++from verl.workers.utils.padding import no_padding_2_padding
++
++MODEL_CANDIDATES = [
++    os.path.expanduser(path)
++    for path in (
++        os.environ.get("VERL_RESPONSE_ONLY_LM_HEAD_MODEL"),
++        "~/models/Qwen/Qwen2.5-0.5B",
++        "/root/models/Qwen/Qwen2.5-0.5B",
++    )
++    if path
++]
++MODEL_PATH = next((path for path in MODEL_CANDIDATES if os.path.isdir(path)), "")
++PROMPT_LENS = [1, 300, 77, 520, 33, 160]  # a one-token prompt is the shortest the guard allows
++RESPONSE_LENS = [40, 128, 9, 64, 1, 256]
++LORA = {"lora_rank": 8, "lora_alpha": 16}
++VARIANTS = {
++    "plain": {},
++    "gradient-checkpointing": {"enable_gradient_checkpointing": True},
++    "lora": LORA,
++    "lora-ckpt": {**LORA, "enable_gradient_checkpointing": True},
++}
++STRATEGIES = ["fsdp", "fsdp2"]
++CASES = [(variant, strategy, 1) for variant in VARIANTS for strategy in STRATEGIES]
++CASES += [("plain", strategy, 2) for strategy in STRATEGIES]
++LR = 1e-3  # plain SGD: the update is exactly -LR * grad
++LORA_B_SCALE = 1e-3  # lora_B is seeded with randn * this, so lora_A gets a gradient at the first backward
++FP32_EPS = 2.0**-23
++TOLERANCES = {  # rows / sum_pi_squared / loss: (rtol, atol) per element; grad: direct on-vs-off relative Frobenius
++    "bf16": {"rows": (2e-2, 5e-2), "sum_pi_squared": (2e-2, 5e-2), "loss": (1e-2, 5e-3), "grad": 1e-1},
++    "fp32": {"rows": (0.0, 1e-4), "sum_pi_squared": (0.0, 1e-4), "loss": (0.0, 1e-4), "grad": 1e-4},
++}
++GRAD_ABS_FLOOR = 1e-12  # the direct bound is 0.1 |g_off| + this: only a tensor with no gradient at all needs it
++GRAD_LAYER_NOTE = 1e-6  # gradient tensors below this fraction of their layer's largest gradient norm are listed
++TRUTH_RATIO, TRUTH_FLOOR = 2.0, 1e-6  # bf16: D_on <= TRUTH_RATIO * D_off + TRUTH_FLOOR * |g_fp32| per tensor
++SGD_RESIDUAL_ULPS = 4.0  # |param_after - (param_before - lr * grad)| within this many fp32 ulp of |param| + |lr * grad|
++CROSS_PRECISION_MEAN_NAT = 0.5  # bf16 vs fp32 flag-off log-probs: bf16 noise, not a different attention
++
++
++def _nested(rows, dtype=torch.long):
++    return torch.nested.as_nested_tensor([torch.tensor(r, dtype=dtype) for r in rows], layout=torch.jagged)
++
++
++def _make_batch(vocab_size: int, rank: int = 0, world_size: int = 1) -> TensorDict:
++    """The six packed sequences with the fields the actor worker hands the engine; rank r keeps sequences r::world."""
++    generator = torch.Generator().manual_seed(0)
++    prompts, responses, input_ids, position_ids, loss_mask, advantages = [], [], [], [], [], []
++    for prompt_len, response_len in zip(PROMPT_LENS, RESPONSE_LENS, strict=True):
++        prompt = torch.randint(0, vocab_size, (prompt_len,), generator=generator).tolist()
++        response = torch.randint(0, vocab_size, (response_len,), generator=generator).tolist()
++        prompts.append(prompt)
++        responses.append(response)
++        input_ids.append(prompt + response)
++        position_ids.append(list(range(prompt_len + response_len)))
++        loss_mask.append([1] * response_len)
++        advantages.append(torch.randn(response_len, generator=generator).tolist())
++    keep = list(range(len(PROMPT_LENS)))[rank::world_size]
++
++    def select(rows):
++        return [rows[i] for i in keep]
++
++    batch = TensorDict(
++        {
++            "input_ids": _nested(select(input_ids)),
++            "position_ids": _nested(select(position_ids)),
++            "loss_mask": _nested(select(loss_mask)),
++            "prompts": _nested(select(prompts)),
++            "responses": _nested(select(responses)),
++            "response_mask": _nested(select(loss_mask)),
++            "advantages": _nested(select(advantages), torch.float32),
++            "old_log_probs": _nested([[0.0] * RESPONSE_LENS[i] for i in keep], torch.float32),  # frozen in _run_arm
++        },
++        batch_size=[len(keep)],
++    )
++    tu.assign_non_tensor(
++        batch,
++        temperature=1.0,
++        use_remove_padding=True,
++        use_fused_kernels=False,
++        use_dynamic_bsz=False,
++        micro_batch_size_per_gpu=len(keep),
++        global_batch_size=len(PROMPT_LENS),
++        pad_mode=DatasetPadMode.NO_PADDING,
++        pad_token_id=0,
++        max_response_len=max(RESPONSE_LENS[i] for i in keep),  # rank-local: ppo_loss pads every field to it
++        max_response_length=max(RESPONSE_LENS[i] for i in keep),
++        calculate_entropy=True,
++        calculate_sum_pi_squared=True,
++        return_model_output=True,
++    )
++    return batch
++
++
++def _force_fp32_math() -> None:
++    """fp32 means fp32: no TF32 in cuBLAS / cuDNN, and torch's math sdpa kernel (deterministic, any dtype)."""
++    torch.backends.cuda.matmul.allow_tf32 = False
++    torch.backends.cudnn.allow_tf32 = False
++    torch.set_float32_matmul_precision("highest")
++    torch.backends.cuda.enable_flash_sdp(False)
++    torch.backends.cuda.enable_mem_efficient_sdp(False)
++    torch.backends.cuda.enable_cudnn_sdp(False)
++
++
++def _local(tensor: torch.Tensor) -> torch.Tensor:
++    return tensor.to_local() if isinstance(tensor, DTensor) else tensor
++
++
++def _build_engine(flag: bool, variant: dict, strategy: str, precision: str, world_size: int):
++    from verl.workers.engine import EngineRegistry
++
++    fp32 = precision == "fp32"
++    torch.manual_seed(0)  # the LoRA init; the base weights come from the checkpoint
++    model_config = HFModelConfig(
++        path=MODEL_PATH,
++        load_tokenizer=False,
++        use_remove_padding=True,
++        override_config={"attn_implementation": "sdpa"} if fp32 else {},
++        **{"enable_gradient_checkpointing": False, **variant},
++    )
++    engine_config = FSDPEngineConfig(
++        forward_only=False,
++        strategy=strategy,
++        fsdp_size=world_size,
++        use_remove_padding=True,
++        use_dynamic_bsz=False,
++        micro_batch_size_per_gpu=-(-len(PROMPT_LENS) // world_size),
++        response_only_lm_head=flag,
++        mixed_precision={"param_dtype": "fp32", "reduce_dtype": "fp32", "buffer_dtype": "fp32"} if fp32 else None,
++    )
++    engine = EngineRegistry.new(
++        model_type="language_model",
++        backend=strategy,
++        model_config=model_config,
++        engine_config=engine_config,
++        optimizer_config=FSDPOptimizerConfig(optimizer="SGD", lr=LR, weight_decay=0.0, clip_grad=1e9),
++        checkpoint_config=CheckpointConfig(),
++    )
++    engine.initialize()
++    _force_fp32_math()
++    assert engine.response_only_lm_head is flag, "the flag must survive build time on this layout"
++    assert engine._autocast_dtype == (torch.float32 if fp32 else torch.bfloat16), "unexpected compute dtype"
++    if variant.get("lora_rank"):  # a fresh lora_B is zero, which zeroes lora_A's first gradient: seed it
++        generator = torch.Generator().manual_seed(1)
++        with torch.no_grad():
++            for name, param in sorted(engine.module.named_parameters(), key=lambda item: item[0]):
++                if "lora_B" in name:
++                    local = _local(param)
++                    local.copy_(torch.randn(local.shape, generator=generator) * LORA_B_SCALE)
++    return engine
++
++
++def _snapshot(module, kind: str) -> dict[str, torch.Tensor]:
++    """fp32 copies of every gradient (``kind="grad"``) or trainable parameter (any other ``kind``)."""
++    out = {}
++    for name, param in module.named_parameters():
++        tensor = param.grad if kind == "grad" else (param if param.requires_grad else None)
++        if tensor is not None:
++            out[f"{kind}/{name}"] = _local(tensor).detach().float().clone()
++    return out
++
++
++def _consumer_view(model_output, batch: TensorDict) -> dict[str, torch.Tensor]:
++    """What the PPO loss and the metrics read: the response rows, padded to (bsz, the width over all ranks)."""
++    keys = ("log_probs", "entropy", "sum_pi_squared")
++    view = {key: no_padding_2_padding(model_output[key], batch.to(model_output[key].device)).float() for key in keys}
++    return {
++        key: torch.nn.functional.pad(value, (0, max(RESPONSE_LENS) - value.shape[1])) for key, value in view.items()
++    }
++
++
++def _response_mask(batch: TensorDict, device) -> torch.Tensor:
++    """Which positions of the consumer view are response tokens; the padding is excluded from every row check."""
++    mask = batch["response_mask"].to(device)
++    return torch.nested.to_padded_tensor(mask, 0, output_size=(mask.shape[0], max(RESPONSE_LENS))).bool()
++
++
++def _run_arm(flag, variant, strategy, precision, batch, world_size, *, freeze: bool, label: str, verbose: bool):
++    """A forward-only pass, one PPO backward and one SGD step on a fresh engine; returns what to compare."""
++    engine = _build_engine(flag, variant, strategy, precision, world_size)
++    out: dict[str, torch.Tensor] = {}
++    with engine.eval_mode():
++        forward = engine.forward_backward_batch(batch, loss_function=None, forward_only=True)
++    out.update({f"forward/{key}": value for key, value in _consumer_view(forward["model_output"], batch).items()})
++    out["mask/response"] = _response_mask(batch, out["forward/log_probs"].device)
++    if freeze:  # the first flag-off log-probs are every arm's old_log_probs: ratio 1 in the PPO loss
++        log_probs = out["forward/log_probs"].cpu()
++        lengths = batch["responses"].offsets().diff().tolist()
++        rows = [log_probs[i, :length] for i, length in enumerate(lengths)]
++        batch["old_log_probs"] = torch.nested.as_nested_tensor(rows, layout=torch.jagged)
++    actor_config = ActorConfig(
++        strategy=strategy,
++        rollout_n=1,
++        ppo_micro_batch_size_per_gpu=-1,
++        entropy_coeff=0.01,
++        calculate_entropy=True,
++        calculate_sum_pi_squared=True,
++    )
++    with engine.train_mode(zero_grad_on_exit=False):
++        engine.optimizer_zero_grad()
++        train = engine.forward_backward_batch(batch, loss_function=partial(ppo_loss, config=actor_config))
++    out.update({f"train/{key}": value for key, value in _consumer_view(train["model_output"], batch).items()})
++    out["loss/ppo"] = torch.as_tensor(train["loss"], dtype=torch.float64)
++    grads = _snapshot(engine.module, "grad")
++    trainable = {name for name, param in engine.module.named_parameters() if param.requires_grad}
++    assert {key.split("/", 1)[1] for key in grads} == trainable, "every trainable tensor, and nothing else, has a grad"
++    if variant.get("lora_rank"):
++        assert trainable and all("lora_" in name for name in trainable), "LoRA: only adapter tensors are trainable"
++    if verbose:
++        print(f"[response_only_lm_head][{label}] flag={'on' if flag else 'off'}: gradients on {len(grads)} tensors")
++    out.update(grads)
++    out.update(_snapshot(engine.module, "before"))
++    with engine.train_mode(zero_grad_on_exit=True):
++        grad_norm = engine.optimizer_step()
++    out["sgd/grad_norm"] = torch.tensor(float(grad_norm))
++    out.update(_snapshot(engine.module, "param"))
++    out.update({f"update/{name}": out[f"param/{name}"] - out[f"before/{name}"] for name in trainable})
++    residual = torch.zeros((), device=next(iter(grads.values())).device)
++    for (
++        name
++    ) in trainable:  # SGD consistency within the arm: param_after == param_before - lr * grad up to fp32 rounding
++        before, grad = out[f"before/{name}"], out[f"grad/{name}"]
++        num = (out[f"update/{name}"] + LR * grad).norm()
++        den = FP32_EPS * (before.norm() + (LR * grad).norm())
++        residual = torch.maximum(residual, num / den.clamp_min(1e-30))
++    out["sgd/residual_ulps"] = residual
++    del engine
++    get_torch_device().empty_cache()
++    return out
++
++
++def _layer_of(key: str) -> str:
++    match = re.search(r"layers\.(\d+)\.", key)
++    if match:
++        return f"layer {int(match.group(1)):02d}"
++    for name in ("embed", "lm_head", "norm"):
++        if name in key:
++            return name
++    return "root"  # FSDP1's root flat param: the embedding, the final norm and the (tied) head
++
++
++def _finite(enabled: dict, reference: dict, truth: dict | None) -> tuple[list[str], set[str]]:
++    """Every inspected tensor of every arm must be finite: a comparison with NaN is false and would pass."""
++    failures, bad = [], set()
++    for key in sorted(reference):
++        arms = [("on", enabled[key]), ("off", reference[key])]
++        if truth is not None and key in truth:
++            arms.append(("fp32 reference", truth[key]))
++        elif truth is not None:
++            failures.append(f"{key}: the fp32 reference has no such key")
++            bad.add(key)
++        for arm, tensor in arms:
++            if tensor.is_floating_point() and not bool(torch.isfinite(tensor).all()):
++                failures.append(f"{key}: non-finite values in the flag-{arm} arm")
++                bad.add(key)
++    return failures, bad
++
++
++def _rows_check(label: str, key: str, on, off, rtol: float, atol: float, verbose: bool, valid) -> list[str]:
++    """Per-element tolerance on the response rows, and a tighter one on their mean; prints the measured maxima."""
++    delta = (on - off).abs()
++    rows = max(int(valid.sum().item()), 1)
++    mean_delta = (on - off)[valid].mean().abs().item() if valid.any() else 0.0
++    mean_tol = (atol + rtol * off[valid].abs().mean().item()) / rows**0.5 if valid.any() else atol
++    bad = int(((delta > atol + rtol * off.abs()) & valid).sum().item())
++    max_abs = delta[valid].max().item() if valid.any() else 0.0
++    if verbose:
++        print(f"[response_only_lm_head][{label}] {key}: max_abs={max_abs:.3e} mean_delta={mean_delta:.3e} rows={rows}")
++    failures = []
++    if bad:
++        failures.append(f"{key}: {bad} elements beyond rtol {rtol:g} / atol {atol:g} (max |delta| {max_abs:.3e})")
++    if mean_delta > mean_tol:
++        failures.append(f"{key}: batch mean differs by {mean_delta:.3e} > {mean_tol:.3e}")
++    return failures
++
++
++def _compare(label, enabled, reference, precision="bf16", truth=None, verbose=True) -> list[str]:
++    """Print every measured delta (the run log keeps them), then return the violations of the module docstring.
++
++    ``truth`` (the fp32 flag-off arm) adds the relative-error guard on the bf16 gradients.
++    """
++    tol = TOLERANCES[precision]
++    assert enabled.keys() == reference.keys()
++    failures, bad = _finite(enabled, reference, truth)
++    layer_scale: dict[str, float] = {}  # the largest reference gradient norm per layer, to list near-zero tensors
++    for key in reference:
++        if key.startswith("grad/") and key not in bad:
++            layer_scale[_layer_of(key)] = max(layer_scale.get(_layer_of(key), 0.0), reference[key].norm().item())
++    layers: dict[
++        str, list
++    ] = {}  # layer -> [tensors, max on-vs-off rel_fro, sum D_off^2, sum D_on^2, sum |g32|^2, max ratio]
++    summary: dict[
++        str, list
++    ] = {}  # group -> [max_abs, worst rel_fro, its key, sum |delta|^2, sum |ref|^2, min sign agr.]
++    near_zero: list[str] = []  # gradient tensors below GRAD_LAYER_NOTE of their layer's largest gradient norm
++    grads_present = any(key.startswith("grad/") and key not in bad and reference[key].norm() > 0 for key in reference)
++    mask = reference.get("mask/response")
++    for key in sorted(reference):
++        if key in bad:
++            continue
++        on, off = enabled[key], reference[key]
++        group = key.split("/", 1)[0]
++        if on.numel() == 0:  # FSDP2 gives a rank an empty shard when a leading dimension is below the world size
++            if verbose:
++                print(f"[response_only_lm_head][{label}] {key}: empty shard on this rank, skipped")
++            continue
++        if group == "mask":
++            if not torch.equal(on, off):
++                failures.append(f"{key}: the response masks differ between the arms")
++            continue
++        delta = (on - off).abs()
++        max_abs, rel_fro = delta.max().item(), (delta.norm() / off.norm().clamp_min(1e-30)).item()
++        if group == "before":
++            if not torch.equal(on, off):
++                failures.append(f"{key}: weights differ before the step (max |delta| {max_abs:.3e})")
++        elif group == "sgd":
++            if verbose:
++                print(f"[response_only_lm_head][{label}] {key}: off={off.item():.3f} on={on.item():.3f}")
++            for arm, value in (("off", off.item()), ("on", on.item())):
++                if key.endswith("residual_ulps") and value > SGD_RESIDUAL_ULPS:
++                    failures.append(f"flag {arm}: param_after != param_before - lr * grad ({value:.2f} ulp)")
++                if key.endswith("grad_norm") and grads_present and not value > 0:
++                    failures.append(f"flag {arm}: the optimizer step saw gradient norm {value} (step skipped?)")
++        elif group in ("forward", "train", "loss"):
++            rtol, atol = (
++                tol["loss"] if group == "loss" else tol["sum_pi_squared" if key.endswith("sum_pi_squared") else "rows"]
++            )
++            masked = group != "loss" and mask is not None and mask.shape == off.shape
++            valid = mask.bool() if masked else torch.ones_like(off, dtype=torch.bool)
++            if group != "loss" and not bool((off[valid] != 0).any()):
++                failures.append(f"{key}: every compared response row is zero in the reference: nothing was compared")
++                continue
++            failures += _rows_check(label, key, on, off, rtol, atol, verbose, valid)
++        else:
++            stats = summary.setdefault(group, [0.0, -1.0, "", 0.0, 0.0, 1.0])
++            stats[0] = max(stats[0], max_abs)
++            if rel_fro > stats[1]:
++                stats[1], stats[2] = rel_fro, key
++            stats[3] += delta.pow(2).sum().item()
++            stats[4] += off.pow(2).sum().item()
++            if group == "grad":
++                layer = _layer_of(key)
++                row = layers.setdefault(layer, [0, 0.0, 0.0, 0.0, 0.0, 0.0])
++                row[0], row[1] = row[0] + 1, max(row[1], rel_fro)
++                if off.norm().item() < GRAD_LAYER_NOTE * layer_scale.get(layer, 0.0):
++                    near_zero.append(key)
++                if delta.norm().item() > tol["grad"] * off.norm().item() + GRAD_ABS_FLOOR:
++                    failures.append(f"{key}: gradients {rel_fro:.3e} relative Frobenius apart (bound {tol['grad']:g})")
++                if truth is not None and key in truth:
++                    g32 = truth[key]
++                    d_off, d_on, scale = (off - g32).norm().item(), (on - g32).norm().item(), g32.norm().item()
++                    ratio = d_on / (d_off + TRUTH_FLOOR * scale + 1e-30)
++                    row[2], row[3], row[4], row[5] = (
++                        row[2] + d_off**2,
++                        row[3] + d_on**2,
++                        row[4] + scale**2,
++                        max(row[5], ratio),
++                    )
++                    if d_on > TRUTH_RATIO * d_off + TRUTH_FLOOR * scale:
++                        failures.append(
++                            f"{key}: distance to the fp32 gradient {d_on:.3e} with the flag on vs {d_off:.3e} off "
++                            f"(ratio {ratio:.2f} > {TRUTH_RATIO:g})"
++                        )
++            elif group == "update":  # -LR * grad: reported only, but it must exist where the gradient does
++                ref_grad = reference.get("grad/" + key.split("/", 1)[1])
++                if ref_grad is not None and ref_grad.norm() > 0:
++                    for arm, tensor in (("on", on), ("off", off)):
++                        if not tensor.norm() > 0:
++                            failures.append(
++                                f"{key}: zero update in the flag-{arm} arm although the gradient is not (step skipped?)"
++                            )
++                nonzero = off != 0
++                agree = (on.sign() == off.sign())[nonzero].float().mean().item() if nonzero.any() else 1.0
++                stats[5] = min(stats[5], agree)
++            elif group == "param":  # two opposite first-step updates (|update| <= LR each) plus 1e-2 relative
++                if not bool((delta <= 2 * LR * 1.01 + 1e-2 * off.abs()).all()):
++                    failures.append(f"{key}: |delta| {max_abs:.3e} exceeds 2 * lr + 1e-2 * |ref|")
++    if verbose and near_zero:
++        note = f"{len(near_zero)} tensors below {GRAD_LAYER_NOTE:g} of their layer's largest gradient: {near_zero[:5]}"
++        print(f"[response_only_lm_head][{label}] {note}")
++    if verbose:
++        for layer, (count, worst, d_off2, d_on2, scale2, ratio) in sorted(layers.items()):
++            line = f"[response_only_lm_head][{label}] grad {layer}: n={count} max on-vs-off rel_fro={worst:.3e}"
++            if truth is not None:
++                d_off, d_on = (d_off2 / max(scale2, 1e-30)) ** 0.5, (d_on2 / max(scale2, 1e-30)) ** 0.5
++                line += f" D_off={d_off:.3e} D_on={d_on:.3e} max ratio={ratio:.2f}"
++            print(line)
++        for group, (max_abs, worst, key, num, den, agree) in summary.items():
++            pooled = (num / max(den, 1e-30)) ** 0.5
++            print(
++                f"[response_only_lm_head][{label}] {group}: pooled rel_fro={pooled:.3e} max_abs={max_abs:.3e} "
++                f"worst {key} rel_fro={worst:.3e}" + (f" min sign agreement={agree:.4f}" if group == "update" else "")
++            )
++    return failures
++
++
++def _assert_bitwise(what: str, baseline: dict, reference: dict) -> None:
++    """The determinism baseline: every tensor (floating, boolean or empty) must be bitwise equal."""
++    assert baseline.keys() == reference.keys(), f"{what}: different keys"
++    for key in sorted(reference):
++        if torch.equal(baseline[key], reference[key]):
++            continue
++        detail = ""
++        if baseline[key].is_floating_point() and baseline[key].numel():
++            detail = f" max_abs={(baseline[key] - reference[key]).abs().max().item():.3e}"
++        raise AssertionError(f"{what}: {key} differs{detail}")
++
++
++def _check(label, enabled, reference, precision="bf16", truth=None, verbose=True) -> None:
++    failures = _compare(label, enabled, reference, precision, truth, verbose)
++    assert not failures, f"{label}: {len(failures)} check(s) failed:\n  " + "\n  ".join(failures[:30])
++
++
++def _worker(rank: int, world_size: int, rendezvous_file: str, variant_name: str, strategy: str) -> None:
++    get_torch_device().set_device(rank)
++    dist.init_process_group(
++        backend=get_nccl_backend(), init_method=f"file://{rendezvous_file}", rank=rank, world_size=world_size
++    )
++    from transformers import AutoConfig
++
++    verbose = rank == 0
++    variant, label = VARIANTS[variant_name], f"{strategy}/{variant_name}/{world_size}rank"
++    batch = _make_batch(AutoConfig.from_pretrained(MODEL_PATH).vocab_size, rank, world_size)
++    run = partial(_run_arm, variant=variant, strategy=strategy, batch=batch, world_size=world_size, verbose=verbose)
++    reference = run(precision="bf16", freeze=True, label=f"{label}/bf16", flag=False)
++    baseline = run(precision="bf16", freeze=False, label=f"{label}/bf16", flag=False)
++    _assert_bitwise(f"{label}/bf16 flag-off twice", baseline, reference)
++    del baseline
++    if verbose:
++        print(f"[response_only_lm_head][{label}/bf16] flag-off twice: bitwise identical ({len(reference)} tensors)")
++    enabled = run(precision="bf16", freeze=False, label=f"{label}/bf16", flag=True)
++    truth = run(precision="fp32", freeze=False, label=f"{label}/fp32", flag=False)
++    cross = (truth["forward/log_probs"] - reference["forward/log_probs"])[reference["forward/log_probs"] != 0].abs()
++    mean_nat, max_nat = cross.mean().item(), cross.max().item()
++    if verbose:
++        print(
++            f"[response_only_lm_head][{label}] fp32 vs bf16 flag-off log-probs: mean={mean_nat:.3e} max={max_nat:.3e}"
++        )
++    failures = []
++    if not mean_nat < CROSS_PRECISION_MEAN_NAT:
++        failures.append(f"fp32 reference is not the bf16 forward within bf16 noise: mean |delta| {mean_nat:.3e} nat")
++    failures += _compare(f"{label}/bf16", enabled, reference, "bf16", truth, verbose)
++    del enabled, reference
++    get_torch_device().empty_cache()
++    enabled = run(precision="fp32", freeze=False, label=f"{label}/fp32", flag=True)
++    failures += _compare(f"{label}/fp32", enabled, truth, "fp32", None, verbose)
++    assert not failures, f"{label}: {len(failures)} check(s) failed:\n  " + "\n  ".join(failures[:30])
++    dist.barrier()
++    dist.destroy_process_group()
++
++
++@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device")
++@pytest.mark.skipif(
++    not MODEL_PATH,
++    reason=f"no model directory among {MODEL_CANDIDATES}; link it or set VERL_RESPONSE_ONLY_LM_HEAD_MODEL",
++)
++@pytest.mark.parametrize("variant, strategy, world_size", CASES, ids=[f"{v}-{s}-{w}rank" for v, s, w in CASES])
++def test_flag_on_matches_flag_off(variant, strategy, world_size, tmp_path):
++    if torch.cuda.device_count() < world_size:
++        pytest.skip(f"needs {world_size} CUDA devices")
++    print(f"[response_only_lm_head] model {MODEL_PATH}, strategy {strategy}, variant {variant}, ranks {world_size}")
++    rendezvous_file = str(tmp_path / f"rdzv_{strategy}_{variant}_{world_size}")
++    mp.spawn(fn=_worker, args=(world_size, rendezvous_file, variant, strategy), nprocs=world_size, join=True)
+diff --git a/tests/workers/test_response_only_lm_head_oracle_on_cpu.py b/tests/workers/test_response_only_lm_head_oracle_on_cpu.py
+new file mode 100644
+index 00000000..f8c7ab51
+--- /dev/null
++++ b/tests/workers/test_response_only_lm_head_oracle_on_cpu.py
+@@ -0,0 +1,193 @@
++# Copyright 2025 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""Failure injection against the comparison helper of the GPU identity test; no GPU needed.
++
++The helper is imported from ``test_response_only_lm_head_on_gpu.py`` the way an external oracle
++uses it. NaN in any inspected tensor must be reported, in bf16 and in fp32, as must a skipped
++optimizer step (non-finite gradients, unchanged parameters, zero update); the direct bf16 gradient
++bound rejects a 27 % on/off difference that the relative-error guard alone accepts, while a
++difference within the baseline's own error passes (the guard is not an identity statement); the
++direct bound never hides a negated tensor; a key without an fp32 reference, an empty shard and all-zero
++response rows are handled as the docstring says.
++"""
++
++import importlib.util
++from pathlib import Path
++
++import pytest
++import torch
++
++
++def _load_gpu_test_module():
++    path = Path(__file__).with_name("test_response_only_lm_head_on_gpu.py")
++    spec = importlib.util.spec_from_file_location("response_only_lm_head_gpu_identity", path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++gpu = _load_gpu_test_module()
++GRAD = "grad/model.layers.0.weight"
++KEYS = ["forward/log_probs", "train/entropy", "loss/ppo", GRAD, "sgd/residual_ulps", "sgd/grad_norm"]
++
++
++@pytest.mark.parametrize("precision", ["bf16", "fp32"])
++@pytest.mark.parametrize("key", KEYS)
++def test_nan_in_the_enabled_arm_is_reported(precision, key):
++    reference = {key: torch.tensor([1.0])}
++    enabled = {key: torch.tensor([float("nan")])}
++    truth = {key: torch.tensor([1.0])} if precision == "bf16" else None
++    failures = gpu._compare("injected NaN", enabled, reference, precision, truth, verbose=False)
++    assert failures and "non-finite" in failures[0], f"{key}: NaN accepted in {precision}"
++
++
++@pytest.mark.parametrize("where", ["reference", "truth"])
++def test_nan_in_the_reference_or_the_truth_is_reported(where):
++    finite, nan = torch.tensor([1.0]), torch.tensor([float("nan")])
++    reference = {GRAD: nan if where == "reference" else finite}
++    truth = {GRAD: nan if where == "truth" else finite}
++    failures = gpu._compare("injected NaN", {GRAD: finite}, reference, "bf16", truth, verbose=False)
++    assert failures and "non-finite" in failures[0]
++
++
++def _arms_after_one_step(enabled_grad, enabled_after, enabled_residual, enabled_grad_norm):
++    before, grad = torch.tensor([1.0]), torch.tensor([0.1])
++    after = before - gpu.LR * grad
++    reference = {
++        "before/model.weight": before,
++        "grad/model.weight": grad,
++        "param/model.weight": after,
++        "update/model.weight": after - before,
++        "sgd/residual_ulps": torch.tensor(0.2),
++        "sgd/grad_norm": torch.tensor(0.1),
++    }
++    enabled = {
++        "before/model.weight": before.clone(),
++        "grad/model.weight": enabled_grad,
++        "param/model.weight": enabled_after,
++        "update/model.weight": enabled_after - before,
++        "sgd/residual_ulps": torch.tensor(enabled_residual),
++        "sgd/grad_norm": torch.tensor(enabled_grad_norm),
++    }
++    return enabled, reference
++
++
++def test_a_skipped_optimizer_step_on_non_finite_gradients_is_reported():
++    """The engine skips the step on non-finite gradients: unchanged parameters, zero update, NaN residual."""
++    enabled, reference = _arms_after_one_step(
++        torch.tensor([float("nan")]), torch.tensor([1.0]), float("nan"), float("nan")
++    )
++    text = "\n".join(gpu._compare("skipped step", enabled, reference, "bf16", reference, verbose=False))
++    assert "non-finite" in text and "zero update" in text
++
++
++def test_a_skipped_optimizer_step_with_finite_gradients_is_reported():
++    """Finite gradients but no step: the update is zero, the residual is huge and the grad norm is zero."""
++    enabled, reference = _arms_after_one_step(torch.tensor([0.1]), torch.tensor([1.0]), 840.0, 0.0)
++    text = "\n".join(gpu._compare("skipped step", enabled, reference, "bf16", reference, verbose=False))
++    assert "zero update" in text and "param_after != param_before - lr * grad" in text and "step skipped" in text
++
++
++def test_the_direct_gradient_bound_rejects_what_the_guard_alone_accepts():
++    truth, reference = {GRAD: torch.tensor([1.0])}, {GRAD: torch.tensor([1.1])}
++    # on 0.8: D_on 0.2 <= 2 * D_off 0.1 passes the guard, but 0.3 > 0.1 * |g_off| fails the direct bound
++    rejected = gpu._compare("27 % apart", {GRAD: torch.tensor([0.8])}, reference, "bf16", truth, verbose=False)
++    assert rejected and "gradients" in rejected[0]
++    # on 1.05: 4.5 % apart, within the baseline's own error: the guard is a relative-error guard, not identity
++    assert not gpu._compare("within the error", {GRAD: torch.tensor([1.05])}, reference, "bf16", truth, verbose=False)
++
++
++def test_the_direct_bound_never_hides_a_negated_tensor():
++    big, tiny = "grad/model.layers.0.mlp.up_proj.weight", "grad/model.layers.0.input_layernorm.weight"
++    reference = {big: torch.full((4,), 500.0), tiny: torch.full((4,), 2.5e-4)}  # |big| = 1e3, |tiny| = 5e-4
++    enabled = {big: reference[big].clone(), tiny: -reference[tiny]}  # the tiny gradient points the other way
++    assert gpu._compare("negated", enabled, reference, "bf16", None, verbose=False)
++    enabled[tiny] = reference[tiny] * 1.05  # 5 % on a tensor far below the layer's scale: within the bound
++    assert not gpu._compare("tiny 5 %", enabled, reference, "bf16", None, verbose=False)
++    enabled[tiny] = torch.zeros(4) + 1e-13  # below the absolute term: no gradient at all, compared as such
++    reference[tiny] = torch.zeros(4)
++    assert not gpu._compare("no gradient", enabled, reference, "bf16", None, verbose=False)
++
++
++def test_a_key_without_an_fp32_reference_is_reported():
++    reference, enabled = {GRAD: torch.tensor([1.0])}, {GRAD: torch.tensor([1.01])}
++    failures = gpu._compare("missing truth", enabled, reference, "bf16", {}, verbose=False)
++    assert failures and "no such key" in failures[0]
++
++
++def test_an_empty_shard_is_skipped_not_crashed():
++    reference = {"grad/model.layers.0.scale": torch.empty(0), "sgd/grad_norm": torch.tensor(1.0)}
++    enabled = {key: value.clone() for key, value in reference.items()}
++    assert not gpu._compare("empty shard", enabled, reference, "bf16", None, verbose=False)
++
++
++def _rows(seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
++    rows = -torch.rand(6, 256, generator=torch.Generator().manual_seed(seed)) * 20
++    mask = torch.zeros(6, 256, dtype=torch.bool)
++    for i, length in enumerate(gpu.RESPONSE_LENS):
++        mask[i, :length] = True
++    return rows * mask, mask
++
++
++def test_all_zero_response_rows_are_reported_not_treated_as_padding():
++    rows, mask = _rows()
++    zeros = torch.zeros_like(rows)
++    assert gpu._compare("all zero", {"forward/log_probs": zeros}, {"forward/log_probs": zeros.clone()}, verbose=False)
++    with_mask = {"forward/log_probs": zeros, "mask/response": mask}
++    assert gpu._compare("all zero, masked", with_mask, dict(with_mask), verbose=False)
++    assert not gpu._compare(
++        "padding only",
++        {"forward/log_probs": rows, "mask/response": mask},
++        {"forward/log_probs": rows.clone(), "mask/response": mask},
++        verbose=False,
++    )
++
++
++def test_an_ulp_sized_bf16_forward_difference_passes_and_a_row_shift_fails():
++    rows, mask = _rows()
++    shifted = rows.clone()
++    shifted[0, 0] += 0.125  # one bf16 ulp of a logit of 20 on one row
++    reference = {"forward/log_probs": rows, "mask/response": mask}
++    assert not gpu._compare("one ulp", {"forward/log_probs": shifted, "mask/response": mask}, reference, verbose=False)
++    shifted = (rows - 0.03) * mask  # every response row shifted: the batch mean catches it
++    assert gpu._compare("shifted", {"forward/log_probs": shifted, "mask/response": mask}, reference, verbose=False)
++
++
++def test_the_determinism_baseline_handles_boolean_and_empty_tensors():
++    reference = {
++        "mask/response": torch.tensor([[True, False]]),
++        "grad/model.layers.0.scale": torch.empty(0),
++        "sgd/grad_norm": torch.tensor(1.0),
++        "forward/log_probs": torch.tensor([[-1.0, 0.0]]),
++    }
++    gpu._assert_bitwise("baseline", {key: value.clone() for key, value in reference.items()}, reference)
++    flipped = {key: value.clone() for key, value in reference.items()}
++    flipped["mask/response"][0, 1] = True
++    with pytest.raises(AssertionError, match="mask/response differs"):
++        gpu._assert_bitwise("baseline", flipped, reference)
++    shifted = {key: value.clone() for key, value in reference.items()}
++    shifted["forward/log_probs"][0, 0] = -1.5
++    with pytest.raises(AssertionError, match="max_abs=5.000e-01"):
++        gpu._assert_bitwise("baseline", shifted, reference)
++
++
++@pytest.mark.parametrize("rank, world_size", [(0, 1), (0, 2), (1, 2)])
++def test_the_response_mask_matches_the_rank_local_batch(rank, world_size):
++    batch = gpu._make_batch(512, rank, world_size)
++    mask = gpu._response_mask(batch, "cpu")
++    lengths = batch["responses"].offsets().diff().tolist()
++    assert mask.shape == (len(lengths), max(gpu.RESPONSE_LENS)) and mask.dtype == torch.bool
++    assert mask.sum(dim=1).tolist() == lengths
++    assert batch["max_response_len"] == max(lengths)
+diff --git a/verl/trainer/config/_generated_ppo_trainer.yaml b/verl/trainer/config/_generated_ppo_trainer.yaml
+index 58af8e1b..15843ede 100644
+--- a/verl/trainer/config/_generated_ppo_trainer.yaml
++++ b/verl/trainer/config/_generated_ppo_trainer.yaml
+@@ -46,6 +46,7 @@ actor_rollout_ref:
+       use_no_sync_for_gradient_accumulation: false
+       pad_to_length: ${oc.select:actor_rollout_ref.actor.pad_to_length,False}
+       pad_to_length_bucket: 1024
++      response_only_lm_head: false
+       forward_only: false
+       strategy: fsdp
+       dtype: bfloat16
+@@ -254,6 +255,7 @@ actor_rollout_ref:
+       use_no_sync_for_gradient_accumulation: false
+       pad_to_length: ${oc.select:actor_rollout_ref.ref.pad_to_length,False}
+       pad_to_length_bucket: ${oc.select:actor_rollout_ref.actor.fsdp_config.pad_to_length_bucket,1024}
++      response_only_lm_head: ${oc.select:actor_rollout_ref.actor.fsdp_config.response_only_lm_head,False}
+       forward_only: true
+       strategy: fsdp
+       dtype: bfloat16
+@@ -579,6 +581,7 @@ critic:
+     use_no_sync_for_gradient_accumulation: false
+     pad_to_length: false
+     pad_to_length_bucket: 1024
++    response_only_lm_head: false
+     forward_only: false
+     strategy: fsdp
+     dtype: bfloat16
+diff --git a/verl/trainer/config/engine/fsdp.yaml b/verl/trainer/config/engine/fsdp.yaml
+index a14ec2af..0146b330 100644
+--- a/verl/trainer/config/engine/fsdp.yaml
++++ b/verl/trainer/config/engine/fsdp.yaml
+@@ -72,6 +72,14 @@ pad_to_length: false
+ # within-budget micro-batch onto a single shape. Only read when pad_to_length=true.
+ pad_to_length_bucket: 1024
+ 
++# Project the LM head only for the packed rows the loss reads (the row before each response token),
++# so head FLOPs and the (tokens, vocab) logits tensor shrink by the prompt fraction of the micro-batch.
++# Output-identical to the full projection. Requires use_remove_padding=True (rejected otherwise) and a model
++# whose forward accepts `logits_to_keep` (HF text CausalLMs). Keeps the full projection with one start-up
++# warning (rank 0) for use_fused_kernels=True, ulysses_sequence_parallel_size > 1, fsdp_turbo, vision-language
++# models and the critic, and silently per micro-batch for top-K distillation, score centering and SFT batches.
++response_only_lm_head: false
++
+ # Whether to use forward only in fsdp.
+ forward_only: false
+ 
+diff --git a/verl/trainer/config/ref/dp_ref.yaml b/verl/trainer/config/ref/dp_ref.yaml
+index 2fb3f8f7..8b4b8329 100644
+--- a/verl/trainer/config/ref/dp_ref.yaml
++++ b/verl/trainer/config/ref/dp_ref.yaml
+@@ -34,6 +34,9 @@ fsdp_config:
+   # Padding granularity, following the actor unless overridden
+   pad_to_length_bucket: ${oc.select:actor_rollout_ref.actor.fsdp_config.pad_to_length_bucket,1024}
+ 
++  # Project the LM head only for loss rows, following the actor unless overridden
++  response_only_lm_head: ${oc.select:actor_rollout_ref.actor.fsdp_config.response_only_lm_head,False}
++
+ # sequence parallel size
+ # same as actor_rollout_ref.actor.ulysses_sequence_parallel_size if it exists, otherwise 1
+ ulysses_sequence_parallel_size: ${oc.select:actor_rollout_ref.actor.ulysses_sequence_parallel_size,1}
+diff --git a/verl/workers/config/engine.py b/verl/workers/config/engine.py
+index c0d4ee44..bca032dc 100644
+--- a/verl/workers/config/engine.py
++++ b/verl/workers/config/engine.py
+@@ -267,6 +267,16 @@ class FSDPEngineConfig(EngineConfig):
+             (``max_token_len_per_gpu * ulysses_sequence_parallel_size``) collapses every
+             within-budget micro-batch onto a single shape. Only read when ``pad_to_length=True``.
+             default 1024
++        response_only_lm_head (bool): Project the LM head (and run the log-prob / entropy math) only
++            for the packed rows whose outputs the loss reads: the row before each response token.
++            Prompt and padding rows skip the vocabulary projection, so head FLOPs and the
++            ``(tokens, vocab)`` logits tensor shrink by the prompt fraction of the packed
++            micro-batch. Response log-probs, entropy and gradients are identical to the full
++            projection. Requires ``use_remove_padding=True`` (rejected otherwise) and a model whose
++            ``forward`` accepts ``logits_to_keep`` (HF text CausalLMs). Keeps the full projection with
++            one start-up warning (rank 0) for ``use_fused_kernels=True``, Ulysses sequence parallel,
++            ``fsdp_turbo``, vision-language models and the critic, and silently per micro-batch for
++            top-K distillation, score centering and SFT-shaped batches. default False
+         qat (QATEngineConfig): QAT configuration, default disabled
+     """
+ 
+@@ -291,6 +301,7 @@ class FSDPEngineConfig(EngineConfig):
+     strategy: str = "fsdp"
+     pad_to_length: bool = False
+     pad_to_length_bucket: int = 1024
++    response_only_lm_head: bool = False
+     qat: QATEngineConfig = field(default_factory=QATEngineConfig)
+     turbo_config: dict[str, Any] = field(default_factory=dict)
+ 
+diff --git a/verl/workers/engine/fsdp/transformer_impl.py b/verl/workers/engine/fsdp/transformer_impl.py
+index fa5d3e89..2abb0e6c 100644
+--- a/verl/workers/engine/fsdp/transformer_impl.py
++++ b/verl/workers/engine/fsdp/transformer_impl.py
+@@ -24,7 +24,7 @@ from typing import Callable, ContextManager, Optional
+ 
+ import torch
+ import torch.distributed
+-from peft import LoraConfig, TaskType, get_peft_model
++from peft import LoraConfig, PeftModel, TaskType, get_peft_model
+ from tensordict import TensorDict
+ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+ from torch.distributed.fsdp.api import FullStateDictConfig, ShardedStateDictConfig, StateDictType
+@@ -71,7 +71,7 @@ from verl.utils.ulysses import (
+     ulysses_pad_and_slice_inputs,
+ )
+ from verl.workers.config import FSDPEngineConfig, FSDPOptimizerConfig, HFModelConfig
+-from verl.workers.utils.padding import build_attention_mask_from_nested
++from verl.workers.utils.padding import build_attention_mask_from_nested, loss_row_index
+ 
+ from ..base import BaseEngine, BaseEngineCtx, EngineRegistry
+ from ..utils import (
+@@ -103,6 +103,33 @@ def _scale_logits_by_temperature(logits, temperature, *, is_unit_temperature: bo
+     return logits / temperature.clamp(min=1e-8).to(logits.dtype)
+ 
+ 
++def _probe_logits_to_keep_kwarg(module) -> str | None:
++    """``"logits_to_keep"`` when the HF model's ``forward`` names that parameter, else ``None``.
++
++    HF text CausalLMs take a tensor of row indices as ``logits_to_keep`` and project the LM head
++    for those rows only. Only a parameter spelled out in the signature counts: a bare ``**kwargs``
++    would swallow the index and the model would still project every row. A PEFT wrapper is
++    probed through ``get_base_model()``: its ``forward(*args, **kwargs)`` passes the index on to
++    the base model, so the base model's signature is the one that decides.
++    """
++    if isinstance(module, PeftModel):
++        module = module.get_base_model()
++    try:
++        parameters = signature(module.forward).parameters
++    except (TypeError, ValueError):
++        return None
++    return "logits_to_keep" if "logits_to_keep" in parameters else None
++
++
++def _scatter_rows(values: torch.Tensor, index: torch.Tensor, total_rows: int) -> torch.Tensor:
++    """Place per-row ``values`` computed for ``index`` back into a zero ``(total_rows,)`` tensor.
++
++    ``index_copy`` with unique indices is deterministic and differentiable (its backward is a
++    gather), so the loss sees exactly the rows it reads and zeros elsewhere.
++    """
++    return values.new_zeros(total_rows).index_copy(0, index, values)
++
++
+ class FSDPEngine(BaseEngine):
+     """
+     Concrete Engine implementation using PyTorch FullyShardedDataParallel (FSDP).
+@@ -589,6 +616,45 @@ class FSDPEngine(BaseEngine):
+ 
+         logger.info(f"[QAT W4A4] Restored {loaded_count} input_global_scale/input_amax from {model_path}")
+ 
++    # Only engines that read a vocabulary projection may drop rows from it; the value head reads a
++    # one-column head (nothing to gain) and its output path expects every row.
++    _supports_response_only_lm_head = False
++
++    def _resolve_response_only_lm_head(self, module) -> bool:
++        """Decide once, at build time, whether this engine projects the LM head for loss rows only.
++
++        ``response_only_lm_head`` is kept only when the engine, the model and the parallel layout
++        can use it. On the LM-head engine ``use_remove_padding=False`` contradicts it and raises
++        (the value-head engine ignores the flag with a warning before that check); every other
++        fixed condition logs one warning on rank 0 and projects every packed row. Conditions that vary
++        per micro-batch (logits processors, SFT-shaped batches) are checked in
++        ``prepare_model_inputs`` instead.
++        """
++        if not getattr(self.engine_config, "response_only_lm_head", False):
++            return False
++        if not self._supports_response_only_lm_head:
++            reason = "this engine does not read a vocabulary projection"
++        elif not self.use_remove_padding:
++            raise ValueError(
++                "response_only_lm_head=True requires use_remove_padding=True: the padded forward has no packed "
++                "rows to select. Set model.use_remove_padding=True or fsdp_config.response_only_lm_head=False."
++            )
++        elif self.model_config.use_fused_kernels:
++            reason = "use_fused_kernels=True: the fused forwards project every row"
++        elif self.use_ulysses_sp:
++            reason = "ulysses_sequence_parallel_size > 1 is not supported yet"
++        elif self.engine_config.strategy == "fsdp_turbo":
++            reason = "fsdp_turbo may shard the LM head across tensor-parallel ranks"
++        elif hasattr(getattr(module, "config", None), "vision_config"):
++            reason = "vision-language models project every row in their packed forward"
++        elif self.logits_to_keep_kwarg is None:
++            reason = f"{type(module).__name__}.forward does not accept logits_to_keep"
++        else:
++            return True
++        if getattr(self, "rank", 0) == 0:
++            logger.warning("response_only_lm_head=True is ignored: %s. Projecting every packed row.", reason)
++        return False
++
+     def _build_model_optimizer(self):
+         from verl.utils.model import print_model_size
+ 
+@@ -598,6 +664,8 @@ class FSDPEngine(BaseEngine):
+             self.pass_packed_cu_seqlens = "cu_seqlens" in signature(module.forward).parameters
+         except (TypeError, ValueError):
+             self.pass_packed_cu_seqlens = False
++        self.logits_to_keep_kwarg = _probe_logits_to_keep_kwarg(module)
++        self.response_only_lm_head = self._resolve_response_only_lm_head(module)
+         # Apply LoRA adapters if low-rank adaptation is enabled
+         if self._is_lora:
+             module = self._build_lora_module(module)
+@@ -1152,6 +1220,8 @@ class EngineTrainModeCtx(BaseEngineCtx):
+ 
+ @EngineRegistry.register(model_type="language_model", backend=["fsdp", "fsdp2"], device=["cuda", "npu"])
+ class FSDPEngineWithLMHead(FSDPEngine):
++    _supports_response_only_lm_head = True
++
+     def prepare_model_inputs(self, micro_batch: TensorDict):
+         distillation_use_topk = tu.get_non_tensor_data(data=micro_batch, key="distillation_use_topk", default=False)
+         score_centering = tu.get_non_tensor_data(data=micro_batch, key="score_centering", default=False)
+@@ -1283,6 +1353,15 @@ class FSDPEngineWithLMHead(FSDPEngine):
+                 model_inputs["cu_seqlens"] = model_cu_seqlens
+                 model_inputs["cu_seqlens_cpu"] = model_cu_seqlens.cpu()
+ 
++            # response_only_lm_head: hand the model the packed rows whose logits the loss reads, so
++            # the LM head projects the K response rows instead of all T packed rows. The index is
++            # built on the unpadded layout: the static pad is a suffix, so it stays valid, and SP is
++            # excluded at build time, so no rank offset is needed.
++            keep_index = self._response_only_lm_head_index(micro_batch, use_fused_kernels)
++            if keep_index is not None:
++                model_inputs["logits_to_keep"] = keep_index
++                output_args["loss_row_index"] = keep_index
++
+         else:
+             if pad_mode == DatasetPadMode.NO_PADDING:
+                 input_ids = micro_batch["input_ids"]
+@@ -1341,6 +1420,23 @@ class FSDPEngineWithLMHead(FSDPEngine):
+ 
+         return model_inputs, output_args
+ 
++    def _response_only_lm_head_index(self, micro_batch: TensorDict, use_fused_kernels: bool) -> torch.Tensor | None:
++        """Loss-row index for this micro-batch when ``response_only_lm_head`` applies, else ``None``.
++
++        ``None`` means the full projection: fused kernels (their forwards ignore the index), top-K
++        distillation and score centering (their logits processor reads every row), batches without
++        ``responses`` (SFT reads ``loss_mask`` rows instead) and an empty index.
++        """
++        if not getattr(self, "response_only_lm_head", False) or use_fused_kernels:
++            return None
++        if "responses" not in micro_batch.keys():
++            return None
++        for key in ("distillation_use_topk", "distillation_only", "score_centering"):
++            if tu.get_non_tensor_data(data=micro_batch, key=key, default=False):
++                return None
++        index = loss_row_index(micro_batch)
++        return index if index.numel() > 0 else None
++
+     def prepare_model_outputs(self, output, output_args, micro_batch: TensorDict, logits_processor_func):
+         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)
+         pad_mode = tu.get_non_tensor_data(data=micro_batch, key="pad_mode", default=DatasetPadMode.NO_PADDING)
+@@ -1401,6 +1497,19 @@ class FSDPEngineWithLMHead(FSDPEngine):
+                 # With TP, logits are DTensors sharded on vocab dim; gather for log_softmax.
+                 if isinstance(logits_rmpad, DTensor):
+                     logits_rmpad = logits_rmpad.full_tensor()
++                # response_only_lm_head: the model projected only the loss rows chosen in
++                # prepare_model_inputs; score them with their own labels and temperature here and
++                # scatter the results back into the packed layout below.
++                keep_index = output_args.get("loss_row_index")
++                if keep_index is not None:
++                    if logits_rmpad.shape[0] != keep_index.numel():
++                        raise RuntimeError(
++                            f"response_only_lm_head: asked the model for {keep_index.numel()} logits rows "
++                            f"but it returned {logits_rmpad.shape[0]}: its forward ignored the row index. "
++                            "Set response_only_lm_head=False for this model."
++                        )
++                    input_ids_rmpad_rolled = input_ids_rmpad_rolled[keep_index]
++                    temperature_rmpad = temperature_rmpad[keep_index]
+                 logits_rmpad = _scale_logits_by_temperature(
+                     logits_rmpad,
+                     temperature_rmpad.unsqueeze(-1),
+@@ -1448,6 +1557,15 @@ class FSDPEngineWithLMHead(FSDPEngine):
+                         inplace_backward=inplace_backward,
+                     )
+ 
++                if keep_index is not None:
++                    # back to the full packed layout: zeros on the rows nobody reads
++                    total_rows = output_args["input_ids_rmpad_rolled"].shape[0]
++                    log_probs = _scatter_rows(log_probs, keep_index, total_rows)
++                    if calculate_entropy:
++                        entropy_rmpad = _scatter_rows(entropy_rmpad, keep_index, total_rows)
++                    if calculate_sum_pi_squared:
++                        sum_pi_squared_rmpad = _scatter_rows(sum_pi_squared_rmpad, keep_index, total_rows)
++
+             # gather across the ulysses sp group and drop the packed-sequence padding
+             pad_size = output_args["pad_size"]
+             if not distillation_only:
+@@ -1618,6 +1736,8 @@ class FSDPEngineWithValueHead(FSDPEngineWithLMHead):
+     The only difference between critic and actor is how the raw model output is processed
+     """
+ 
++    _supports_response_only_lm_head = False
++
+     def prepare_model_outputs(self, output, output_args, micro_batch: TensorDict, logits_processor_func):
+         use_remove_padding = tu.get_non_tensor_data(data=micro_batch, key="use_remove_padding", default=True)
+         pad_mode = tu.get_non_tensor_data(data=micro_batch, key="pad_mode", default=DatasetPadMode.NO_PADDING)
+diff --git a/verl/workers/utils/padding.py b/verl/workers/utils/padding.py
+index f45d74af..35c370a3 100644
+--- a/verl/workers/utils/padding.py
++++ b/verl/workers/utils/padding.py
+@@ -141,6 +141,46 @@ def no_padding_2_padding(tensor: torch.Tensor, data: TensorDict) -> torch.Tensor
+     return output
+ 
+ 
++def loss_row_index(data: TensorDict) -> torch.Tensor:
++    """Packed-row indices whose model outputs the PPO losses and metrics read.
++
++    Row ``t`` of a packed micro-batch scores token ``t + 1``, so for sequence ``i`` with end
++    offset ``e_i`` and response length ``r_i`` the consumers (:func:`no_padding_2_padding`,
++    :func:`response_from_nested`) read the rows ``[e_i - r_i - 1, e_i - 1)``. This returns those
++    rows for the whole micro-batch, in packed order, so the engine can project the LM head for
++    them alone (``response_only_lm_head``).
++
++    Args:
++        data: TensorDict with nested ``input_ids`` and ``responses`` (``DatasetPadMode.NO_PADDING``).
++
++    Raises:
++        ValueError: if a sequence has no prompt token; its loss rows would start inside the previous
++            sequence (or wrap to the last row), so this is checked by name, at the cost of one
++            device-to-host transfer per micro-batch.
++
++    Returns:
++        LongTensor of shape ``(sum_i r_i,)`` on the device of ``input_ids``, strictly increasing.
++    """
++    offsets = data["input_ids"].offsets()
++    response_lens = data["responses"].offsets().diff().to(offsets.device)
++    prompt_lens = offsets.diff() - response_lens
++    if prompt_lens.numel() > 0 and int(prompt_lens.min()) < 1:
++        bad = int((prompt_lens < 1).nonzero()[0, 0])
++        raise ValueError(
++            f"response_only_lm_head needs at least one prompt token per sequence: sequence {bad} has prompt "
++            f"length {int(prompt_lens[bad])} and response length {int(response_lens[bad])} (sequence lengths "
++            f"{offsets.diff().tolist()}, response lengths {response_lens.tolist()})"
++        )
++    starts = offsets[1:] - response_lens - 1
++    total = data["responses"].values().shape[0]  # sum of the response lengths, from the shape
++    seq_id = torch.repeat_interleave(
++        torch.arange(response_lens.numel(), device=offsets.device), response_lens, output_size=total
++    )
++    first_row_of_seq = torch.cumsum(response_lens, dim=0) - response_lens
++    within_seq = torch.arange(total, device=offsets.device) - first_row_of_seq[seq_id]
++    return starts[seq_id] + within_seq
++
++
+ def build_attention_mask_from_nested(input_ids: torch.Tensor, max_seq_len: int | None = None) -> torch.Tensor:
+     """Build a padded full-sequence attention mask from nested input ids."""
+     assert input_ids.is_nested, "input_ids must be a nested tensor"

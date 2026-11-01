@@ -1,0 +1,1295 @@
+Uninstalled 1 package in 0.61ms
+Installed 1 package in 108ms
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.0, pluggy-1.6.0
+rootdir: /workspace/verl
+configfile: pyproject.toml
+plugins: hydra-core-1.3.3, rerunfailures-16.3, anyio-4.13.0, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+WARN: The 'use_signals=True' option in the timeout decorator is deprecated.                 Signals are unreliable outside the main thread.                 Please use the default multiprocessing-based timeout (use_signals=False).
+WARN: The 'use_signals=True' option in the timeout decorator is deprecated.                 Signals are unreliable outside the main thread.                 Please use the default multiprocessing-based timeout (use_signals=False).
+collected 511 items
+
+tests/checkpoint_engine/test_block_placement.py ...............
+tests/checkpoint_engine/test_correctness_on_gpu.py 2026-10-29 17:58:35,204	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TrainingWorkerTest pid=6435)[0m DEBUG:2026-10-29 17:58:55,480:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=6435)[0m DEBUG:2026-10-29 17:58:56,508:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=6435)[0m DEBUG:2026-10-29 17:58:56,509:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=6435)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=6435)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=6435)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=6435)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=6435)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=6435)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=6435)[0m WARNING:2026-10-29 17:59:03,142:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 17:58:55,771:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 17:58:57,349:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 17:58:57,350:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=6432)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=6432)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=6432)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=6432)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=6432)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=6432)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=6432)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=6432)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=6432)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=6432)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=6432)[0m WARNING:2026-10-29 17:59:03,777:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=6435)[0m Loading weights:   0%|          | 1/399 [00:00<02:47,  2.38it/s]
+[36m(TrainingWorkerTest pid=6435)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`[32m [repeated 2x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+[36m(TrainingWorkerTest pid=6435)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=6432)[0m Loading weights:  60%|█████▉    | 239/399 [00:05<00:03, 48.04it/s][32m [repeated 64x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m Loading weights:  93%|█████████▎| 371/399 [00:08<00:00, 58.40it/s]
+[36m(TrainingWorkerTest pid=6432)[0m Loading weights:  95%|█████████▍| 379/399 [00:08<00:00, 45.52it/s]
+[36m(TrainingWorkerTest pid=6432)[0m Loading weights:  97%|█████████▋| 386/399 [00:08<00:00, 41.93it/s]
+[36m(TrainingWorkerTest pid=6435)[0m Loading weights:  92%|█████████▏| 368/399 [00:08<00:00, 56.15it/s]Loading weights: 100%|██████████| 399/399 [00:08<00:00, 46.97it/s]
+[36m(TrainingWorkerTest pid=6432)[0m Loading weights: 100%|██████████| 399/399 [00:08<00:00, 45.37it/s]
+[36m(TrainingWorkerTest pid=6435)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=6435)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=6435)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=6435)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=6432)[0m Qwen3ForCausalLM contains 8.19B parameters
+[36m(TrainingWorkerTest pid=6432)[0m Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 17:59:19,708:After init model from HF AutoModel, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=6435)[0m Loading weights:  90%|█████████ | 361/399 [00:08<00:00, 53.34it/s][32m [repeated 34x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m NCCL version 2.29.7+cuda13.2
+[36m(TrainingWorkerTest pid=6432)[0m After FSDP, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=6432)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=6432)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=6432)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=6432)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=6432)[0m   FSDP.set_state_dict_type(
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 17:59:33,029:After offload model/optimizer/grad during init, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(CheckpointEngineWorkerTest pid=7507)[0m DEBUG:2026-10-29 17:59:49,047:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=6435)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=6435)[0m   FSDP.set_state_dict_type(
+[36m(CheckpointEngineWorkerTest pid=7507)[0m DEBUG:2026-10-29 17:59:49,917:Auto-detected platform: nvidia
+[36m(CheckpointEngineWorkerTest pid=7507)[0m DEBUG:2026-10-29 17:59:49,918:verl platform initialised: cuda
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="03838ad0-1dcd-4818-80b6-91b77b89b6e3", ...)
+[36m(TrainingWorkerTest pid=6432)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+[36m(CheckpointEngineWorkerTest pid=7518)[0m DEBUG:2026-10-29 17:59:50,789:Registered platforms: ('nvidia', 'huawei', 'amd')[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m DEBUG:2026-10-29 17:59:53,221:Auto-detected platform: nvidia[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m DEBUG:2026-10-29 17:59:53,222:verl platform initialised: cuda[32m [repeated 5x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m INFO:2026-10-29 17:59:58,579:init_process_group rank: 0, world_size: 7
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 17:59:58,629:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.31/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:14,576:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.40/139.79
+[36m(CheckpointEngineWorkerTest pid=7518)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m INFO:2026-10-29 17:59:58,606:init_process_group rank: 6, world_size: 7[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:17,211:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:17,212:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=6432)[0m INFO:2026-10-29 18:00:17,726:Rank 0 send weights done, time cost: 0.51s
+[36m(CheckpointEngineWorkerTest pid=7507)[0m INFO:2026-10-29 18:00:17,733:Rank 1 receive weights done, total_params: 543, time cost: 19.10s, bandwidth: 1.60 GB/s
+[36m(CheckpointEngineWorkerTest pid=7507)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[36m(CheckpointEngineWorkerTest pid=7514)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(CheckpointEngineWorkerTest pid=7507)[0m Loading weights:  65%|██████▍   | 259/399 [00:00<00:00, 2584.28it/s]
+[36m(CheckpointEngineWorkerTest pid=7507)[0m Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2802.42it/s]
+[36m(CheckpointEngineWorkerTest pid=7508)[0m Check passed, all weights are equal!
+[36m(TrainingWorkerTest pid=6432)[0m INFO:2026-10-29 18:00:32,494:init_process_group rank: 0, world_size: 7
+[36m(CheckpointEngineWorkerTest pid=7518)[0m INFO:2026-10-29 18:00:17,732:Rank 6 receive weights done, total_params: 543, time cost: 19.10s, bandwidth: 1.60 GB/s[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m Loading weights:  67%|██████▋   | 268/399 [00:00<00:00, 2672.48it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2895.88it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7514)[0m INFO:2026-10-29 18:00:32,497:init_process_group rank: 5, world_size: 7
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:32,500:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:32,501:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:33,167:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:33,168:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=6432)[0m INFO:2026-10-29 18:00:33,612:Rank 0 send weights done, time cost: 0.44s
+[36m(CheckpointEngineWorkerTest pid=7518)[0m Check passed, all weights are equal![32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:47,910:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:47,911:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(CheckpointEngineWorkerTest pid=7518)[0m INFO:2026-10-29 18:00:33,613:Rank 6 receive weights done, total_params: 543, time cost: 1.11s, bandwidth: 27.44 GB/s[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m INFO:2026-10-29 18:00:47,904:init_process_group rank: 0, world_size: 7[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:48,586:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=6432)[0m DEBUG:2026-10-29 18:00:48,587:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=6432)[0m INFO:2026-10-29 18:00:49,033:Rank 0 send weights done, time cost: 0.45s
+[36m(CheckpointEngineWorkerTest pid=7507)[0m Check passed, all weights are equal![32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m Check passed, all weights are equal![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m INFO:2026-10-29 18:00:49,034:Rank 6 receive weights done, total_params: 543, time cost: 1.12s, bandwidth: 27.18 GB/s[32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=7518)[0m INFO:2026-10-29 18:00:47,908:init_process_group rank: 6, world_size: 7[32m [repeated 6x across cluster][0m
+.2026-10-29 18:01:12,495	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:01:32,651:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:01:33,781:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:01:33,782:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=15501)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=15501)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=15501)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=15501)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=15501)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=15501)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=15501)[0m WARNING:2026-10-29 18:01:40,273:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=15504)[0m DEBUG:2026-10-29 18:01:32,895:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=15504)[0m DEBUG:2026-10-29 18:01:34,525:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=15504)[0m DEBUG:2026-10-29 18:01:34,526:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=15504)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=15504)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=15504)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=15504)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=15504)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=15504)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=15501)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=15501)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=15501)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:   0%|          | 1/399 [00:00<00:45,  8.84it/s]
+[36m(TrainingWorkerTest pid=15504)[0m WARNING:2026-10-29 18:01:40,869:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=15504)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`[32m [repeated 2x across cluster][0m
+[36m(TrainingWorkerTest pid=15504)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=15504)[0m Loading weights:  37%|███▋      | 149/399 [00:04<00:05, 43.69it/s][32m [repeated 51x across cluster][0m
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:  91%|█████████▏| 365/399 [00:08<00:00, 58.38it/s]
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:  93%|█████████▎| 372/399 [00:08<00:00, 51.21it/s]
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:  95%|█████████▍| 378/399 [00:08<00:00, 45.44it/s]
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:  96%|█████████▋| 385/399 [00:08<00:00, 48.08it/s]
+[36m(TrainingWorkerTest pid=15501)[0m Loading weights:  98%|█████████▊| 391/399 [00:08<00:00, 48.29it/s]Loading weights: 100%|██████████| 399/399 [00:08<00:00, 45.94it/s]
+[36m(TrainingWorkerTest pid=15501)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=15501)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=15501)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=15504)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=15501)[0m Qwen3ForCausalLM contains 8.19B parameters
+[36m(TrainingWorkerTest pid=15501)[0m Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:01:52,751:After init model from HF AutoModel, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=15501)[0m NCCL version 2.29.7+cuda13.2
+[36m(TrainingWorkerTest pid=15501)[0m After FSDP, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=15504)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=15504)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=15504)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=15501)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=15501)[0m   FSDP.set_state_dict_type(
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:02:04,234:After offload model/optimizer/grad during init, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=15504)[0m Loading weights:  70%|███████   | 280/399 [00:07<00:03, 39.36it/s][32m [repeated 44x across cluster][0m
+[36m(TrainingWorkerTest pid=15504)[0m Loading weights: 100%|██████████| 399/399 [00:07<00:00, 50.83it/s]
+[36m(CheckpointEngineWorkerTest pid=16509)[0m DEBUG:2026-10-29 18:02:19,991:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=15504)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=15504)[0m   FSDP.set_state_dict_type(
+[36m(CheckpointEngineWorkerTest pid=16509)[0m DEBUG:2026-10-29 18:02:20,861:Auto-detected platform: nvidia
+[36m(CheckpointEngineWorkerTest pid=16509)[0m DEBUG:2026-10-29 18:02:20,862:verl platform initialised: cuda
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="7d224e28-c2ff-4778-99bb-96322c66cacb", ...)
+[36m(TrainingWorkerTest pid=15501)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+[36m(CheckpointEngineWorkerTest pid=16521)[0m DEBUG:2026-10-29 18:02:21,978:Registered platforms: ('nvidia', 'huawei', 'amd')[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m DEBUG:2026-10-29 18:02:24,164:Auto-detected platform: nvidia[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m DEBUG:2026-10-29 18:02:24,165:verl platform initialised: cuda[32m [repeated 5x across cluster][0m
+[36m(TrainingWorkerTest pid=15501)[0m INFO:2026-10-29 18:02:29,351:init_process_group rank: 0, world_size: 7
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:02:29,370:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.31/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:02:45,132:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.40/139.79
+[36m(CheckpointEngineWorkerTest pid=16521)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m INFO:2026-10-29 18:02:29,364:init_process_group rank: 6, world_size: 7[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:02:47,806:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:02:47,806:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=15501)[0m INFO:2026-10-29 18:02:48,367:Rank 0 send weights done, time cost: 0.56s
+[36m(CheckpointEngineWorkerTest pid=16509)[0m INFO:2026-10-29 18:02:48,371:Rank 1 receive weights done, total_params: 543, time cost: 19.00s, bandwidth: 1.61 GB/s
+[36m(CheckpointEngineWorkerTest pid=16509)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[36m(CheckpointEngineWorkerTest pid=16509)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(CheckpointEngineWorkerTest pid=16509)[0m Loading weights:  64%|██████▍   | 256/399 [00:00<00:00, 2544.05it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2992.84it/s]
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="7d224e28-c2ff-4778-99bb-96322c66cacb", ...)
+[36m(CheckpointEngineWorkerTest pid=16509)[0m Check passed, all weights are equal!
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:06,236:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:06,237:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=15501)[0m INFO:2026-10-29 18:03:06,232:init_process_group rank: 0, world_size: 7
+[36m(CheckpointEngineWorkerTest pid=16521)[0m INFO:2026-10-29 18:02:48,373:Rank 6 receive weights done, total_params: 543, time cost: 19.00s, bandwidth: 1.61 GB/s[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m Loading weights:  64%|██████▍   | 256/399 [00:00<00:00, 2559.23it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2794.70it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16509)[0m INFO:2026-10-29 18:03:06,232:init_process_group rank: 1, world_size: 7
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:06,907:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:06,907:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=15501)[0m INFO:2026-10-29 18:03:07,360:Rank 0 send weights done, time cost: 0.45s
+[36m(CheckpointEngineWorkerTest pid=16510)[0m Check passed, all weights are equal![32m [repeated 6x across cluster][0m
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="7d224e28-c2ff-4778-99bb-96322c66cacb", ...)
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:24,770:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:24,771:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(CheckpointEngineWorkerTest pid=16521)[0m INFO:2026-10-29 18:03:07,361:Rank 6 receive weights done, total_params: 543, time cost: 1.12s, bandwidth: 27.15 GB/s[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=15501)[0m INFO:2026-10-29 18:03:24,766:init_process_group rank: 0, world_size: 7[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:25,447:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=15501)[0m DEBUG:2026-10-29 18:03:25,447:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=15501)[0m INFO:2026-10-29 18:03:25,894:Rank 0 send weights done, time cost: 0.45s
+[36m(CheckpointEngineWorkerTest pid=16517)[0m Check passed, all weights are equal![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m INFO:2026-10-29 18:03:25,895:Rank 6 receive weights done, total_params: 543, time cost: 1.12s, bandwidth: 27.16 GB/s[32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=16521)[0m INFO:2026-10-29 18:03:24,766:init_process_group rank: 6, world_size: 7[32m [repeated 6x across cluster][0m
+.2026-10-29 18:03:49,440	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:04:09,353:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:04:10,430:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:04:10,431:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=24790)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=24790)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=24790)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=24790)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=24790)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=24790)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=24790)[0m WARNING:2026-10-29 18:04:16,791:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=24793)[0m DEBUG:2026-10-29 18:04:09,629:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=24793)[0m DEBUG:2026-10-29 18:04:11,309:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=24793)[0m DEBUG:2026-10-29 18:04:11,310:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=24793)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=24793)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=24793)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=24793)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=24793)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=24793)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=24790)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=24793)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=24793)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=24793)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=24793)[0m Loading weights:   0%|          | 1/399 [00:00<01:03,  6.28it/s]
+[36m(TrainingWorkerTest pid=24793)[0m WARNING:2026-10-29 18:04:17,527:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=24790)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`[32m [repeated 2x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=24793)[0m Loading weights:  32%|███▏      | 128/399 [00:05<00:07, 34.50it/s][32m [repeated 45x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m Loading weights:  92%|█████████▏| 367/399 [00:07<00:00, 48.72it/s]
+[36m(TrainingWorkerTest pid=24790)[0m Loading weights:  95%|█████████▍| 378/399 [00:07<00:00, 48.54it/s]
+[36m(TrainingWorkerTest pid=24790)[0m Loading weights:  97%|█████████▋| 389/399 [00:08<00:00, 53.26it/s]
+[36m(TrainingWorkerTest pid=24793)[0m Loading weights:  68%|██████▊   | 271/399 [00:08<00:02, 60.43it/s]Loading weights: 100%|██████████| 399/399 [00:08<00:00, 45.45it/s]
+[36m(TrainingWorkerTest pid=24790)[0m Loading weights: 100%|██████████| 399/399 [00:08<00:00, 49.27it/s]
+[36m(TrainingWorkerTest pid=24793)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=24793)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=24793)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=24793)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=24790)[0m Qwen3ForCausalLM contains 8.19B parameters
+[36m(TrainingWorkerTest pid=24790)[0m Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:04:29,477:After init model from HF AutoModel, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=24790)[0m NCCL version 2.29.7+cuda13.2
+[36m(TrainingWorkerTest pid=24790)[0m After FSDP, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=24790)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=24790)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=24790)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=24790)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=24790)[0m   FSDP.set_state_dict_type(
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:04:40,496:After offload model/optimizer/grad during init, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=24793)[0m Loading weights:  65%|██████▍   | 259/399 [00:08<00:03, 41.40it/s][32m [repeated 44x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25804)[0m DEBUG:2026-10-29 18:04:57,300:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=24793)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=24793)[0m   FSDP.set_state_dict_type(
+[36m(CheckpointEngineWorkerTest pid=25805)[0m DEBUG:2026-10-29 18:04:58,509:Auto-detected platform: nvidia
+[36m(CheckpointEngineWorkerTest pid=25805)[0m DEBUG:2026-10-29 18:04:58,510:verl platform initialised: cuda
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="328d9602-8fe2-4e9e-8ac0-8d06c5c3c276", ...)
+[36m(TrainingWorkerTest pid=24790)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+[36m(CheckpointEngineWorkerTest pid=25815)[0m DEBUG:2026-10-29 18:04:58,627:Registered platforms: ('nvidia', 'huawei', 'amd')[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25811)[0m DEBUG:2026-10-29 18:05:01,658:Auto-detected platform: nvidia[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25811)[0m DEBUG:2026-10-29 18:05:01,659:verl platform initialised: cuda[32m [repeated 5x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m INFO:2026-10-29 18:05:07,427:init_process_group rank: 0, world_size: 8
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:07,445:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.31/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:23,682:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.40/139.79
+[36m(CheckpointEngineWorkerTest pid=25815)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 7x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25815)[0m INFO:2026-10-29 18:05:07,439:init_process_group rank: 7, world_size: 8[32m [repeated 7x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:26,139:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:26,139:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=24790)[0m INFO:2026-10-29 18:05:26,612:Rank 0 send weights done, time cost: 0.47s
+[36m(TrainingWorkerTest pid=24793)[0m INFO:2026-10-29 18:05:26,612:Rank 1 relay weights done, time cost: 0.46s
+[36m(CheckpointEngineWorkerTest pid=25804)[0m INFO:2026-10-29 18:05:26,619:Rank 2 receive weights done, total_params: 543, time cost: 19.17s, bandwidth: 1.59 GB/s
+[36m(CheckpointEngineWorkerTest pid=25804)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[36m(CheckpointEngineWorkerTest pid=25804)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(CheckpointEngineWorkerTest pid=25806)[0m Loading weights:  84%|████████▍ | 336/399 [00:00<00:00, 3359.19it/s]
+[36m(CheckpointEngineWorkerTest pid=25806)[0m Loading weights: 100%|██████████| 399/399 [00:00<00:00, 3597.28it/s]
+[36m(CheckpointEngineWorkerTest pid=25804)[0m Check passed, all weights are equal!
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:41,379:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:41,379:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=24790)[0m INFO:2026-10-29 18:05:41,373:init_process_group rank: 0, world_size: 8
+[36m(CheckpointEngineWorkerTest pid=25815)[0m INFO:2026-10-29 18:05:26,616:Rank 7 receive weights done, total_params: 543, time cost: 19.17s, bandwidth: 1.59 GB/s[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25815)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25815)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25815)[0m Loading weights:  85%|████████▌ | 341/399 [00:00<00:00, 3393.11it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25804)[0m Loading weights: 100%|██████████| 399/399 [00:00<00:00, 3562.94it/s][32m [repeated 5x across cluster][0m
+[36m(TrainingWorkerTest pid=24793)[0m INFO:2026-10-29 18:05:41,373:init_process_group rank: 1, world_size: 8
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:42,067:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:42,068:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=24790)[0m INFO:2026-10-29 18:05:42,485:Rank 0 send weights done, time cost: 0.42s
+[36m(TrainingWorkerTest pid=24793)[0m INFO:2026-10-29 18:05:42,485:Rank 1 relay weights done, time cost: 0.42s
+[36m(CheckpointEngineWorkerTest pid=25807)[0m Check passed, all weights are equal![32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:56,667:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:56,667:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(CheckpointEngineWorkerTest pid=25815)[0m INFO:2026-10-29 18:05:42,485:Rank 7 receive weights done, total_params: 543, time cost: 1.11s, bandwidth: 27.61 GB/s[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m INFO:2026-10-29 18:05:56,660:init_process_group rank: 0, world_size: 8[32m [repeated 7x across cluster][0m
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:57,350:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=24790)[0m DEBUG:2026-10-29 18:05:57,350:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=24790)[0m INFO:2026-10-29 18:05:57,777:Rank 0 send weights done, time cost: 0.43s
+[36m(TrainingWorkerTest pid=24793)[0m INFO:2026-10-29 18:05:57,777:Rank 1 relay weights done, time cost: 0.43s
+[36m(CheckpointEngineWorkerTest pid=25811)[0m Check passed, all weights are equal![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25815)[0m INFO:2026-10-29 18:05:57,778:Rank 7 receive weights done, total_params: 543, time cost: 1.11s, bandwidth: 27.56 GB/s[32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=25815)[0m INFO:2026-10-29 18:05:56,664:init_process_group rank: 7, world_size: 8[32m [repeated 7x across cluster][0m
+.2026-10-29 18:06:21,673	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:06:42,008:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:06:42,987:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:06:42,988:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=33809)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=33809)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=33809)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=33809)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=33809)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=33809)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=33809)[0m WARNING:2026-10-29 18:06:49,578:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=33813)[0m DEBUG:2026-10-29 18:06:42,348:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=33813)[0m DEBUG:2026-10-29 18:06:43,729:Auto-detected platform: nvidia
+[36m(TrainingWorkerTest pid=33813)[0m DEBUG:2026-10-29 18:06:43,730:verl platform initialised: cuda
+[36m(TrainingWorkerTest pid=33813)[0m /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+[36m(TrainingWorkerTest pid=33813)[0m   warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=33813)[0m /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+[36m(TrainingWorkerTest pid=33813)[0m   warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=33813)[0m /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+[36m(TrainingWorkerTest pid=33813)[0m   warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+[36m(TrainingWorkerTest pid=33809)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=33813)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3ForCausalLM is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=33813)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:   0%|          | 1/399 [00:00<00:48,  8.22it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:   1%|          | 2/399 [00:00<03:33,  1.86it/s]
+[36m(TrainingWorkerTest pid=33813)[0m WARNING:2026-10-29 18:06:50,181:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[36m(TrainingWorkerTest pid=33809)[0m [transformers] Flash Attention 2 only supports torch.float16 and torch.bfloat16 dtypes, but the current dype in Qwen3Model is torch.float32. You should run training or inference using Automatic Mixed-Precision via the `with torch.autocast(device_type='torch_device'):` decorator, or load the model with the `dtype` argument. Example: `model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B", attn_implementation="flash_attention_2", dtype=torch.float16)`[32m [repeated 2x across cluster][0m
+[36m(TrainingWorkerTest pid=33813)[0m Loading weights:  29%|██▉       | 115/399 [00:04<00:06, 40.82it/s]Loading weights:  30%|███       | 120/399 [00:04<00:06, 42.89it/s]
+[36m(TrainingWorkerTest pid=33813)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:  53%|█████▎    | 212/399 [00:05<00:03, 55.81it/s][32m [repeated 40x across cluster][0m
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:  91%|█████████▏| 365/399 [00:08<00:00, 52.04it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:  93%|█████████▎| 371/399 [00:08<00:00, 52.60it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:  94%|█████████▍| 377/399 [00:08<00:00, 52.75it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:  96%|█████████▌| 383/399 [00:08<00:00, 53.98it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights:  97%|█████████▋| 389/399 [00:08<00:00, 42.94it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Loading weights: 100%|██████████| 399/399 [00:08<00:00, 46.03it/s]
+[36m(TrainingWorkerTest pid=33809)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=33809)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=33809)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=33809)[0m Qwen3ForCausalLM contains 8.19B parameters
+[36m(TrainingWorkerTest pid=33813)[0m Warning: Failed to set NUMA affinity: Unknown Error
+[36m(TrainingWorkerTest pid=33809)[0m Before FSDP, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:07:02,056:After init model from HF AutoModel, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 0.51/139.79
+[36m(TrainingWorkerTest pid=33809)[0m NCCL version 2.29.7+cuda13.2
+[36m(TrainingWorkerTest pid=33809)[0m After FSDP, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=33813)[0m Monkey patch state_dict in AutoModelForCausalLMWithValueHead. 
+[36m(TrainingWorkerTest pid=33813)[0m Monkey patch _flash_attention_forward in transformers.integrations.flash_attention
+[36m(TrainingWorkerTest pid=33813)[0m Skipping monkey patch for Qwen3ForCausalLM as use_fused_kernels is False or fused_kernels_backend is None
+[36m(TrainingWorkerTest pid=33809)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=33809)[0m   FSDP.set_state_dict_type(
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:07:12,925:After offload model/optimizer/grad during init, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 17.54/139.79
+[36m(TrainingWorkerTest pid=33813)[0m Loading weights:  68%|██████▊   | 273/399 [00:07<00:03, 37.88it/s][32m [repeated 44x across cluster][0m
+[36m(TrainingWorkerTest pid=33813)[0m Loading weights: 100%|██████████| 399/399 [00:08<00:00, 49.75it/s]
+[36m(CheckpointEngineWorkerTest pid=34828)[0m DEBUG:2026-10-29 18:07:28,886:Registered platforms: ('nvidia', 'huawei', 'amd')
+[36m(TrainingWorkerTest pid=33813)[0m /workspace/verl/verl/workers/engine/fsdp/transformer_impl.py:492: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+[36m(TrainingWorkerTest pid=33813)[0m   FSDP.set_state_dict_type(
+[36m(CheckpointEngineWorkerTest pid=34828)[0m DEBUG:2026-10-29 18:07:29,705:Auto-detected platform: nvidia
+[36m(CheckpointEngineWorkerTest pid=34828)[0m DEBUG:2026-10-29 18:07:29,706:verl platform initialised: cuda
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="cc1e6149-8ac9-486e-819c-8ba57fa92b9f", ...)
+[36m(TrainingWorkerTest pid=33809)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+[36m(CheckpointEngineWorkerTest pid=34840)[0m DEBUG:2026-10-29 18:07:30,664:Registered platforms: ('nvidia', 'huawei', 'amd')[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m DEBUG:2026-10-29 18:07:33,204:Auto-detected platform: nvidia[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m DEBUG:2026-10-29 18:07:33,205:verl platform initialised: cuda[32m [repeated 5x across cluster][0m
+[36m(TrainingWorkerTest pid=33809)[0m INFO:2026-10-29 18:07:40,925:init_process_group rank: 0, world_size: 8
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:07:40,943:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.31/139.79
+[36m(CheckpointEngineWorkerTest pid=34840)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 7x across cluster][0m
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:07:56,712:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 16.08, device memory used/total (GB): 18.40/139.79
+[36m(CheckpointEngineWorkerTest pid=34840)[0m INFO:2026-10-29 18:07:40,937:init_process_group rank: 7, world_size: 8[32m [repeated 7x across cluster][0m
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:07:59,318:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:07:59,319:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.60, device memory used/total (GB): 25.92/139.79
+[36m(TrainingWorkerTest pid=33809)[0m INFO:2026-10-29 18:07:59,829:Rank 0 send weights done, time cost: 0.51s
+[36m(TrainingWorkerTest pid=33813)[0m INFO:2026-10-29 18:07:59,829:Rank 1 relay weights done, time cost: 0.51s
+[36m(CheckpointEngineWorkerTest pid=34828)[0m INFO:2026-10-29 18:07:59,833:Rank 2 receive weights done, total_params: 543, time cost: 18.89s, bandwidth: 1.62 GB/s
+[36m(CheckpointEngineWorkerTest pid=34828)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[36m(CheckpointEngineWorkerTest pid=34828)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s]
+[36m(CheckpointEngineWorkerTest pid=34828)[0m Loading weights:  65%|██████▌   | 261/399 [00:00<00:00, 2604.74it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2850.14it/s]
+[36m(CheckpointEngineWorkerTest pid=34828)[0m Check passed, all weights are equal!
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="cc1e6149-8ac9-486e-819c-8ba57fa92b9f", ...)
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:17,624:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:17,625:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=33809)[0m INFO:2026-10-29 18:08:17,620:init_process_group rank: 0, world_size: 8
+[36m(CheckpointEngineWorkerTest pid=34840)[0m INFO:2026-10-29 18:07:59,835:Rank 7 receive weights done, total_params: 543, time cost: 18.89s, bandwidth: 1.62 GB/s[32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m [transformers] `torch_dtype` is deprecated! Use `dtype` instead![32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m Loading weights:   0%|          | 0/399 [00:00<?, ?it/s][32m [repeated 5x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m Loading weights:  64%|██████▍   | 256/399 [00:00<00:00, 2555.41it/s]Loading weights: 100%|██████████| 399/399 [00:00<00:00, 2910.88it/s][32m [repeated 5x across cluster][0m
+[36m(TrainingWorkerTest pid=33813)[0m INFO:2026-10-29 18:08:17,620:init_process_group rank: 1, world_size: 8
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:18,309:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:18,309:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=33809)[0m INFO:2026-10-29 18:08:18,744:Rank 0 send weights done, time cost: 0.43s
+[36m(TrainingWorkerTest pid=33813)[0m INFO:2026-10-29 18:08:18,744:Rank 1 relay weights done, time cost: 0.44s
+[36m(CheckpointEngineWorkerTest pid=34828)[0m Check passed, all weights are equal![32m [repeated 6x across cluster][0m
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="cc1e6149-8ac9-486e-819c-8ba57fa92b9f", ...)
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:36,118:Before load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:36,121:After load_fsdp_model_to_gpu, memory allocated (GB): 0.00, memory reserved (GB): 0.00, device memory used/total (GB): 2.32/139.79
+[36m(CheckpointEngineWorkerTest pid=34840)[0m INFO:2026-10-29 18:08:18,745:Rank 7 receive weights done, total_params: 543, time cost: 1.12s, bandwidth: 27.25 GB/s[32m [repeated 6x across cluster][0m
+[36m(TrainingWorkerTest pid=33809)[0m INFO:2026-10-29 18:08:36,114:init_process_group rank: 0, world_size: 8[32m [repeated 7x across cluster][0m
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:36,790:Before offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=33809)[0m DEBUG:2026-10-29 18:08:36,791:After offload_fsdp_model_to_cpu, memory allocated (GB): 15.26, memory reserved (GB): 23.85, device memory used/total (GB): 26.17/139.79
+[36m(TrainingWorkerTest pid=33809)[0m INFO:2026-10-29 18:08:37,215:Rank 0 send weights done, time cost: 0.42s
+[36m(TrainingWorkerTest pid=33813)[0m INFO:2026-10-29 18:08:37,215:Rank 1 relay weights done, time cost: 0.42s
+[36m(CheckpointEngineWorkerTest pid=34828)[0m Check passed, all weights are equal![32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m Check passed, all weights are equal![32m [repeated 3x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m INFO:2026-10-29 18:08:37,216:Rank 7 receive weights done, total_params: 543, time cost: 1.10s, bandwidth: 27.84 GB/s[32m [repeated 6x across cluster][0m
+[36m(CheckpointEngineWorkerTest pid=34840)[0m INFO:2026-10-29 18:08:36,114:init_process_group rank: 7, world_size: 8[32m [repeated 7x across cluster][0m
+.sss
+tests/checkpoint_engine/test_sharded_delta.py ...........
+tests/plugin/test_platform_abstraction.py ..............
+tests/single_controller/base/test_decorator.py ..
+tests/single_controller/test_colocated_workers.py 2026-10-29 18:09:03,706	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+colocated worker base class <class 'verl.single_controller.base.worker.Worker'>
+.
+tests/single_controller/test_colocated_workers_fused.py 2026-10-29 18:09:42,112	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+.
+tests/single_controller/test_data_transfer.py 2026-10-29 18:10:19,384	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+DataProto(batch=TensorDict(
+    fields={
+        0: Tensor(shape=torch.Size([4096, 32768]), device=cpu, dtype=torch.int64, is_shared=False),
+        1: Tensor(shape=torch.Size([4096, 32768]), device=cpu, dtype=torch.int64, is_shared=False)},
+    batch_size=torch.Size([4096]),
+    device=None,
+    is_shared=False), non_tensor_batch={}, meta_info={})
+Timer ray.pickle started
+Elapsed time: 2.7877 seconds
+Timer raw.pickle started
+Elapsed time: 2.9084 seconds
+Timer put started
+Elapsed time: 2.9500 seconds
+Timer launch started
+Elapsed time: 0.0051 seconds
+Timer get started
+Elapsed time: 9.3151 seconds
+.
+tests/single_controller/test_device_mesh_register.py 2026-10-29 18:10:57,499	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[NestedTensor(size=(8, j15), offsets=tensor([ 0,  2,  4,  6,  7, 16, 20, 21, 30]), contiguous=True), NestedTensor(size=(8, j16), offsets=tensor([ 0,  4,  5, 13, 18, 20, 25, 31, 34]), contiguous=True)]
+.
+tests/single_controller/test_driverfunc_to_worker.py 2026-10-29 18:11:42,757	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+.
+tests/single_controller/test_get_set_dispatch_collect_cpu.py .
+tests/single_controller/test_high_level_scheduling_api.py 2026-10-29 18:12:07,829	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+test single-node-no-partition
+create actor worker group
+create critic worker group
+create ref worker group
+wait 5s to remove placemeng_group
+test single-node-multi-partition
+.
+tests/single_controller/test_nested_worker.py 2026-10-29 18:13:51,997	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+.
+tests/single_controller/test_ray_collectives.py 2026-10-29 18:14:33,165	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="b4b32ab9-ab17-4862-8a30-60a1d08a99f2", ...)
+[36m(Actor pid=30593)[0m NCCL version 2.29.7+cuda13.2
+{'src_0': tensor([0., 0., 0., 0.], device='cuda:0'), 'src_1': tensor([1., 1., 1., 1.], device='cuda:0'), 'src_2': tensor([2., 2., 2., 2.], device='cuda:0'), 'src_3': tensor([3., 3., 3., 3.], device='cuda:0')}
+[33m(raylet)[0m It looks like you're creating a detached actor in an anonymous namespace. In order to access this actor in the future, you will need to explicitly connect to this namespace with ray.init(namespace="b4b32ab9-ab17-4862-8a30-60a1d08a99f2", ...)[32m [repeated 3x across cluster][0m
+[36m(Actor pid=30596)[0m NCCL version 2.29.7+cuda13.2[32m [repeated 3x across cluster][0m
+.
+tests/single_controller/test_rvdz.py 2026-10-29 18:15:11,716	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TestWorker pid=32897)[0m NCCL version 2.29.7+cuda13.2
+.
+tests/single_controller/test_split_resource_pool.py 2026-10-29 18:15:40,946	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+.2026-10-29 18:16:15,851	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[0.0, 1.0]
+[100.0, 101.0, 102.0, 103.0, 104.0, 105.0]
+.2026-10-29 18:16:51,141	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[0.0, 1.0]
+[100.0, 101.0, 102.0, 103.0, 104.0, 105.0]
+.2026-10-29 18:17:26,180	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(Actor pid=465)[0m [rank0]:[W1029 18:17:57.756492891 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[36m(Actor pid=240)[0m [rank0]:[W1029 18:17:57.796556399 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+.
+tests/single_controller/test_worker_group_basics.py 2026-10-29 18:18:27,098	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+['worker_group_basicTestActor_0:0', 'worker_group_basicTestActor_0:1', 'worker_group_basicTestActor_0:2', 'worker_group_basicTestActor_0:3']
+[ObjectRef(24eb7eb4f63e426bf80a6ada5d410a8f8c9228ef0100000001000000), ObjectRef(b7d7850b866fb9ab18f90356fb600022d17a86a80100000001000000), ObjectRef(48b33d45375d10a670a1e1e5b7915f6ada20c7bd0100000001000000), ObjectRef(2709e7b6a236758245a90a5e4b9029f6fa556fcb0100000001000000)]
+[36m(remote_call_wg pid=2205)[0m ['worker_group_basicTestActor_0:0', 'worker_group_basicTestActor_0:1', 'worker_group_basicTestActor_0:2', 'worker_group_basicTestActor_0:3']
+['worker_group_basicTestActor_0:0', 'worker_group_basicTestActor_0:1', 'worker_group_basicTestActor_0:2', 'worker_group_basicTestActor_0:3']
+.
+tests/single_controller/test_worker_group_torch.py 2026-10-29 18:19:06,282	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TestAllGatherActor pid=13742)[0m NCCL version 2.29.7+cuda13.2
+[36m(TestAllGatherActor pid=13742)[0m /workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+[36m(TestAllGatherActor pid=13742)[0m   return func(*args, **kwargs)
+tensor([0, 0, 1, 1, 2, 2, 3, 3])
+[36m(TestAllGatherActor pid=13776)[0m /workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.[32m [repeated 3x across cluster][0m
+[36m(TestAllGatherActor pid=13776)[0m   return func(*args, **kwargs)[32m [repeated 3x across cluster][0m
+.2026-10-29 18:19:37,634	INFO worker.py:2003 -- Started a local Ray instance. View the dashboard at [1m[32mhttp://127.0.0.1:8265 [39m[22m
+[36m(TestAllGatherActorV2 pid=20416)[0m /workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+[36m(TestAllGatherActorV2 pid=20416)[0m   return func(*args, **kwargs)
+[36m(TestAllGatherActorV2 pid=20412)[0m NCCL version 2.29.7+cuda13.2
+tensor([0, 0, 1, 1, 2, 2, 3, 3])
+[36m(TestAllGatherActorV2 pid=20439)[0m /workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.[32m [repeated 3x across cluster][0m
+[36m(TestAllGatherActorV2 pid=20439)[0m   return func(*args, **kwargs)[32m [repeated 3x across cluster][0m
+.
+tests/trainer/ppo/test_rollout_corr.py Testing basic rollout correction functionality...
+
+1. Testing token-level truncate mode...
+   Weights shape: torch.Size([4, 10])
+   Mean weight: 1.0065
+   Max weight: 1.2378
+   Min weight: 0.7924
+   ✓ Token-level truncate mode passed
+
+2. Testing sequence-level mode...
+   Mean weight: 1.0725
+   Effective sample size: 0.8795
+   ✓ Sequence-level mode passed
+
+3. Testing K1 (sequence mean) rejection sampling...
+   Masked fraction: 0.0000
+   ✓ K1 sequence mean rejection sampling passed
+
+4. Testing disabled IS...
+   ✓ Disabled IS passed
+
+✓ All tests passed!
+.............
+Testing metrics completeness...
+   ✓ All 20 expected metrics present
+   Total metrics returned: 27
+.
+Testing off-policy metrics computation...
+   Training PPL: 6.7388
+   Rollout PPL: 4.8876
+   KL divergence: 0.330186
+   K3 KL: 1.684611
+   PPL ratio: 1.4212
+   ✓ All 13 off-policy metrics present
+   ✓ Off-policy metrics work without rollout log probs
+.
+Testing mask mode behavior...
+   First seq IS weight: 0.3679 (expected ≈0.37)
+   Second seq IS weight: 1.6487 (expected ≈1.65)
+   First seq mask: 0 (expected 0 - rejected)
+   Second seq mask: 1 (expected 1 - accepted)
+   Masked fraction: 0.50
+   ✓ Mask mode correctly separates IS weights from rejection
+....
+tests/trainer/ppo/test_rollout_corr_integration.py ...........
+tests/utils/debug/test_metrics.py .{'training/rollout_probs_diff_valid': 1, 'training/rollout_probs_diff_max': 0.7613391876220703, 'training/rollout_probs_diff_mean': 0.30895471572875977, 'training/rollout_probs_diff_std': 0.23907817900180817, 'training/rollout_actor_probs_pearson_corr': -0.1621081531047821, 'training/rollout_logprobs_mismatch_count': 20, 'training/rollout_logprobs_diff_max': 1.8831000328063965, 'training/rollout_logprobs_diff_mean': 0.7011199593544006}
+..
+tests/utils/megatron/test_optimizer.py optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16, 'use_precision_aware_optimizer': True, 'main_grads_dtype': torch.bfloat16, 'exp_avg_dtype': torch.bfloat16, 'exp_avg_sq_dtype': torch.bfloat16}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16, 'use_precision_aware_optimizer': True, 'main_grads_dtype': torch.bfloat16, 'exp_avg_dtype': torch.bfloat16, 'exp_avg_sq_dtype': torch.float32}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': False, 'fp16': True, 'params_dtype': torch.float16, 'initial_loss_scale': 32768, 'min_loss_scale': 1, 'use_precision_aware_optimizer': True, 'store_param_remainders': False}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': False, 'fp16': False, 'params_dtype': torch.float32}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': False, 'fp16': True, 'params_dtype': torch.float16, 'initial_loss_scale': 32768, 'min_loss_scale': 1, 'use_precision_aware_optimizer': True, 'store_param_remainders': False}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': False, 'bf16': True, 'params_dtype': torch.bfloat16}
+optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16}
+.optimizer config after override: {'optimizer': 'sgd', 'lr': 0.0005, 'min_lr': 1e-05, 'clip_grad': 0.5, 'weight_decay': 0.1, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16, 'use_precision_aware_optimizer': False, 'main_grads_dtype': torch.bfloat16, 'exp_avg_dtype': 'sentinel-override', 'exp_avg_sq_dtype': torch.bfloat16}
+.optimizer config after override: {'optimizer': 'adam', 'lr': 0.001, 'min_lr': 0.0, 'clip_grad': 1.0, 'weight_decay': 0.01, 'use_distributed_optimizer': True, 'bf16': True, 'params_dtype': torch.bfloat16, 'use_precision_aware_optimizer': True, 'main_grads_dtype': torch.bfloat16, 'exp_avg_dtype': torch.bfloat16, 'exp_avg_sq_dtype': torch.bfloat16}
+.
+tests/utils/megatron/test_optimizer_offload_and_load.py NCCL version 2.29.7+cuda13.2
+..
+tests/utils/megatron/test_pipeline_parallel.py ........
+tests/utils/test_activation_offload.py /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 18:20:23,981:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 18:20:24,003:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+INFO:2026-10-29 18:20:30,270:[Rank 1] Saved model to /tmp/tmpvd52fnsl/checkpoint/model_world_size_2_rank_1.pt
+INFO:2026-10-29 18:20:30,524:[Rank 0] Saved model to /tmp/tmp1p_6zm3c/checkpoint/model_world_size_2_rank_0.pt
+INFO:2026-10-29 18:20:35,431:[Rank 1] Saved optim to /tmp/tmpvd52fnsl/checkpoint/optim_world_size_2_rank_1.pt
+INFO:2026-10-29 18:20:35,434:[Rank 1] Saved extra_state to /tmp/tmpvd52fnsl/checkpoint/extra_state_world_size_2_rank_1.pt
+INFO:2026-10-29 18:20:35,596:[Rank 0] Saved optim to /tmp/tmp1p_6zm3c/checkpoint/optim_world_size_2_rank_0.pt
+INFO:2026-10-29 18:20:35,597:[Rank 0] Saved extra_state to /tmp/tmp1p_6zm3c/checkpoint/extra_state_world_size_2_rank_0.pt
+INFO:2026-10-29 18:20:35,687:[Rank 0] Saved model config and tokenizer class to /tmp/tmp1p_6zm3c/checkpoint/huggingface
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:20:37,221:[Rank 1] Loaded model from /tmp/tmpvd52fnsl/checkpoint/model_world_size_2_rank_1.pt
+INFO:2026-10-29 18:20:37,221:[Rank 0] Loaded model from /tmp/tmp1p_6zm3c/checkpoint/model_world_size_2_rank_0.pt
+INFO:2026-10-29 18:20:39,186:[Rank 0] Loaded optimizer from /tmp/tmp1p_6zm3c/checkpoint/optim_world_size_2_rank_0.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:20:39,187:[Rank 0] Loaded rng from /tmp/tmp1p_6zm3c/checkpoint/extra_state_world_size_2_rank_0.pt
+INFO:2026-10-29 18:20:39,187:[Rank 0] Loaded lr_scheduler from /tmp/tmp1p_6zm3c/checkpoint/extra_state_world_size_2_rank_0.pt
+INFO:2026-10-29 18:20:39,245:[Rank 1] Loaded optimizer from /tmp/tmpvd52fnsl/checkpoint/optim_world_size_2_rank_1.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:20:39,247:[Rank 1] Loaded rng from /tmp/tmpvd52fnsl/checkpoint/extra_state_world_size_2_rank_1.pt
+INFO:2026-10-29 18:20:39,247:[Rank 1] Loaded lr_scheduler from /tmp/tmpvd52fnsl/checkpoint/extra_state_world_size_2_rank_1.pt
+Activaiton offloading for fsdp test passed on 2 GPUs!
+Activaiton offloading for fsdp test passed on 2 GPUs!
+./workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 18:21:05,409:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+WARNING:2026-10-29 18:21:06,468:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 18:21:06,555:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 18:21:06,583:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+INFO:2026-10-29 18:21:13,027:[Rank 3] Saved model to /tmp/tmpuw7is8xw/checkpoint/model_world_size_4_rank_3.pt
+INFO:2026-10-29 18:21:13,153:[Rank 1] Saved model to /tmp/tmp5k3vl7m3/checkpoint/model_world_size_4_rank_1.pt
+INFO:2026-10-29 18:21:13,280:[Rank 2] Saved model to /tmp/tmpoalwqg51/checkpoint/model_world_size_4_rank_2.pt
+INFO:2026-10-29 18:21:13,434:[Rank 0] Saved model to /tmp/tmpa3rpkgv_/checkpoint/model_world_size_4_rank_0.pt
+INFO:2026-10-29 18:21:17,421:[Rank 3] Saved optim to /tmp/tmpuw7is8xw/checkpoint/optim_world_size_4_rank_3.pt
+INFO:2026-10-29 18:21:17,427:[Rank 3] Saved extra_state to /tmp/tmpuw7is8xw/checkpoint/extra_state_world_size_4_rank_3.pt
+INFO:2026-10-29 18:21:17,488:[Rank 2] Saved optim to /tmp/tmpoalwqg51/checkpoint/optim_world_size_4_rank_2.pt
+INFO:2026-10-29 18:21:17,492:[Rank 2] Saved extra_state to /tmp/tmpoalwqg51/checkpoint/extra_state_world_size_4_rank_2.pt
+INFO:2026-10-29 18:21:17,623:[Rank 0] Saved optim to /tmp/tmpa3rpkgv_/checkpoint/optim_world_size_4_rank_0.pt
+INFO:2026-10-29 18:21:17,625:[Rank 0] Saved extra_state to /tmp/tmpa3rpkgv_/checkpoint/extra_state_world_size_4_rank_0.pt
+INFO:2026-10-29 18:21:17,709:[Rank 1] Saved optim to /tmp/tmp5k3vl7m3/checkpoint/optim_world_size_4_rank_1.pt
+INFO:2026-10-29 18:21:17,710:[Rank 1] Saved extra_state to /tmp/tmp5k3vl7m3/checkpoint/extra_state_world_size_4_rank_1.pt
+INFO:2026-10-29 18:21:17,723:[Rank 0] Saved model config and tokenizer class to /tmp/tmpa3rpkgv_/checkpoint/huggingface
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:21:18,702:[Rank 3] Loaded model from /tmp/tmpuw7is8xw/checkpoint/model_world_size_4_rank_3.pt
+INFO:2026-10-29 18:21:18,702:[Rank 0] Loaded model from /tmp/tmpa3rpkgv_/checkpoint/model_world_size_4_rank_0.pt
+INFO:2026-10-29 18:21:18,702:[Rank 2] Loaded model from /tmp/tmpoalwqg51/checkpoint/model_world_size_4_rank_2.pt
+INFO:2026-10-29 18:21:18,702:[Rank 1] Loaded model from /tmp/tmp5k3vl7m3/checkpoint/model_world_size_4_rank_1.pt
+INFO:2026-10-29 18:21:19,807:[Rank 3] Loaded optimizer from /tmp/tmpuw7is8xw/checkpoint/optim_world_size_4_rank_3.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:21:19,809:[Rank 3] Loaded rng from /tmp/tmpuw7is8xw/checkpoint/extra_state_world_size_4_rank_3.pt
+INFO:2026-10-29 18:21:19,809:[Rank 3] Loaded lr_scheduler from /tmp/tmpuw7is8xw/checkpoint/extra_state_world_size_4_rank_3.pt
+INFO:2026-10-29 18:21:19,874:[Rank 2] Loaded optimizer from /tmp/tmpoalwqg51/checkpoint/optim_world_size_4_rank_2.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:21:19,876:[Rank 2] Loaded rng from /tmp/tmpoalwqg51/checkpoint/extra_state_world_size_4_rank_2.pt
+INFO:2026-10-29 18:21:19,876:[Rank 2] Loaded lr_scheduler from /tmp/tmpoalwqg51/checkpoint/extra_state_world_size_4_rank_2.pt
+INFO:2026-10-29 18:21:19,915:[Rank 1] Loaded optimizer from /tmp/tmp5k3vl7m3/checkpoint/optim_world_size_4_rank_1.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:21:19,917:[Rank 1] Loaded rng from /tmp/tmp5k3vl7m3/checkpoint/extra_state_world_size_4_rank_1.pt
+INFO:2026-10-29 18:21:19,917:[Rank 1] Loaded lr_scheduler from /tmp/tmp5k3vl7m3/checkpoint/extra_state_world_size_4_rank_1.pt
+INFO:2026-10-29 18:21:20,017:[Rank 0] Loaded optimizer from /tmp/tmpa3rpkgv_/checkpoint/optim_world_size_4_rank_0.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+INFO:2026-10-29 18:21:20,018:[Rank 0] Loaded rng from /tmp/tmpa3rpkgv_/checkpoint/extra_state_world_size_4_rank_0.pt
+INFO:2026-10-29 18:21:20,018:[Rank 0] Loaded lr_scheduler from /tmp/tmpa3rpkgv_/checkpoint/extra_state_world_size_4_rank_0.pt
+Activaiton offloading for fsdp test passed on 4 GPUs!
+Activaiton offloading for fsdp test passed on 4 GPUs!
+Activaiton offloading for fsdp test passed on 4 GPUs!
+Activaiton offloading for fsdp test passed on 4 GPUs!
+./workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 18:21:42,251:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+WARNING:2026-10-29 18:21:42,536:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+INFO:2026-10-29 18:21:48,372:[Rank 0] Saved model to /tmp/tmpij1fsmvt/checkpoint/model_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:48,618:[Rank 1] Saved model to /tmp/tmpgln2o_42/checkpoint/model_world_size_2_rank_1.pt
+INFO:2026-10-29 18:21:53,425:[Rank 0] Saved optim to /tmp/tmpij1fsmvt/checkpoint/optim_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:53,427:[Rank 0] Saved extra_state to /tmp/tmpij1fsmvt/checkpoint/extra_state_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:53,735:[Rank 1] Saved optim to /tmp/tmpgln2o_42/checkpoint/optim_world_size_2_rank_1.pt
+INFO:2026-10-29 18:21:53,735:[Rank 0] Saved model config and tokenizer class to /tmp/tmpij1fsmvt/checkpoint/huggingface
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+INFO:2026-10-29 18:21:53,736:[Rank 1] Saved extra_state to /tmp/tmpgln2o_42/checkpoint/extra_state_world_size_2_rank_1.pt
+INFO:2026-10-29 18:21:55,297:[Rank 1] Loaded model from /tmp/tmpgln2o_42/checkpoint/model_world_size_2_rank_1.pt
+INFO:2026-10-29 18:21:55,321:[Rank 0] Loaded model from /tmp/tmpij1fsmvt/checkpoint/model_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:57,973:[Rank 0] Loaded optimizer from /tmp/tmpij1fsmvt/checkpoint/optim_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:57,974:[Rank 0] Loaded rng from /tmp/tmpij1fsmvt/checkpoint/extra_state_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:57,974:[Rank 0] Loaded lr_scheduler from /tmp/tmpij1fsmvt/checkpoint/extra_state_world_size_2_rank_0.pt
+INFO:2026-10-29 18:21:58,100:[Rank 1] Loaded optimizer from /tmp/tmpgln2o_42/checkpoint/optim_world_size_2_rank_1.pt
+INFO:2026-10-29 18:21:58,101:[Rank 1] Loaded rng from /tmp/tmpgln2o_42/checkpoint/extra_state_world_size_2_rank_1.pt
+INFO:2026-10-29 18:21:58,101:[Rank 1] Loaded lr_scheduler from /tmp/tmpgln2o_42/checkpoint/extra_state_world_size_2_rank_1.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2DecoderLayer) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2DecoderLayer) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPLinear) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2ForCausalLM) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPLinear) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2ForCausalLM) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+Activaiton offloading for fsdp2 test passed on 2 GPUs!
+Activaiton offloading for fsdp2 test passed on 2 GPUs!
+./workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+  warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni.arguments'")
+  warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+/workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+  warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+WARNING:2026-10-29 18:22:21,107:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+WARNING:2026-10-29 18:22:24,059:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+WARNING:2026-10-29 18:22:24,594:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+WARNING:2026-10-29 18:22:24,617:flash_attn.cute (FlashAttention-4) is unusable and is being hidden so optional FA4 probes fail with ImportError as they expect; FlashAttention-2 is unaffected. Cause: AttributeError: module 'cutlass.cute.core' has no attribute 'ThrMma'
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+INFO:2026-10-29 18:22:30,652:[Rank 0] Saved model to /tmp/tmp7m_2548s/checkpoint/model_world_size_4_rank_0.pt
+INFO:2026-10-29 18:22:30,784:[Rank 3] Saved model to /tmp/tmpxtwlopgc/checkpoint/model_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:30,911:[Rank 2] Saved model to /tmp/tmpiuazc4jv/checkpoint/model_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:31,045:[Rank 1] Saved model to /tmp/tmpr99_e210/checkpoint/model_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:35,080:[Rank 2] Saved optim to /tmp/tmpiuazc4jv/checkpoint/optim_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:35,081:[Rank 2] Saved extra_state to /tmp/tmpiuazc4jv/checkpoint/extra_state_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:35,759:[Rank 1] Saved optim to /tmp/tmpr99_e210/checkpoint/optim_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:35,761:[Rank 1] Saved extra_state to /tmp/tmpr99_e210/checkpoint/extra_state_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:35,961:[Rank 3] Saved optim to /tmp/tmpxtwlopgc/checkpoint/optim_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:35,963:[Rank 3] Saved extra_state to /tmp/tmpxtwlopgc/checkpoint/extra_state_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:36,206:[Rank 0] Saved optim to /tmp/tmp7m_2548s/checkpoint/optim_world_size_4_rank_0.pt
+INFO:2026-10-29 18:22:36,207:[Rank 0] Saved extra_state to /tmp/tmp7m_2548s/checkpoint/extra_state_world_size_4_rank_0.pt
+INFO:2026-10-29 18:22:36,301:[Rank 0] Saved model config and tokenizer class to /tmp/tmp7m_2548s/checkpoint/huggingface
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+INFO:2026-10-29 18:22:37,119:[Rank 2] Loaded model from /tmp/tmpiuazc4jv/checkpoint/model_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:37,152:[Rank 3] Loaded model from /tmp/tmpxtwlopgc/checkpoint/model_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:37,193:[Rank 0] Loaded model from /tmp/tmp7m_2548s/checkpoint/model_world_size_4_rank_0.pt
+INFO:2026-10-29 18:22:37,248:[Rank 1] Loaded model from /tmp/tmpr99_e210/checkpoint/model_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:38,512:[Rank 3] Loaded optimizer from /tmp/tmpxtwlopgc/checkpoint/optim_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:38,513:[Rank 3] Loaded rng from /tmp/tmpxtwlopgc/checkpoint/extra_state_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:38,513:[Rank 3] Loaded lr_scheduler from /tmp/tmpxtwlopgc/checkpoint/extra_state_world_size_4_rank_3.pt
+INFO:2026-10-29 18:22:38,518:[Rank 2] Loaded optimizer from /tmp/tmpiuazc4jv/checkpoint/optim_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:38,519:[Rank 2] Loaded rng from /tmp/tmpiuazc4jv/checkpoint/extra_state_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:38,520:[Rank 2] Loaded lr_scheduler from /tmp/tmpiuazc4jv/checkpoint/extra_state_world_size_4_rank_2.pt
+INFO:2026-10-29 18:22:38,721:[Rank 1] Loaded optimizer from /tmp/tmpr99_e210/checkpoint/optim_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:38,723:[Rank 1] Loaded rng from /tmp/tmpr99_e210/checkpoint/extra_state_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:38,723:[Rank 1] Loaded lr_scheduler from /tmp/tmpr99_e210/checkpoint/extra_state_world_size_4_rank_1.pt
+INFO:2026-10-29 18:22:38,724:[Rank 0] Loaded optimizer from /tmp/tmp7m_2548s/checkpoint/optim_world_size_4_rank_0.pt
+INFO:2026-10-29 18:22:38,725:[Rank 0] Loaded rng from /tmp/tmp7m_2548s/checkpoint/extra_state_world_size_4_rank_0.pt
+INFO:2026-10-29 18:22:38,725:[Rank 0] Loaded lr_scheduler from /tmp/tmp7m_2548s/checkpoint/extra_state_world_size_4_rank_0.pt
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2DecoderLayer) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2DecoderLayer) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2DecoderLayer) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2DecoderLayer) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPLinear) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2ForCausalLM) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPLinear) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPLinear) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2ForCausalLM) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2ForCausalLM) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPLinear) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/_fully_shard/_fsdp_state.py:331: UserWarning: FSDP2-wrapped module (FSDPQwen2ForCausalLM) returned a view tensor. An in-place op on this view (e.g., `x += y`) will silently drop the pre-backward hook and skip the all-gather, which can cause backward to fail or produce wrong gradients. Use out-of-place ops (`out = out + y`, not `out += y`) or `.clone()` the output before any in-place op.
+  output = self._register_pre_backward_hook(output)
+Activaiton offloading for fsdp2 test passed on 4 GPUs!
+Activaiton offloading for fsdp2 test passed on 4 GPUs!
+Activaiton offloading for fsdp2 test passed on 4 GPUs!Activaiton offloading for fsdp2 test passed on 4 GPUs!
+
+.
+tests/utils/test_attention_utils.py .....
+tests/utils/test_dynamic_cp_scheduler.py .......
+tests/utils/test_flops_counter.py Expect flops for {'model_type': 'llama', 'vocab_size': 32000, 'hidden_size': 4096, 'intermediate_size': 11008, 'num_hidden_layers': 32, 'num_attention_heads': 32, 'num_key_value_heads': 32} is 149.226491215872, but get 149.226491215872
+Expect flops for {'model_type': 'llama', 'vocab_size': 32000, 'hidden_size': 4096, 'intermediate_size': 11008, 'num_hidden_layers': 32, 'num_attention_heads': 32, 'num_key_value_heads': 32} is 536.372695793664, but get 536.372695793664
+.Expect flops for {'model_type': 'qwen2', 'vocab_size': 152064, 'hidden_size': 3584, 'intermediate_size': 18944, 'num_hidden_layers': 28, 'num_attention_heads': 28, 'num_key_value_heads': 4} is 167.073690943488, but get 167.073690943488
+Expect flops for {'model_type': 'qwen2', 'vocab_size': 152064, 'hidden_size': 3584, 'intermediate_size': 18944, 'num_hidden_layers': 28, 'num_attention_heads': 28, 'num_key_value_heads': 4} is 591.764889010176, but get 591.764889010176
+.Expect flops for {'model_type': 'qwen3', 'vocab_size': 151936, 'hidden_size': 4096, 'intermediate_size': 12288, 'num_hidden_layers': 36, 'num_attention_heads': 32, 'num_key_value_heads': 8, 'head_dim': 128} is 180.997438046208, but get 180.997438046208
+Expect flops for {'model_type': 'qwen3', 'vocab_size': 151936, 'hidden_size': 4096, 'intermediate_size': 12288, 'num_hidden_layers': 36, 'num_attention_heads': 32, 'num_key_value_heads': 8, 'head_dim': 128} is 648.394032807936, but get 648.394032807936
+.Expect flops for {'model_type': 'qwen3_moe', 'hidden_size': 2048, 'vocab_size': 151936, 'num_hidden_layers': 48, 'num_key_value_heads': 4, 'num_attention_heads': 32, 'head_dim': 128, 'moe_intermediate_size': 768, 'num_experts_per_tok': 8, 'num_experts': 128} is 78.593069678592, but get 78.593069678592
+Expect flops for {'model_type': 'qwen3_moe', 'hidden_size': 2048, 'vocab_size': 151936, 'num_hidden_layers': 48, 'num_key_value_heads': 4, 'num_attention_heads': 32, 'head_dim': 128, 'moe_intermediate_size': 768, 'num_experts_per_tok': 8, 'num_experts': 128} is 306.570470621184, but get 306.570470621184
+.Expect flops for {'model_type': 'deepseek_v3', 'hidden_size': 7168, 'vocab_size': 129280, 'moe_intermediate_size': 2048, 'num_hidden_layers': 61, 'first_k_dense_replace': 3, 'num_attention_heads': 128, 'n_routed_experts': 256, 'num_experts_per_tok': 8, 'n_shared_experts': 1, 'kv_lora_rank': 512, 'qk_rope_head_dim': 64, 'v_head_dim': 128, 'intermediate_size': 18432, 'qk_nope_head_dim': 128, 'q_lora_rank': 1536} is 848.766538088448, but get 848.766538088448
+Expect flops for {'model_type': 'deepseek_v3', 'hidden_size': 7168, 'vocab_size': 129280, 'moe_intermediate_size': 2048, 'num_hidden_layers': 61, 'first_k_dense_replace': 3, 'num_attention_heads': 128, 'n_routed_experts': 256, 'num_experts_per_tok': 8, 'n_shared_experts': 1, 'kv_lora_rank': 512, 'qk_rope_head_dim': 64, 'v_head_dim': 128, 'intermediate_size': 18432, 'qk_nope_head_dim': 128, 'q_lora_rank': 1536} is 3145.850406567936, but get 3145.850406567936
+.Expect flops for {'model_type': 'mistral', 'vocab_size': 131072, 'hidden_size': 5120, 'intermediate_size': 32768, 'num_hidden_layers': 40, 'num_attention_heads': 32, 'num_key_value_heads': 8, 'head_dim': 128} is 512.30369906688, but get 512.30369906688
+Expect flops for {'model_type': 'mistral', 'vocab_size': 131072, 'hidden_size': 5120, 'intermediate_size': 32768, 'num_hidden_layers': 40, 'num_attention_heads': 32, 'num_key_value_heads': 8, 'head_dim': 128} is 1787.39358990336, but get 1787.39358990336
+.Expect flops for {'model_type': 'gemma3_text', 'vocab_size': 262208, 'hidden_size': 3840, 'intermediate_size': 15360, 'num_hidden_layers': 48, 'num_attention_heads': 16, 'num_key_value_heads': 8, 'head_dim': 256, 'sliding_window': 1024, 'layer_types': None, 'sliding_window_pattern': 6} is 279.084659638272, but get 279.084659638272
+Expect flops for {'model_type': 'gemma3_text', 'vocab_size': 262208, 'hidden_size': 3840, 'intermediate_size': 15360, 'num_hidden_layers': 48, 'num_attention_heads': 16, 'num_key_value_heads': 8, 'head_dim': 256, 'sliding_window': 1024, 'layer_types': None, 'sliding_window_pattern': 6} is 963.929979224064, but get 963.929979224064
+.Expect flops for {'model_type': 'apertus', 'vocab_size': 131072, 'hidden_size': 4096, 'intermediate_size': 21504, 'num_hidden_layers': 32, 'num_attention_heads': 32, 'num_key_value_heads': 32, 'hidden_act': 'xielu'} is 194.825353691136, but get 194.825353691136
+Expect flops for {'model_type': 'apertus', 'vocab_size': 131072, 'hidden_size': 4096, 'intermediate_size': 21504, 'num_hidden_layers': 32, 'num_attention_heads': 32, 'num_key_value_heads': 32, 'hidden_act': 'xielu'} is 692.711652851712, but get 692.711652851712
+.Expect flops for {'model_type': 'gpt_oss', 'vocab_size': 201088, 'hidden_size': 2880, 'num_hidden_layers': 24, 'num_attention_heads': 64, 'num_key_value_heads': 8, 'head_dim': 64, 'intermediate_size': 2880, 'num_local_experts': 32, 'num_experts_per_tok': 4, 'sliding_window': 128, 'layer_types': ['sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention']} is 91.780464771072, but get 91.780464771072
+Expect flops for {'model_type': 'gpt_oss', 'vocab_size': 201088, 'hidden_size': 2880, 'num_hidden_layers': 24, 'num_attention_heads': 64, 'num_key_value_heads': 8, 'head_dim': 64, 'intermediate_size': 2880, 'num_local_experts': 32, 'num_experts_per_tok': 4, 'sliding_window': 128, 'layer_types': ['sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention', 'sliding_attention', 'full_attention']} is 323.953008574464, but get 323.953008574464
+.Expect flops for {'model_type': 'qwen3_5', 'text_config': {'vocab_size': 248320, 'hidden_size': 4096, 'intermediate_size': 12288, 'num_hidden_layers': 32, 'num_attention_heads': 16, 'num_key_value_heads': 4, 'head_dim': 256, 'linear_conv_kernel_dim': 4, 'linear_key_head_dim': 128, 'linear_value_head_dim': 128, 'linear_num_key_heads': 16, 'linear_num_value_heads': 32, 'layer_types': ['linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention']}, 'vision_config': {'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 4096, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 206.090394402816, but get 206.090394402816
+Expect flops for {'model_type': 'qwen3_5', 'text_config': {'vocab_size': 248320, 'hidden_size': 4096, 'intermediate_size': 12288, 'num_hidden_layers': 32, 'num_attention_heads': 16, 'num_key_value_heads': 4, 'head_dim': 256, 'linear_conv_kernel_dim': 4, 'linear_key_head_dim': 128, 'linear_value_head_dim': 128, 'linear_num_key_heads': 16, 'linear_num_value_heads': 32, 'layer_types': ['linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention']}, 'vision_config': {'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 4096, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 724.521757704192, but get 724.521757704192
+.Expect flops for {'model_type': 'qwen3_5_moe', 'text_config': {'vocab_size': 248320, 'hidden_size': 2048, 'num_hidden_layers': 40, 'num_attention_heads': 16, 'num_key_value_heads': 2, 'head_dim': 256, 'linear_conv_kernel_dim': 4, 'linear_key_head_dim': 128, 'linear_value_head_dim': 128, 'linear_num_key_heads': 16, 'linear_num_value_heads': 32, 'moe_intermediate_size': 512, 'shared_expert_intermediate_size': 512, 'num_experts_per_tok': 8, 'num_experts': 256, 'layer_types': ['linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention']}, 'vision_config': {'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 2048, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 88.082762170368, but get 88.082762170368
+Expect flops for {'model_type': 'qwen3_5_moe', 'text_config': {'vocab_size': 248320, 'hidden_size': 2048, 'num_hidden_layers': 40, 'num_attention_heads': 16, 'num_key_value_heads': 2, 'head_dim': 256, 'linear_conv_kernel_dim': 4, 'linear_key_head_dim': 128, 'linear_value_head_dim': 128, 'linear_num_key_heads': 16, 'linear_num_value_heads': 32, 'moe_intermediate_size': 512, 'shared_expert_intermediate_size': 512, 'num_experts_per_tok': 8, 'num_experts': 256, 'layer_types': ['linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention', 'linear_attention', 'linear_attention', 'linear_attention', 'full_attention']}, 'vision_config': {'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 2048, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 321.470349705216, but get 321.470349705216
+.Expect flops for {'model_type': 'qwen3_vl', 'text_config': {'vocab_size': 151936, 'hidden_size': 4096, 'intermediate_size': 12288, 'num_hidden_layers': 36, 'num_attention_heads': 32, 'num_key_value_heads': 8, 'head_dim': 128}, 'vision_config': {'deepstack_visual_indexes': [8, 16, 24], 'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 4096, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 195.379819708416, but get 195.379819708416
+Expect flops for {'model_type': 'qwen3_vl', 'text_config': {'vocab_size': 151936, 'hidden_size': 4096, 'intermediate_size': 12288, 'num_hidden_layers': 36, 'num_attention_heads': 32, 'num_key_value_heads': 8, 'head_dim': 128}, 'vision_config': {'deepstack_visual_indexes': [8, 16, 24], 'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 4096, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 709.446422495232, but get 709.446422495232
+.Expect flops for {'model_type': 'qwen3_vl_moe', 'text_config': {'vocab_size': 151936, 'hidden_size': 2048, 'num_hidden_layers': 48, 'num_attention_heads': 32, 'num_key_value_heads': 4, 'head_dim': 128, 'moe_intermediate_size': 768, 'num_experts': 128, 'num_experts_per_tok': 8}, 'vision_config': {'deepstack_visual_indexes': [8, 16, 24], 'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 4096, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 92.9754513408, but get 92.9754513408
+Expect flops for {'model_type': 'qwen3_vl_moe', 'text_config': {'vocab_size': 151936, 'hidden_size': 2048, 'num_hidden_layers': 48, 'num_attention_heads': 32, 'num_key_value_heads': 4, 'head_dim': 128, 'moe_intermediate_size': 768, 'num_experts': 128, 'num_experts_per_tok': 8}, 'vision_config': {'deepstack_visual_indexes': [8, 16, 24], 'num_heads': 16, 'depth': 27, 'hidden_size': 1152, 'intermediate_size': 4304, 'out_hidden_size': 4096, 'spatial_merge_size': 2, 'temporal_patch_size': 2, 'in_channels': 3, 'patch_size': 16}} is 367.62286030848, but get 367.62286030848
+.
+tests/utils/test_fsdp2_peft_wrapping.py .....
+tests/utils/test_fsdp_lora_merge.py [transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+merged_lora_context test with Qwen2Config fsdp with backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+NCCL version 2.29.7+cuda13.2
+merged_lora_context test with Qwen2Config fsdp2 with backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+merged_lora_context test with Qwen2Config fsdp without backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+NCCL version 2.29.7+cuda13.2
+merged_lora_context test with Qwen2Config fsdp2 without backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+merged_lora_context test with GptOssConfig fsdp with backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+NCCL version 2.29.7+cuda13.2
+merged_lora_context test with GptOssConfig fsdp2 with backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+merged_lora_context test with GptOssConfig fsdp without backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+NCCL version 2.29.7+cuda13.2
+merged_lora_context test with GptOssConfig fsdp2 without backup passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+collect_merged_lora_params test with fsdp passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+NCCL version 2.29.7+cuda13.2
+collect_merged_lora_params test with fsdp2 passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+collect_merged_lora_params test with fsdp passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/peft/utils/save_and_load.py:372: UserWarning: Could not find a config file in  - will assume that the vocabulary was not modified.
+  warnings.warn(
+collect_merged_lora_params test with fsdp2 passed on 2 GPUs!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.
+tests/utils/test_groupwise.py .......
+tests/utils/test_linear_cross_entropy.py .
+tests/utils/test_megatron_bshd_preprocess.py ...................
+tests/utils/test_megatron_mtp_dcp.py ....
+tests/utils/test_megatron_router_replay_dcp.py W1029 18:26:05.416000 353 .venv/lib/python3.12/site-packages/torch/fx/_symbolic_trace.py:56] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+.....
+tests/utils/test_megatron_utils_nested_config.py ........
+tests/utils/test_mlflow_key_sanitization.py ...
+tests/utils/test_modelopt_mxfp8_on_gpu.py .Inserted 6 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+.Inserted 3 quantizers
+...................
+tests/utils/test_normalize_peft_param_name.py [transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:821: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  prev_state_dict_settings = FullyShardedDataParallel.set_state_dict_type(
+NCCL version 2.29.7+cuda13.2
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/fsdp/fully_sharded_data_parallel.py:828: FutureWarning: FSDP.state_dict_type() and FSDP.set_state_dict_type() are being deprecated. Please use APIs, get_state_dict() and set_state_dict(), which can support different parallelisms, FSDP1, FSDP2, DDP. API doc: https://pytorch.org/docs/stable/distributed.checkpoint.html#torch.distributed.checkpoint.state_dict.get_state_dict .Tutorial: https://pytorch.org/tutorials/recipes/distributed_checkpoint_recipe.html .
+  FullyShardedDataParallel.set_state_dict_type(
+
+=== FSDP fsdp Test Results ===
+Base model keys: base_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+Normalized PEFT keys: normalized_peft_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+
+=== FSDP fsdp Test Results ===
+Base model keys: base_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+Normalized PEFT keys: normalized_peft_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+✓ All tests passed for FSDP fsdp
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+.[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+
+=== FSDP fsdp2 Test Results ===
+Base model keys: base_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+Normalized PEFT keys: normalized_peft_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+
+=== FSDP fsdp2 Test Results ===
+Base model keys: base_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+Normalized PEFT keys: normalized_peft_keys={'model.layers.0.mlp.down_proj.weight', 'model.layers.1.self_attn.o_proj.weight', 'model.layers.0.self_attn.k_proj.weight', 'model.layers.0.post_attention_layernorm.weight', 'model.layers.0.self_attn.q_norm.weight', 'model.embed_tokens.weight', 'model.layers.1.self_attn.k_proj.weight', 'model.layers.1.self_attn.q_proj.weight', 'model.layers.0.self_attn.o_proj.weight', 'model.layers.0.self_attn.q_proj.weight', 'model.layers.1.input_layernorm.weight', 'model.norm.weight', 'model.layers.1.self_attn.q_norm.weight', 'model.layers.0.self_attn.v_proj.weight', 'model.layers.1.self_attn.k_norm.weight', 'model.layers.0.input_layernorm.weight', 'model.layers.1.mlp.gate_proj.weight', 'lm_head.weight', 'model.layers.1.mlp.down_proj.weight', 'model.layers.0.self_attn.k_norm.weight', 'model.layers.1.post_attention_layernorm.weight', 'model.layers.0.mlp.gate_proj.weight', 'model.layers.1.self_attn.v_proj.weight', 'model.layers.1.mlp.up_proj.weight', 'model.layers.0.mlp.up_proj.weight'}
+✓ All tests passed for FSDP fsdp2
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W1029 18:26:35.781579411 ProcessGroupNCCL.cpp:5276] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+NCCL version 2.29.7+cuda13.2
+.
+tests/utils/test_nvtx_profile.py .......[Profiler][finish_hook] rank 0: profiling finished; cmd=None, run_on_this_rank=True, save_path='???'
+.[Profiler][finish_hook] rank 0: profiling finished; cmd=None, run_on_this_rank=True, save_path='???'
+.........[Profiler][finish_hook] rank 0: profiling finished; cmd=None, run_on_this_rank=True, save_path='/tmp/tmp1vqd0vb2'
+..
+tests/utils/test_precision_debugger_profile.py .
+tests/utils/test_prepare_micro_batches_with_group_size.py .......
+tests/utils/test_profiler_markers.py ..s.
+tests/utils/test_seqlen_balancing.py ....NCCL version 2.29.7+cuda13.2
+.....
+tests/utils/test_server_profiler.py .............................[Profiler][finish_hook] rank 0: profiling finished; cmd='touch /tmp/tmp3_crmixd/hook_ran', run_on_this_rank=True, save_path='/tmp/tmp3_crmixd'
+[Profiler][finish_hook] rank 0: running command: touch /tmp/tmp3_crmixd/hook_ran
+[Profiler][finish_hook] rank 0: VERL_PROFILE_SAVE_PATH=/tmp/tmp3_crmixd
+[Profiler][finish_hook] rank 0: command exited with 0
+.[Profiler][finish_hook] rank 0: profiling finished; cmd='echo "$VERL_PROFILE_SAVE_PATH" > /tmp/tmpluua9nfv/env', run_on_this_rank=True, save_path='/tmp/tmpluua9nfv'
+[Profiler][finish_hook] rank 0: running command: echo "$VERL_PROFILE_SAVE_PATH" > /tmp/tmpluua9nfv/env
+[Profiler][finish_hook] rank 0: VERL_PROFILE_SAVE_PATH=/tmp/tmpluua9nfv
+[Profiler][finish_hook] rank 0: command exited with 0
+.[Profiler][finish_hook] rank 0: profiling finished; cmd='touch /tmp/tmpy4ewgk8b/hook_ran', run_on_this_rank=True, save_path='/tmp/tmpy4ewgk8b'
+[Profiler][finish_hook] rank 0: running command: touch /tmp/tmpy4ewgk8b/hook_ran
+[Profiler][finish_hook] rank 0: VERL_PROFILE_SAVE_PATH=/tmp/tmpy4ewgk8b
+[Profiler][finish_hook] rank 0: command exited with 0
+.[Profiler][finish_hook] rank 0: profiling finished; cmd='touch /tmp/tmp8ai1xzf3/hook_ran', run_on_this_rank=False, save_path='/tmp/tmp8ai1xzf3'
+[Profiler][finish_hook] rank 0: command skipped, rank not selected by finish_hook_ranks/all_ranks
+.[Profiler][finish_hook] rank 0: profiling finished; cmd='for f in "$VERL_PROFILE_SAVE_PATH"/*.json.gz; do echo "$(basename "$f")" >> /tmp/tmpk3ytwj52/uploaded.log; done', run_on_this_rank=True, save_path='/tmp/tmpk3ytwj52'
+[Profiler][finish_hook] rank 0: running command: for f in "$VERL_PROFILE_SAVE_PATH"/*.json.gz; do echo "$(basename "$f")" >> /tmp/tmpk3ytwj52/uploaded.log; done
+[Profiler][finish_hook] rank 0: VERL_PROFILE_SAVE_PATH=/tmp/tmpk3ytwj52
+[Profiler][finish_hook] rank 0: command exited with 0
+........sss
+tests/utils/test_timeout_decorator_cpu.py ...WARN: The 'use_signals=True' option in the timeout decorator is deprecated.                 Signals are unreliable outside the main thread.                 Please use the default multiprocessing-based timeout (use_signals=False).
+.WARN: The 'use_signals=True' option in the timeout decorator is deprecated.                 Signals are unreliable outside the main thread.                 Please use the default multiprocessing-based timeout (use_signals=False).
+.sMain: Starting thread...
+Thread: Starting slow task...
+Thread Target: Caught exception: Function slow_task_in_thread timed out after 1.5 seconds (multiprocessing)!
+.
+tests/utils/test_torch_functional.py ...NCCL version 2.29.7+cuda13.2
+.NCCL version 2.29.7+cuda13.2
+.NCCL version 2.29.7+cuda13.2
+.NCCL version 2.29.7+cuda13.2
+.........
+tests/utils/test_torch_memory_profile.py ........................
+tests/utils/test_torch_profile.py ......[Profiler] started for rank 0
+[Profiler] stopped for rank 0
+....[Profiler] started for rank 0: keeping every stage in full plus the first 3 update mini-batch(es)
+[Profiler] stopped for rank 0
+........[Profiler] started for rank 0
+[Profiler] stopped for rank 0
+[Profiler][finish_hook] rank 0: profiling finished; cmd=None, run_on_this_rank=True, save_path='/tmp/test'
+...[Profiler] started for rank 0
+[Profiler] stopped for rank 0
+[Profiler][finish_hook] rank 0: profiling finished; cmd=None, run_on_this_rank=True, save_path='/tmp/test'
+....[Profiler] started for rank 0
+[Profiler] stopped for rank 0
+.[Profiler] Saving trace to /tmp/tmpplupx0n1/actor_train_rank0_pid353_20261029182833245.json.gz
+....[Profiler] Saving trace to /tmp/tmpza5_5usi/rank0_pid353_20261029182833256_mb3-4.json.gz
+.[Profiler] Saving trace to /tmp/tmpekq6xiex/rank0_pid353_20261029182833259.json.gz
+[Profiler] Saving trace to /tmp/tmpekq6xiex/rank0_pid353_20261029182833259_part1.json.gz
+.[Profiler] started for rank 0
+[Profiler] stopped for rank 0
+..................
+tests/utils/test_utils_skip.py .............[RolloutSkip()] [33mNo dumped data found at step 1 from /tmp/pytest-of-root/pytest-0/test_meet_precondition_cache_m0/ut_exp_ut_proj/GBS4_N2_in8_out16. The trainer will generate and dump the data for this step.[0m
+.[RolloutSkip()] [33mNo dumped data found from /tmp/pytest-of-root/pytest-0/test_meet_precondition_repeat0/ut_exp_ut_proj/GBS4_N2_in8_out16. The trainer will generate and dump the data.[0m
+.[RolloutSkip()] [33mDump generate result at step 3 to /tmp/pytest-of-root/pytest-0/test_prepare_data_and_warp_rou0/ut_exp_ut_proj/GBS4_N2_in8_out16/3[0m
+[RolloutSkip()] [33mLoad generate result at step 3 (request step 3) from /tmp/pytest-of-root/pytest-0/test_prepare_data_and_warp_rou0/ut_exp_ut_proj/GBS4_N2_in8_out16/3/gen_batch.dp[0m
+.[RolloutSkip()] [33mLoad generate result at step 1 (request step 3) from /tmp/pytest-of-root/pytest-0/test_warp_function_repeat_reso0/ut_exp_ut_proj/GBS4_N2_in8_out16/1/gen_batch.dp[0m
+[RolloutSkip()] [33mLoad generate result at step 5 (request step 12) from /tmp/pytest-of-root/pytest-0/test_warp_function_repeat_reso0/ut_exp_ut_proj/GBS4_N2_in8_out16/5/gen_batch.dp[0m
+.[RolloutSkip()] [33mLoad generate result at step 7 (request step 99) from /tmp/pytest-of-root/pytest-0/test_warp_function_repeat_with0/ut_exp_ut_proj/GBS4_N2_in8_out16/7/gen_batch.dp[0m
+...........[RolloutSkip()] [33mNo dumped data found at step 1 from /tmp/pytest-of-root/pytest-0/test_annotate_sync_cache_step_0/ut_exp_ut_proj/GBS4_N2_in8_out16. The trainer will generate and dump the data for this step.[0m
+[RolloutSkip()] [33mDump generate result at step 1 to /tmp/pytest-of-root/pytest-0/test_annotate_sync_cache_step_0/ut_exp_ut_proj/GBS4_N2_in8_out16/1[0m
+[RolloutSkip()] [33mLoad generate result at step 1 (request step 1) from /tmp/pytest-of-root/pytest-0/test_annotate_sync_cache_step_0/ut_exp_ut_proj/GBS4_N2_in8_out16/1/gen_batch.dp[0m
+.[RolloutSkip()] [33mNo dumped data found at step 1 from /tmp/pytest-of-root/pytest-0/test_annotate_async_rollout_on0/ut_exp_ut_proj/GBS4_N2_in8_out16. The trainer will generate and dump the data for this step.[0m
+[RolloutSkip()] [33mDump generate result at step 1 to /tmp/pytest-of-root/pytest-0/test_annotate_async_rollout_on0/ut_exp_ut_proj/GBS4_N2_in8_out16/1[0m
+[RolloutSkip()] [33mLoad generate result at step 1 (request step 1) from /tmp/pytest-of-root/pytest-0/test_annotate_async_rollout_on0/ut_exp_ut_proj/GBS4_N2_in8_out16/1/gen_batch.dp[0m
+....[RolloutSkip()] [33mDump generate result at step 1 to /tmp/pytest-of-root/pytest-0/test_dump_dirs_are_isolated_by0/disk_a/ut_exp_ut_proj/GBS4_N2_in8_out16/1[0m
+[RolloutSkip()] [33mDump generate result at step 1 to /tmp/pytest-of-root/pytest-0/test_dump_dirs_are_isolated_by0/disk_b/ut_exp_ut_proj/GBS4_N2_in8_out16/1[0m
+[RolloutSkip()] [33mLoad generate result at step 1 (request step 1) from /tmp/pytest-of-root/pytest-0/test_dump_dirs_are_isolated_by0/disk_a/ut_exp_ut_proj/GBS4_N2_in8_out16/1/gen_batch.dp[0m
+[RolloutSkip()] [33mLoad generate result at step 1 (request step 1) from /tmp/pytest-of-root/pytest-0/test_dump_dirs_are_isolated_by0/disk_b/ut_exp_ut_proj/GBS4_N2_in8_out16/1/gen_batch.dp[0m
+.[RolloutSkip()] [31mFailed to dump generate result at step 1 to /tmp/pytest-of-root/pytest-0/test_prepare_data_handles_disk0/ut_exp_ut_proj/GBS4_N2_in8_out16/1: simulated disk write failure[0m
+.
+tests/workers/rollout/test_pd_disaggregation.py ...............................
+tests/workers/test_engine_workers_lora_sync.py ................
+
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+.venv/lib/python3.12/site-packages/torch/jit/_script.py:1488
+.venv/lib/python3.12/site-packages/torch/jit/_script.py:1488
+.venv/lib/python3.12/site-packages/torch/jit/_script.py:1488
+  /workspace/verl/.venv/lib/python3.12/site-packages/torch/jit/_script.py:1488: DeprecationWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  /workspace/verl/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  /workspace/verl/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  /workspace/verl/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)
+
+.venv/lib/python3.12/site-packages/megatron/core/dist_checkpointing/strategies/torch.py:69
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/dist_checkpointing/strategies/torch.py:69: DeprecationWarning: transformer_engine.pytorch.float8_tensor is deprecated and will be removed in a future release. Float8Tensor should be imported directly through `from transformer_engine.pytorch import Float8Tensor`
+    from transformer_engine.pytorch.float8_tensor import Float8Tensor
+
+.venv/lib/python3.12/site-packages/torch/jit/_script.py:365: 14 warnings
+  /workspace/verl/.venv/lib/python3.12/site-packages/torch/jit/_script.py:365: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+.venv/lib/python3.12/site-packages/megatron/core/tensor_parallel/random.py:87
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/tensor_parallel/random.py:87: DeprecationWarning: Using deprecated internal API from Transformer Engine. transformer_engine.pytorch.fp8 will be removed in a future release.
+    from transformer_engine.pytorch.fp8 import FP8GlobalStateManager, fp8_autocast
+
+.venv/lib/python3.12/site-packages/megatron/core/inference/contexts/kv_block_allocator.py:426
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/inference/contexts/kv_block_allocator.py:426: SyntaxWarning: invalid escape sequence '\-'
+    """Evict LRU cached blocks to free up space in the pool.
+
+.venv/lib/python3.12/site-packages/megatron/core/inference/contexts/__init__.py:9
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/inference/contexts/__init__.py:9: DeprecationWarning: The following imports from `dynamic_context.py` will be removed in this file in `megatron-core` 0.14. The imports here result in a cyclic import issue that causes rotary embeddings to import from Apex rather than Transformer Engine.
+    warnings.warn(
+
+.venv/lib/python3.12/site-packages/ray/util/state/util.py:55
+  /workspace/verl/.venv/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+tests/single_controller/test_nested_worker.py:24
+  /workspace/verl/tests/single_controller/test_nested_worker.py:24: PytestCollectionWarning: cannot collect test class 'TestActor' because it has a __init__ constructor (from: tests/single_controller/test_nested_worker.py)
+    class TestActor(Worker):
+
+tests/single_controller/test_nested_worker.py:35
+  /workspace/verl/tests/single_controller/test_nested_worker.py:35: PytestCollectionWarning: cannot collect test class 'TestHighLevelActor' because it has a __init__ constructor (from: tests/single_controller/test_nested_worker.py)
+    class TestHighLevelActor(Worker):
+
+.venv/lib/python3.12/site-packages/modelopt/torch/__init__.py:53
+  /workspace/verl/.venv/lib/python3.12/site-packages/modelopt/torch/__init__.py:53: UserWarning: transformers>=5.0 support is experimental. Unified Hugging Face checkpoint export for quantized checkpoints may not work for some models yet.
+    _warnings.warn(
+
+.venv/lib/python3.12/site-packages/megatron/core/models/mimo/config/base_configs.py:12
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/models/mimo/config/base_configs.py:12: UserWarning: MimoModelConfig is experimental and still under active development. The API may change without notice in future releases.
+    class MimoModelConfig:
+
+tests/utils/test_linear_cross_entropy.py:101
+  /workspace/verl/tests/utils/test_linear_cross_entropy.py:101: PytestCollectionWarning: cannot collect test class 'TestLinearCrossEntropy' because it has a __init__ constructor (from: tests/utils/test_linear_cross_entropy.py)
+    class TestLinearCrossEntropy:
+
+tests/checkpoint_engine/test_correctness_on_gpu.py::test_nccl_checkpoint_engine[2-6-False-False]
+  tests/checkpoint_engine/test_correctness_on_gpu.py:33: PytestWarning: The test <Function test_nccl_checkpoint_engine[2-6-False-False]> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    @pytest.mark.asyncio
+
+tests/checkpoint_engine/test_correctness_on_gpu.py::test_nccl_checkpoint_engine[2-6-False-False]
+  /workspace/verl/.venv/lib/python3.12/site-packages/ray/_private/worker.py:2051: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+    warnings.warn(
+
+tests/checkpoint_engine/test_correctness_on_gpu.py::test_nccl_checkpoint_engine[2-6-False-True]
+  tests/checkpoint_engine/test_correctness_on_gpu.py:33: PytestWarning: The test <Function test_nccl_checkpoint_engine[2-6-False-True]> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    @pytest.mark.asyncio
+
+tests/checkpoint_engine/test_correctness_on_gpu.py::test_nccl_checkpoint_engine[2-6-True-False]
+  tests/checkpoint_engine/test_correctness_on_gpu.py:33: PytestWarning: The test <Function test_nccl_checkpoint_engine[2-6-True-False]> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    @pytest.mark.asyncio
+
+tests/checkpoint_engine/test_correctness_on_gpu.py::test_nccl_checkpoint_engine[2-6-True-True]
+  tests/checkpoint_engine/test_correctness_on_gpu.py:33: PytestWarning: The test <Function test_nccl_checkpoint_engine[2-6-True-True]> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    @pytest.mark.asyncio
+
+tests/trainer/ppo/test_rollout_corr.py::test_metrics_completeness
+  /workspace/verl/.venv/lib/python3.12/site-packages/_pytest/python.py:171: PytestReturnNotNoneWarning: Test functions should return None, but tests/trainer/ppo/test_rollout_corr.py::test_metrics_completeness returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_precision_aware_optimizer_offload_and_load
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_hdo_optimizer_offload_leaves_gpu_state_untouched
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/transformer/transformer_config.py:2415: UserWarning: full scope is deprecated. Use empty cuda_graph_modules to capture the whole layer.
+    warnings.warn(
+
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_precision_aware_optimizer_offload_and_load
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_precision_aware_optimizer_offload_and_load
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_hdo_optimizer_offload_leaves_gpu_state_untouched
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_hdo_optimizer_offload_leaves_gpu_state_untouched
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_hdo_optimizer_offload_leaves_gpu_state_untouched
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_hdo_optimizer_offload_leaves_gpu_state_untouched
+  /workspace/verl/.venv/lib/python3.12/site-packages/megatron/core/transformer/mlp.py:413: DeprecationWarning: MLP requires ffn_hidden_size, but it was not provided. Using                     config.ffn_hidden_size by default.
+    return cls(
+
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_precision_aware_optimizer_offload_and_load
+tests/utils/megatron/test_optimizer_offload_and_load.py::test_hdo_optimizer_offload_leaves_gpu_state_untouched
+  /workspace/verl/.venv/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+    return func(*args, **kwargs)
+
+tests/utils/test_modelopt_mxfp8_on_gpu.py: 10 warnings
+  /workspace/verl/tests/utils/test_modelopt_mxfp8_on_gpu.py:96: DeprecationWarning: Passing quant_cfg in the legacy dict format is deprecated and will be removed in a future release. Use the list-of-dicts format with explicit 'quantizer_name' keys instead. See the quant_cfg documentation for the new format and migration guide.
+    mtq.quantize(model, build_quantize_config(mode, [pattern]))
+
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_qat_ignore_keeps_megatron_aliases[lm_head-output_layer]
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_qat_ignore_keeps_megatron_aliases[lm_head-output_layer]
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_qat_ignore_keeps_megatron_aliases[*mlp.gate-router]
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_qat_ignore_keeps_megatron_aliases[*mlp.gate-router]
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_qat_ignore_keeps_megatron_aliases[*self_attn*-self_attention]
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_qat_ignore_keeps_megatron_aliases[*self_attn*-self_attention]
+  /workspace/verl/tests/utils/test_modelopt_mxfp8_on_gpu.py:108: DeprecationWarning: Passing quant_cfg in the legacy dict format is deprecated and will be removed in a future release. Use the list-of-dicts format with explicit 'quantizer_name' keys instead. See the quant_cfg documentation for the new format and migration guide.
+    mtq.quantize(model, build_quantize_config("fp8", [pattern]))
+
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_fp8_ignored_module_preserves_forward_and_backward
+tests/utils/test_modelopt_mxfp8_on_gpu.py::test_fp8_ignored_module_preserves_forward_and_backward
+  /workspace/verl/tests/utils/test_modelopt_mxfp8_on_gpu.py:120: DeprecationWarning: Passing quant_cfg in the legacy dict format is deprecated and will be removed in a future release. Use the list-of-dicts format with explicit 'quantizer_name' keys instead. See the quant_cfg documentation for the new format and migration guide.
+    mtq.quantize(model, build_quantize_config("fp8", ["projection"]))
+
+tests/utils/test_nvtx_profile.py::TestProfilerConfig::test_config_init
+  /workspace/verl/tests/utils/test_nvtx_profile.py:35: UserWarning: 
+  The version_base parameter is not specified.
+  Please specify a compatability version level, or None.
+  Will assume defaults for version 1.1
+    with initialize_config_dir(config_dir=os.path.abspath("verl/trainer/config")):
+
+tests/utils/test_nvtx_profile.py::TestProfilerConfig::test_role_configs_inherit_global_finish_hook
+  /workspace/verl/tests/utils/test_nvtx_profile.py:66: UserWarning: 
+  The version_base parameter is not specified.
+  Please specify a compatability version level, or None.
+  Will assume defaults for version 1.1
+    with initialize_config_dir(config_dir=os.path.abspath("verl/trainer/config")):
+
+tests/utils/test_server_profiler.py::TestServerProfilerArgs::test_build_sglang_profiler_args
+  /workspace/verl/.venv/lib/python3.12/site-packages/torch/jit/_script.py:1640: DeprecationWarning: `torch.jit.interface` is deprecated. Please use `torch.compile` instead.
+    warnings.warn(
+
+tests/utils/test_timeout_decorator_cpu.py::test_quick_task
+tests/utils/test_timeout_decorator_cpu.py::test_slow_task_timeout
+tests/utils/test_timeout_decorator_cpu.py::test_internal_exception
+tests/utils/test_timeout_decorator_cpu.py::test_in_thread_timeout
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=353) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+----------- generated xml file: /results/gpu-tests-p4b-r3/pytest.xml -----------
+=========== 503 passed, 8 skipped, 73 warnings in 1845.33s (0:30:45) ===========
+sys:1: DeprecationWarning: builtin type swigvarlink has no __module__ attribute

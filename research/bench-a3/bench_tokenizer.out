@@ -1,0 +1,20 @@
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+tokenizer: Qwen2Tokenizer vocab 151665 pad_token_id 151643
+
+## N=1024 P=2048 L=8192
+mean prompt len 995, mean response len 3575
+tokenizer.decode(padded response row, skip_special_tokens) x256: 232 ms total, 0.91 ms/row -> 0.9 s for N=1024
+tokenizer.decode(padded prompt row) x256: 62 ms total, 0.24 ms/row -> 0.2 s for N=1024
+tokenizer.decode(valid tokens only, list) x256: 204 ms total, 0.80 ms/row -> 0.8 s for N=1024
+tokenizer.batch_decode(valid tokens, 256 rows): 195 ms total, 0.76 ms/row -> 0.8 s for N=1024
+agent-loop tokenizer.pad x3 per sample: 2.92 ms/sample -> 3.0 s per 1024 samples (spread over agent-loop workers)
+same padding with torch.full + slice assignment: 0.01 ms/sample -> 0.0 s per 1024 samples
+
+## N=1024 P=2048 L=32768
+mean prompt len 995, mean response len 14304
+tokenizer.decode(padded response row, skip_special_tokens) x256: 931 ms total, 3.64 ms/row -> 3.7 s for N=1024
+tokenizer.decode(padded prompt row) x256: 63 ms total, 0.25 ms/row -> 0.3 s for N=1024
+tokenizer.decode(valid tokens only, list) x256: 798 ms total, 3.12 ms/row -> 3.2 s for N=1024
+tokenizer.batch_decode(valid tokens, 256 rows): 747 ms total, 2.92 ms/row -> 3.0 s for N=1024
+agent-loop tokenizer.pad x3 per sample: 10.08 ms/sample -> 10.3 s per 1024 samples (spread over agent-loop workers)
+same padding with torch.full + slice assignment: 0.01 ms/sample -> 0.0 s per 1024 samples

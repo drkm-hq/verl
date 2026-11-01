@@ -1,0 +1,24 @@
+2026-10-28 21:52:00,222	WARNING authentication_token_setup.py:85 -- Token authentication is enabled for this Ray cluster. Set RAY_AUTH_MODE=disabled to opt out. For more information, see https://docs.ray.io/en/latest/ray-security/token-auth.html
+2026-10-28 21:52:00,222	INFO authentication_token_setup.py:50 -- Generated new authentication token and saved to ~/.ray/auth_token
+2026-10-28 21:52:08,091	INFO worker.py:2033 -- Started a local Ray instance.
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+tq.init() 10.7s
+
+## N=1024 rows, n=8, mean prompt 1002, mean response 3477 (max L=8192)
+list_of_dict_to_tensordict for 128 groups: 266 ms  (rollout payload 0.23 GB)
+agent-loop kv_batch_put x128 groups of 8: 782 ms total, 6.1 ms/group, 297 MB/s
+kv_batch_put tags-only for 128 prompts: 3 ms
+kv_list(): 2 ms for 1152 keys
+kv_retrieve_meta(1024 keys) [every dispatch]: 8 ms
+PUT worker log_probs+entropy (all ranks)       65 ms        37 MB      567 MB/s   fields=['log_probs', 'entropy']
+GET old_log_prob fields                51 ms        65 MB     1268 MB/s   fields=['entropy', 'log_probs', 'response_mask']
+PUT old_log_probs+entropy              62 ms        28 MB      460 MB/s   fields=['old_log_probs', 'entropy']
+to_padded_tensor(log_probs full-seq) on driver: 5 ms -> (1024, 10240)
+GET ref fields                         47 ms        47 MB      988 MB/s   fields=['log_probs', 'response_mask']
+PUT ref_log_prob                       46 ms        14 MB      308 MB/s   fields=['ref_log_prob']
+PUT values                            120 ms        14 MB      119 MB/s   fields=['values']
+GET advantage fields                  109 ms       100 MB      915 MB/s   fields=['uid', 'response_mask', 'rm_scores', 'rollout_log_probs', 'old_log_probs', 'ref_log_prob', 'values']
+to_padded_tensor(7 fields) on driver: 38 ms
+PUT advantages+returns                 69 ms        28 MB      415 MB/s   fields=['advantages', 'returns']
+GET metrics fields                    269 ms       122 MB      454 MB/s   fields=['prompts', 'responses', 'response_mask', 'values', 'advantages', 'returns', 'rm_scores', 'num_turns']
+kv_clear(1024 keys): 15 ms

@@ -1,0 +1,138 @@
+[INFO]: Local rank: 2, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 7, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 1, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 5, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 6, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 4, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 3, World size: 8
+[INFO] Running test case 0
+[INFO]: Local rank: 0, World size: 8
+[INFO] Running test case 0
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[INFO]: Torch Forward pass peak memory: 1867.24 MB
+[INFO]: Torch Backward pass peak memory: 4260.03 MB
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/workspace/verl/.venv/lib/python3.12/site-packages/torch/autograd/graph.py:979: UserWarning: c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s) but we are trying to backprop through it. This may lead to silently incorrect behavior. This behavior is deprecated and will be removed in a future version of PyTorch. If your operator is differentiable, please ensure you have registered an autograd kernel to the correct Autograd key (e.g. DispatchKey::Autograd, DispatchKey::CompositeImplicitAutograd). If your operator is not differentiable, or to squash this warning and use the previous behavior, please register torch::CppFunction::makeFallthrough() to DispatchKey::Autograd. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/autograd_not_implemented_fallback.cpp:76.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+
+[PASS]: Verified kernel forward & backward correctness.
+[INFO]: Forward pass: Torch implementation average time: 8.04 ms
+[INFO]: Backward pass: torch implementation average time: 10.34 ms
+[INFO]: Forward pass: Kernel implementation average time: 0.85 ms
+[INFO]: Backward pass: kernel implementation average time: 0.87 ms
+[INFO] Running test case 1
+[INFO] Running test case 1
+[INFO] Running test case 1
+[INFO] Running test case 1
+[INFO] Running test case 1
+[INFO] Running test case 1
+[INFO]: Kernel Forward pass peak memory: 142.56 MB
+[INFO]: Kernel Backward pass peak memory: 256.65 MB
+[INFO] Running test case 1
+[INFO] Running test case 1
+[INFO]: Torch Forward pass peak memory: 2048.25 MB
+[INFO]: Torch Backward pass peak memory: 4531.29 MB
+
+[PASS]: Verified kernel forward & backward correctness.
+[INFO]: Forward pass: Torch implementation average time: 6.28 ms
+[INFO]: Backward pass: torch implementation average time: 6.93 ms
+[INFO]: Forward pass: Kernel implementation average time: 0.67 ms
+[INFO]: Backward pass: kernel implementation average time: 0.47 ms
+[INFO] Running test case 2
+[INFO] Running test case 2
+[INFO] Running test case 2
+[INFO] Running test case 2
+[INFO]: Kernel Forward pass peak memory: 84.33 MB
+[INFO]: Kernel Backward pass peak memory: 184.08 MB
+[INFO] Running test case 2
+[INFO] Running test case 2
+[INFO] Running test case 2
+[INFO] Running test case 2
+[INFO]: Torch Forward pass peak memory: 372.05 MB
+[INFO]: Torch Backward pass peak memory: 776.75 MB
+
+[PASS]: Verified kernel forward & backward correctness.
+[INFO]: Forward pass: Torch implementation average time: 1.38 ms
+[INFO]: Backward pass: torch implementation average time: 1.85 ms
+[INFO]: Forward pass: Kernel implementation average time: 0.68 ms
+[INFO]: Backward pass: kernel implementation average time: 0.36 ms
+[INFO] Running test case 3
+[INFO] Running test case 3
+[INFO] Running test case 3
+[INFO] Running test case 3
+[INFO] Running test case 3
+[INFO] Running test case 3
+[INFO]: Kernel Forward pass peak memory: 77.94 MB
+[INFO]: Kernel Backward pass peak memory: 125.65 MB
+[INFO] Running test case 3
+[INFO] Running test case 3
+[INFO]: Torch Forward pass peak memory: 974.88 MB
+[INFO]: Torch Backward pass peak memory: 2172.29 MB
+
+[PASS]: Verified kernel forward & backward correctness.
+[INFO]: Forward pass: Torch implementation average time: 4.49 ms
+[INFO]: Backward pass: torch implementation average time: 5.78 ms
+[INFO]: Forward pass: Kernel implementation average time: 0.67 ms
+[INFO]: Backward pass: kernel implementation average time: 0.62 ms
+[INFO] Running test case 4
+[INFO] Running test case 4
+[INFO] Running test case 4
+[INFO] Running test case 4
+[INFO] Running test case 4
+[INFO] Running test case 4
+[INFO]: Kernel Forward pass peak memory: 125.03 MB
+[INFO]: Kernel Backward pass peak memory: 228.69 MB
+[INFO] Running test case 4
+[INFO] Running test case 4
+[INFO]: Torch Forward pass peak memory: 5178.19 MB
+[INFO]: Torch Backward pass peak memory: 11734.41 MB
+
+[PASS]: Verified kernel forward & backward correctness.
+[INFO]: Forward pass: Torch implementation average time: 22.21 ms
+[INFO]: Backward pass: torch implementation average time: 30.21 ms
+[INFO]: Forward pass: Kernel implementation average time: 1.57 ms
+[INFO]: Backward pass: kernel implementation average time: 2.67 ms
+[SKIP] Optional native Liger is not installed
+[SKIP] Optional native Liger is not installed
+[SKIP] Optional native Liger is not installed
+[SKIP] Optional native Liger is not installed
+[INFO]: Kernel Forward pass peak memory: 179.09 MB
+[SKIP] Optional native Liger is not installed[INFO]: Kernel Backward pass peak memory: 540.81 MB
+
+[SKIP] Optional native Liger is not installed
+[SKIP] Optional native Liger is not installed
+[SKIP] Optional native Liger is not installed

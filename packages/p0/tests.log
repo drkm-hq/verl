@@ -1,0 +1,59 @@
+# P0 tests.log: commands and results after review round 2 and its re-review (2026-10-29; macOS arm64, Python 3.12.14, torch 2.13.0 CPU, .venv-cpu)
+# Branch contrib/p0-loss-horizon @ 9c99205c (base main @ 2ab35292). Full outputs: packages/p0/logs/*.log (+ junit xml for the
+# regression groups). Earlier: pre-review 45/2 and 14 failed on main; D1-D9 47/2 and 16; R1-R5 48/2 and 17; round 2 e0a7eb22 59/2 and 27.
+
+## 1. New test file on the branch (worktree wt/p0, PYTHONPATH=wt/p0; no model snapshot needed)
+cd <repo>/wt/p0
+PATH=<repo>/.venv-cpu/bin:$PATH PYTHONPATH=$PWD PYTHONDONTWRITEBYTECODE=1 \
+TORCH_COMPILE_DISABLE=1 TORCHINDUCTOR_DISABLE=1 HF_HUB_OFFLINE=1 \
+python -m pytest -c <repo>/pytest-cpu.ini --rootdir $PWD \
+  -p no:cacheprovider --asyncio-mode=auto -rfEsxX -v tests/trainer/ppo/test_loss_horizon_microbatch_invariance_on_cpu.py
+-> 62 passed, 2 xfailed (geo_mean, kl_cov, non-strict) in 9.15s            [logs/new-tests-branch.log]
+   round 2 (e0a7eb22, +11 net): rejects_an_invalid_explicit_factor[nan|inf|-inf|0|-1|sixteen|True] (replaces
+   rejects_an_invalid_factor[0|-1|sixteen]), rejects_an_invalid_inferred_horizon[0|-16|2.5|True],
+   keeps_an_explicit_factor[0.5], resolves_an_overridden_response_length, warns_when_response_length_is_unset.
+   re-review D1 (9c99205c, +3): rejects_an_invalid_explicit_factor[int64-overflow|beyond-float] (2**63, 10**400),
+   keeps_an_explicit_factor[9223372036854775807] (2**63-1).
+
+## 2. Same file against main @ 2ab35292 (copied to the temporary directory, --import-mode=importlib, PYTHONPATH unset: the venv's editable verl = main clone)
+python -c "import verl; print(verl.__file__)"   -> <repo>/verl/verl/__init__.py
+-> 29 failed, 33 passed, 2 xfailed in 7.45s                                  [logs/new-tests-main.log]
+   FAILED test_loss_and_gradient_invariant_to_micro_batch_split[{actor,critic}-seq-mean-token-sum-norm-{uneven_1_2_5,singles}] (4)
+   FAILED test_seq_mean_token_sum_norm_horizon_is_response_length[{actor,critic}-{whole,uneven_1_2_5,even_4_4,singles}] (8; horizon 12 not 16)
+   FAILED test_validate_config_resolves_null_factor_to_response_length, ..._resolves_the_critic_on_its_own,
+          ..._resolves_an_overridden_response_length, ..._warns_when_response_length_is_unset (4: no resolution and no warning on main)
+   FAILED test_validate_config_rejects_an_invalid_explicit_factor[nan|inf|-inf|0|-1|sixteen|True|int64-overflow|beyond-float] (9),
+          test_validate_config_rejects_an_invalid_inferred_horizon[0|-16|2.5|True] (4): no ValueError on main
+   the four other modes, the even split, the explicit-factor (4096, 0.5, 2**63-1 kept) and other-mode tests pass on main.
+   main clone git status --porcelain: empty before and after.
+
+## 3. Reviewers' tests against the branch at 9c99205c (PYTHONPATH=wt/p0, rules-file harness)
+round 1, packages/p0/review-tests (3 files)        -> 21 passed in 12.70s                        [logs/review-tests-round1-after-d1.log]
+round 2, packages/p0/review-tests/round2 (2 files) -> 40 passed, 2 failed in 7.05s               [logs/review-tests-round2-after-d1.log]
+   the 2 failures are the reviewer's two encodings of defect D1, now closed by 9c99205c: the strict xfail
+   test_defect_low_huge_int_factor_should_be_rejected_at_validation XPASSes, and
+   test_huge_int_factor_passes_validation_and_overflows_the_first_micro_batch gets the ValueError at validation
+   instead of an OverflowError in ppo_loss. Reviewer-owned files, left untouched for the lead to retire.
+   (At e0a7eb22, before D1: 41 passed, 1 xfailed; review-tests/round2/logs/round2-e0a7eb22.log.)
+
+## 4. Full CPU regression on the branch at 9c99205c (scripts/run-cpu-regression.sh groups, ignores, deselect and 300 s caps,
+##    run through scripts/run-cpu-tests-wt.sh with VERL_ROOT=wt/p0 because the shared script is wired to the clone; driver
+##    logs/reg-driver.sh, output logs/reg-driver.log; shared script untouched)
+small (base_config, protocol, protocol_v2, checkpoint_engine, models, tools, model_merger) -> 200 passed in 3.13s   [logs/reg-small.log, .xml]
+utils (2 megatron files + sandbox ignored)         -> 473 passed, 23 skipped in 23.29s                             [logs/reg-utils.log, .xml]
+trainer                                            -> 500 passed, 1 skipped, 2 xfailed in 22.59s (baseline 438 + 62 new) [logs/reg-trainer.log, .xml]
+workers (4 megatron files ignored, 1 Apple-BLAS case deselected) -> 278 passed, 40 skipped, 1 deselected in 25.36s            [logs/reg-workers.log, .xml]
+experimental                                       -> 74 passed in 57.54s                      [logs/reg-experimental.log, .xml]
+single_controller (real Ray clusters)              -> 21 passed in 64.37s (0:01:04)                 [logs/reg-single_controller.log, .xml]
+regression set exit=0 (every group green); totals: 1546 passed, 64 skipped, 2 xfailed, 1 deselected, 0 failed (small 200, utils 473, trainer 500, workers 278, experimental 74, single_controller 21) (2026-10-28 baseline, research/00-cpu-env.md: 1484 passed / 64 skipped / 0 failed; + 62 new)
+(at e0a7eb22 the same six groups gave 1543 passed / 64 skipped / 2 xfailed / 1 deselected / 0 failed.)
+
+## 5. Lint (worktree)
+pre-commit run --files verl/utils/config.py tests/trainer/ppo/test_loss_horizon_microbatch_invariance_on_cpu.py   (after 9c99205c)
+-> exit 0; all 14 hooks Passed; no file modified                                               [logs/pre-commit-files-after-d1.log]
+pre-commit run --files <the 5 files changed by e0a7eb22> (after e0a7eb22) -> exit 0; all 14 hooks Passed (ruff, ruff-format, mypy,
+   autogen-trainer-cfg, check-docs-time-info, check-docstrings, check-license, check-device-api-usage, check-dataproto-usage,
+   validate-structure, check-naming-conventions, check-example-naming, check-uv-gpu-only, compileall); _generated_*.yaml unchanged
+                                                                                               [logs/pre-commit-files-e0a7eb22.log]
+pre-commit run --all-files --show-diff-on-failure: run once at 6684917e (round 1), exit 0                [logs/pre-commit-all-files.log]
+PR_TITLE="[BREAKING][algo, trainer] fix: ..." python tests/special_sanity/check_pr_title.py -> valid (title unchanged since round 1)

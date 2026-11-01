@@ -1,0 +1,157 @@
+FF.FF..FF                                                                [100%]
+=================================== FAILURES ===================================
+___________ test_terminal_flip_in_the_reissue_window_loses_the_group ___________
+../../packages/p3/review-tests/test_review_buffer_on_cpu.py:69: in test_terminal_flip_in_the_reissue_window_loses_the_group
+    assert not sampler.is_alive(), (
+E   AssertionError: finished group lost: retired={'9027eddc79aa45a0b14b14626287503a'}, keys left in TQ=set()
+E   assert not True
+E    +  where True = is_alive()
+E    +    where is_alive = <SampleThread(Thread-2, started daemon 6310424576)>.is_alive
+------------------------------ Captured log call -------------------------------
+2026-10-29 00:25:28,242	INFO replay_buffer.py:202 -- [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+2026-10-29 00:25:28,245	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 100.0s)
+_______ test_inflight_reissued_is_averaged_not_summed_across_iterations ________
+../../packages/p3/review-tests/test_review_buffer_on_cpu.py:94: in test_inflight_reissued_is_averaged_not_summed_across_iterations
+    assert out["training/inflight_reissued"] == 4, f"counter was averaged: {out['training/inflight_reissued']}"
+E   AssertionError: counter was averaged: 2.0
+E   assert 2.0 == 4
+_ test_reissue_of_a_small_batch_goes_back_to_worker_0_so_a_wedged_worker_0_livelocks _
+../../packages/p3/review-tests/test_review_workers_a_on_cpu.py:49: in test_reissue_of_a_small_batch_goes_back_to_worker_0_so_a_wedged_worker_0_livelocks
+    assert not sampler.is_alive(), f"livelock: {len(reissues)} re-issues in 6 s, retired={len(rb._retired_uids['train'])}, step never completes"
+E   AssertionError: livelock: 12 re-issues in 6 s, retired=12, step never completes
+E   assert not True
+E    +  where True = is_alive()
+E    +    where is_alive = <SampleThread(Thread-3, started daemon 6327250944)>.is_alive
+----------------------------- Captured stderr call -----------------------------
+[36m(ReviewWorker pid=74658)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+------------------------------ Captured log call -------------------------------
+2026-10-29 00:25:36,528	INFO replay_buffer.py:202 -- [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+2026-10-29 00:25:36,530	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.9s)
+2026-10-29 00:25:36,570	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:37,041	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:37,069	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:37,590	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:37,612	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:38,135	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:38,154	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:38,154	WARNING replay_buffer.py:379 -- [V1ReplayBuffer] the in-flight TTL has fired on 4 prompts so far; if generation legitimately takes longer than inflight_ttl_s=0.5s, raise it, otherwise every long prompt is regenerated from scratch
+2026-10-29 00:25:38,677	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:38,695	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:39,225	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:39,242	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:39,771	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:39,788	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:40,309	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:40,327	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:40,853	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:40,873	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:41,396	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:41,422	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:41,954	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.6s)
+2026-10-29 00:25:41,982	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:25:42,460	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 1 stuck in-flight prompts (ttl expired: 1, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:25:42,496	INFO trainer_base.py:1001 -- Re-issued 1 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+________ test_prompt_owner_map_grows_without_bound_on_the_default_path _________
+../../packages/p3/review-tests/test_review_workers_a_on_cpu.py:71: in test_prompt_owner_map_grows_without_bound_on_the_default_path
+    assert len(manager._prompt_owner) == 0, f"default path keeps {len(manager._prompt_owner)} owner entries forever"
+E   AssertionError: default path keeps 12 owner entries forever
+E   assert 12 == 0
+E    +  where 12 = len({'3827b23911a8481fb680a9eed7a988f2': 0, 'ac7284c8bf9642a09d89277d084b99f3': 0, '0f54eda4fec245348ad65ef73c360747': 1, 'a2d49c1fc4f24c2db68ffda3bbf090f7': 1, ...})
+E    +    where {'3827b23911a8481fb680a9eed7a988f2': 0, 'ac7284c8bf9642a09d89277d084b99f3': 0, '0f54eda4fec245348ad65ef73c360747': 1, 'a2d49c1fc4f24c2db68ffda3bbf090f7': 1, ...} = <_review_common.ReviewManager object at 0x1227e1b80>._prompt_owner
+----------------------------- Captured stderr call -----------------------------
+[36m(ReviewWorker pid=74786)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 2x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+__ test_ttl_shorter_than_a_legitimate_generation_livelocks_on_healthy_workers __
+../../packages/p3/review-tests/test_review_workers_b_on_cpu.py:76: in test_ttl_shorter_than_a_legitimate_generation_livelocks_on_healthy_workers
+    assert not sampler.is_alive(), f"livelock: {sum(map(len, reissues))} prompts re-issued in 5 s; the step never completes"
+E   AssertionError: livelock: 22 prompts re-issued in 5 s; the step never completes
+E   assert not True
+E    +  where True = is_alive()
+E    +    where is_alive = <SampleThread(Thread-6, started daemon 6328397824)>.is_alive
+----------------------------- Captured stderr call -----------------------------
+[36m(ReviewWorker pid=74952)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 4x across cluster][0m
+------------------------------ Captured log call -------------------------------
+2026-10-29 00:26:09,840	INFO replay_buffer.py:202 -- [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+2026-10-29 00:26:10,201	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:10,259	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:10,654	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:10,739	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:11,120	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.5s)
+2026-10-29 00:26:11,175	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:11,534	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:11,589	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:11,589	WARNING replay_buffer.py:379 -- [V1ReplayBuffer] the in-flight TTL has fired on 8 prompts so far; if generation legitimately takes longer than inflight_ttl_s=0.4s, raise it, otherwise every long prompt is regenerated from scratch
+2026-10-29 00:26:11,942	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:11,987	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:12,398	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:12,458	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:12,811	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:12,853	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:13,260	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:13,286	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:13,704	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:13,725	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:14,129	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:14,148	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:14,562	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:14,581	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+2026-10-29 00:26:14,994	WARNING replay_buffer.py:360 -- [V1ReplayBuffer] re-issuing 2 stuck in-flight prompts (ttl expired: 2, dead worker: 0, oldest age: 0.4s)
+2026-10-29 00:26:15,021	INFO trainer_base.py:1001 -- Re-issued 2 in-flight prompts for step 1 under fresh uids; cleared 0 old trajectories from partition train
+__ test_validation_partition_still_hangs_on_a_dead_worker_with_both_knobs_on ___
+../../packages/p3/review-tests/test_review_workers_b_on_cpu.py:105: in test_validation_partition_still_hangs_on_a_dead_worker_with_both_knobs_on
+    assert not sampler.is_alive(), "validation sample hangs on a dead worker even with TTL + relaunch on"
+E   AssertionError: validation sample hangs on a dead worker even with TTL + relaunch on
+E   assert not True
+E    +  where True = is_alive()
+E    +    where is_alive = <SampleThread(Thread-7, started daemon 6328397824)>.is_alive
+----------------------------- Captured stderr call -----------------------------
+[36m(ReviewWorker pid=75204)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.[32m [repeated 2x across cluster][0m
+------------------------------ Captured log call -------------------------------
+2026-10-29 00:26:17,944	INFO replay_buffer.py:202 -- [V1ReplayBuffer] off-policy version control disabled (max_off_policy_threshold is null): no samples will be dropped or awaited for staleness
+--------------------------- Captured stderr teardown ---------------------------
+[36m(ReviewWorker pid=75205)[0m Using blocking ray.get inside async actor. This blocks the event loop. Please use `await` on object ref with asyncio.gather if you want to yield execution to the event loop instead.
+=============================== warnings summary ===============================
+../../.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464
+  <repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: cache_dir
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/util/state/util.py:55: DeprecationWarning: Ray state API is no longer experimental. Please import from `ray.util.state`. instead. Importing from `ray.experimental` will be deprecated in future releases. 
+    warnings.warn(
+
+verl/workers/engine/__init__.py:32
+  <repo>/wt/p3/verl/workers/engine/__init__.py:32: UserWarning: torchtitan engine is not available: ModuleNotFoundError("No module named 'torchtitan'")
+    warnings.warn(f"torchtitan engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:41
+  <repo>/wt/p3/verl/workers/engine/__init__.py:41: UserWarning: veomni engine is not available: ModuleNotFoundError("No module named 'veomni'")
+    warnings.warn(f"veomni engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:50
+  <repo>/wt/p3/verl/workers/engine/__init__.py:50: UserWarning: automodel engine is not available: ModuleNotFoundError("No module named 'nemo_automodel'")
+    warnings.warn(f"automodel engine is not available: {e!r}", stacklevel=1)<repo>/.venv-cpu/lib/python3.12/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'async_kv_list' was never awaited
+  gc.collect()
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+
+
+verl/workers/engine/__init__.py:60
+  <repo>/wt/p3/verl/workers/engine/__init__.py:60: UserWarning: mindspeed engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"mindspeed engine is not available: {e!r}", stacklevel=1)
+
+verl/workers/engine/__init__.py:69
+  <repo>/wt/p3/verl/workers/engine/__init__.py:69: UserWarning: megatron engine is not available: ModuleNotFoundError("No module named 'megatron'")
+    warnings.warn(f"megatron engine is not available: {e!r}", stacklevel=1)
+
+test_review_buffer_on_cpu.py::test_terminal_flip_in_the_reissue_window_loses_the_group
+  <repo>/.venv-cpu/lib/python3.12/site-packages/ray/_private/worker.py:2051: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../packages/p3/review-tests/test_review_buffer_on_cpu.py::test_terminal_flip_in_the_reissue_window_loses_the_group
+FAILED ../../packages/p3/review-tests/test_review_buffer_on_cpu.py::test_inflight_reissued_is_averaged_not_summed_across_iterations
+FAILED ../../packages/p3/review-tests/test_review_workers_a_on_cpu.py::test_reissue_of_a_small_batch_goes_back_to_worker_0_so_a_wedged_worker_0_livelocks
+FAILED ../../packages/p3/review-tests/test_review_workers_a_on_cpu.py::test_prompt_owner_map_grows_without_bound_on_the_default_path
+FAILED ../../packages/p3/review-tests/test_review_workers_b_on_cpu.py::test_ttl_shorter_than_a_legitimate_generation_livelocks_on_healthy_workers
+FAILED ../../packages/p3/review-tests/test_review_workers_b_on_cpu.py::test_validation_partition_still_hangs_on_a_dead_worker_with_both_knobs_on
+6 failed, 3 passed, 8 warnings in 74.37s (0:01:14)

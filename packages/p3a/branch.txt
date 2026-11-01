@@ -1,0 +1,6 @@
+branch: contrib/p3a-inflight-ttl @ 2bd5c040 (6 commits: 7f43e43e, 951bc3f4, 6445f21b, d834b6b3, e598929b, 2bd5c040)
+worktree: <repo>/wt/p3a
+base: main @ 2ab35292 (verl-project/verl)
+stack: [1/2]; [2/2] is contrib/p3b-worker-relaunch (based on this branch)
+review round 2 (2026-10-29): 951bc3f4 = per-step re-issue budget; 6445f21b = re-review fixes A1-A5
+round 3 (2026-10-29): d834b6b3 = exhaustion failures charged (follow-up R2-02); e598929b = padding-mode hold-back, positive budget, per-step flag (re-review A1/A3); 2bd5c040 = hold-back charges nothing, re-evaluated every poll (closure H1)

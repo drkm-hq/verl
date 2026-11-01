@@ -1,0 +1,43 @@
+# P3b [2/2] review round 3 verdict (AI re-review, 2026-10-29; the independent follow-up R2-02)
+
+Branch `contrib/p3b-worker-relaunch` @ 45690b0f (7 commits on p3a d834b6b3), wt/p3b clean. package-audit: `p3b   contrib/p3b-worker-relaunch      45690b0f  11   0     fresh  ok      none`.
+The submitter's full-loop test on this tree: 4 passed; his extended empty-validation probe: 1 passed. Round-2 suites re-run here: `packages/p3b/review-tests/round2` 7 passed (the wandb B1 pair and B5 now pass), `packages/p3a/review-tests/round2` (A2/A3 rewritten to the charged semantics) 5 passed. tests.log 200 + 473 + 491 + 278 + 74 + 21 = 1537 / 64 skipped matches.
+
+## the submitter's R2-02 and the round-3 claims
+| claim | status | evidence |
+|---|---|---|
+| exhaustion failures charged (inherited from p3a) | FIXED for the refill modes; inherits p3a A1 (the default sync padding path ends in the all-failed RuntimeError) | full-loop 4/4; `packages/p3a/review-tests/round3` fails identically here (`results-on-p3b-45690b0f.log`) |
+| dead-worker exemption re-expressed on the charged set (ec6738dc) | as designed, but unbounded (B1) | candidates = (to_reissue \| exhausted) - dead_owned; `_ttl_discards_in_step += len(reissued - dead_owned) + len(exhausted - dead_owned)` |
+| manager keeps `rollout/` keys, drain re-keys (45690b0f) | FIXED | B2 (PASS): `rollout/x` stays `rollout/x` on the step drain, becomes `validation/x` from `_validate`, counters cleared; the keys are added after `get_aggregated_metrics`, so the aggregator sum list (unchanged) is not involved |
+| generations logger tolerance (fa8db28e) | FIXED | B3 (PASS): real `wandb.Table` through 2 -> 0 (no row logged) -> 1 -> 3 samples, every row padded to the widest table |
+| row-less batches counted, not blamed on a dead worker (fa8db28e) | PARTIAL (B4) | the counts are emitted only when `_validate` has no other metric |
+
+## New defects (`packages/p3b/review-tests/round3/test_r3_dead_worker_exemption_on_cpu.py`; `results-p3b-45690b0f.log`: 3 failed, 2 passed)
+- B1 MEDIUM: the dead-worker exemption has no bound. With a liveness probe that keeps reporting the replacement's worker dead, sync-refill cap 0 runs fail -> refill -> fail without end (401 dispatches, `TTL discards charged per step: {'train': 0}`); cap 3 re-issues 300 times, then fails and refills, 0 charged. Reachable shapes: a worker that dies after every SERVED dispatch (the served dispatch resets `_relaunch_streak`, so `VERL_MAX_WORKER_RELAUNCHES` never trips: relaunch -> re-issue -> relaunch ...), and a chunk parked on `ActorUnavailableError` whose second-opinion ping times out (never relaunched, re-parked every cycle). Each cycle burns cap + 1 attempts and, in refill modes, a dataset prompt; on main both shapes crash loudly. Fix: charge dead-worker exhaustion failures (not the re-issues) to the step budget, or count relaunches per step against the cap, or stop re-issuing a chunk parked N times; name the limit in the docs either way.
+- B4 LOW: `validation/prompts_without_rows` / `prompts_expected` are emitted only when no other validation metric exists, so a validation with a dead worker's batch and a live worker's row-less batch reports `{'validation/inflight_dead_worker_failed': 1}` for 3 row-less prompts and drops the live count. Always emit the counts.
+- LOW: PR-BODY "`# -> 13 + 9 + 24 items passed`": the inflight file collects 26 (52 total).
+
+## Hygiene
+diff fresh; worktree clean; no remote; no Ray processes left. AI statement verbatim; GPU suite labelled as the stock selection with H100/H200 distinguished; bench intro refreshed; the 2.6 s kill-to-next-step figure kept distinct from recovery latency; no "reviewed every line"; no upstream contact claimed.
+
+Run: `cd wt/p3b && PYTHONPATH=$PWD .venv-cpu/bin/python -m pytest -c pytest-cpu.ini --rootdir packages/p3b/review-tests/round3 --asyncio-mode=auto -p no:cacheprovider -q packages/p3b/review-tests/round3` (paths relative to verl-contrib; the file imports the round-2 harness and p3a's round-3 loop harness by path).
+
+## Merge-readiness: NEEDS-FIXES (small)
+Inherits p3a A1; B1 needs a bound or an explicit documented limit naming the die-after-service shape; B4 and the count line with them. Detection, relaunch, in-place validation failure, the drains and the logger fix hold under attack.
+
+## Lead-requested closure (round 3b): p3b @ 64212367 (8 commits on p3a e598929b), wt clean, audit fresh/ok, no remote
+Counts (PYTHONPATH=wt/p3b): the submitter's full-loop 4/4, extended empty-validation probe 1/1; round 1 (`packages/p3/review-tests`) 19 passed + R3/R4/R9 characterization lines = the recorded state (`round3/results-round1-on-p3b-64212367.log`); round 2 p3b 7/7, p3a 5/5; round 3 p3a dir 6 passed / 2 failed (H1 x2, inherited: see the p3a closure); round 3 p3b dir 7 passed / 2 failed (`results-p3b-64212367.log`): B1 x2 rewritten to the bound PASS (cap 0: 0 re-issues / 2 dispatches, the 2nd dead failure raises past allowance 1; cap 3: 4 re-issues / 6 dispatches, the replacement's re-issue raises past allowance 4; refills uncounted, nothing charged to the TTL budget), B2 / B3 / B4 PASS (row-less counts now beside the dead-worker failures), D2 PASS (the hold-back never applies to a dead-owned group: failed at once, the step pads from the healthy group), D3 PASS (the manager caps re-creations of one index within a step regardless of served dispatches and resets on the next `global_steps` handed to `reap_dead_workers`), D1 x2 FAIL.
+- D1 MEDIUM (`test_r3b_dead_bound_on_cpu.py::test_r3b_d1_*[0-2|3-5]`): the allowance `(cap + 1) x train_batch_size` is per step batch, but a dead worker's orphans scale with the in-flight pool (async warm-up, DAPO prefetch, few agent-loop workers, a node loss). ONE death that orphans more than the allowance (cap 0 with two prompts in flight; cap 3 with five) is recovered in a single poll yet that poll trips the bound: `RuntimeError: agent-loop workers keep dying: 2 prompts ... more than the allowance of 1` (and `5 ... of 4`), blaming re-created workers that never got a chance. Fix: open the step's allowance at `(cap + 1) x max(train_batch_size, prompts in flight)` or count death events (probe calls that reported deaths) rather than prompts; keep the per-step cap.
+- Asked and answered: re-issues and exhaustion failures of dead-owned prompts both count, refills do not (B1 counts); the allowance is the same expression in every mode while the in-flight pool is not (D1); the no-service streak is unchanged and the per-step count resets per `global_steps` (D3).
+Verdict: NEEDS-FIXES (D1, one expression; plus the inherited p3a H1); B1 / B4 closed, the bound's loud failure is the right shape once its allowance follows the in-flight pool.
+
+## Lead-requested closure (round 3b final): p3b @ 1b397dfd (9 commits on p3a 2bd5c040), wt clean, audit fresh/ok, no remote
+Counts (PYTHONPATH=wt/p3b): the submitter's full-loop 4/4, extended empty-validation probe 1/1; round 1 19 passed + R3/R4/R9 = the recorded state (`round3/results-round1-on-p3b-1b397dfd.log`); round 2 p3b 7/7, p3a 5/5; round 3 + 3b p3a dir 10/10 (H1 inherited fix holds here); round 3 + 3b p3b dir 13/13 (`results-p3b-1b397dfd.log`): B1 x2 (cap 0: the 2nd death event raises past allowance 1; cap 3: the 5th past 4; prompt counts named too), B2, B3, B4, D1 x2 (one death orphaning 2 or 5 prompts is one event: recovered), D2, D3, E1 (a held-back group whose worker is then reported dead is failed at once, outside the hold-back; the step pads), E2 (the same as the step's only group: the all-failed RuntimeError, by design), E3 (a stale probe repeating a retired uid adds no event and no discard), E4 (a train death seen by the val poll counts nothing under val and one event under train).
+D1 FIXED: the bound counts death events per step and partition against `(cap + 1) x train_batch_size`, prompt counts kept and both named. No new defect; the event allowance is loose (one probe per `VERL_WORKER_LIVENESS_PERIOD_SECONDS`), so the manager's per-step relaunch cap is the effective bound and the buffer's is the backstop, which the docs may say. Verdict: MERGE-READY from this review's side.
+
+## Lead closure (2026-10-29, p3a 2bd5c040 / p3b 1b397dfd)
+Round 3 (R2-02), round 3b (A1/A3/B1/B4) and the closure items (H1 per-poll hold-back without spending; D1 death-event
+bound per step and partition) are all FIXED; the re-reviewer's round-3 directories pass 10/10 (p3a) and 13/13 (p3b) on
+both trees, rounds 1/2 as recorded, the submitter's full-loop test 4/4. The one note (the event allowance is loose; the
+manager's per-step relaunch cap is the effective bound, the buffer's a backstop) is recorded in the p3b package text.
+Verdict: MERGE-READY pending the chaos arm and stock suite on 1b397dfd.

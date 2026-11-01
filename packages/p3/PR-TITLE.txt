@@ -1,0 +1,1 @@
+[trainer, rollout, cfg] feat: in-flight prompt TTL with re-issue and dead agent-loop worker redispatch

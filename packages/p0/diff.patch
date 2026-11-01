@@ -1,0 +1,487 @@
+diff --git a/docs/algo/grpo.md b/docs/algo/grpo.md
+index 0a1fb1d3..92592382 100644
+--- a/docs/algo/grpo.md
++++ b/docs/algo/grpo.md
+@@ -1,6 +1,6 @@
+ # Group Relative Policy Optimization (GRPO)
+ 
+-Last updated: 05/31/2025.
++Last updated: 10/29/2026.
+ 
+ In reinforcement learning, classic algorithms like PPO rely on a "critic" model to estimate the value of actions, guiding the learning process. However, training this critic model can be resource-intensive. 
+ 
+@@ -57,7 +57,7 @@ Instead of adding KL penalty in the reward, GRPO regularizes by directly adding
+ Configure the following to enable DrGRPO, with all other parameters the same as GRPO's:
+ 
+ - `actor_rollout_ref.actor.loss_agg_mode`: "seq-mean-token-sum-norm", which turns off seq-dim averaging
+-- `actor_rollout_ref.actor.loss_scale_factor`: (Optional) Set to a constant integer (e.g., max response length) to ensure consistent normalization throughout training. If not set, uses the current batch's response length.
++- `actor_rollout_ref.actor.loss_scale_factor`: (Optional) The constant normalizer (a finite number > 0). If not set, `validate_config` resolves it to `actor_rollout_ref.rollout.response_length` (i.e. `data.max_response_length`, which must then be a positive integer) when the trainer launches (`main_ppo` and the other in-tree launchers; logged at INFO), so every micro-batch is normalized by the same constant; set it to normalize by another constant. A launcher that bypasses `validate_config` must set it explicitly.
+ - `actor_rollout_ref.actor.use_kl_loss`: Please set it to False for DrGRPO
+ - `algorithm.norm_adv_by_std_in_grpo`: False, which turns off standard deviation norm
+ 
+diff --git a/tests/trainer/ppo/test_loss_horizon_microbatch_invariance_on_cpu.py b/tests/trainer/ppo/test_loss_horizon_microbatch_invariance_on_cpu.py
+new file mode 100644
+index 00000000..49e2646e
+--- /dev/null
++++ b/tests/trainer/ppo/test_loss_horizon_microbatch_invariance_on_cpu.py
+@@ -0,0 +1,326 @@
++# Copyright 2026 Bytedance Ltd. and/or its affiliates
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""CPU tests: the engine loss functions are invariant to the micro-batch split on nested (V1) inputs, and
++``validate_config`` resolves the "seq-mean-token-sum-norm" normalizer to ``rollout.response_length``.
++
++The V1 trainer hands ``ppo_loss`` / ``value_loss`` nested (jagged) micro-batches. ``losses.py`` pads each
++micro-batch to its own max response length and ``agg_loss`` divides "seq-mean-token-sum-norm" by
++``loss_mask.shape[-1]`` when ``loss_scale_factor`` is None, so the horizon used to change with the split: with
++the inputs below the accumulated actor loss was 8.996x (split [1, 2, 5]) and 48.2x (singles) the
++whole-mini-batch loss and the critic loss 1.155x / 2.076x, with the gradients off accordingly, while the
++equal-width split [4, 4] and the other four modes were exact. ``validate_config`` now resolves a null factor to
++``actor_rollout_ref.rollout.response_length`` for the actor and the critic, which restores the documented
++constant horizon. These tests build the worker configs the way the trainer does (compose ``ppo_trainer``,
++``validate_config``, ``omega_conf_to_dataclass``) and drive the real loss functions. No GPU, model weights or
++tokenizer are needed: the model path is a stub directory holding a tiny ``config.json`` (tokenizer loading off).
++"""
++
++import functools
++import json
++import logging
++import os
++
++import pytest
++import torch
++from hydra import compose, initialize_config_dir
++from tensordict import TensorDict
++
++import verl.trainer.config as trainer_config
++from verl.utils import tensordict_utils as tu
++from verl.utils.config import omega_conf_to_dataclass, validate_config
++from verl.workers.utils.losses import ppo_loss, value_loss
++
++_CONFIG_DIR = os.path.dirname(trainer_config.__file__)
++_RESPONSE_LENGTH = 16  # the configured rollout.response_length; every response below is shorter
++_PROMPT_LENS = [4, 3, 5, 2, 6, 3, 4, 5]
++_RESP_LENS = [12, 1, 3, 7, 12, 2, 9, 5]
++_BATCH = len(_RESP_LENS)
++_MODES = ["token-mean", "token-sum", "seq-mean-token-sum", "seq-mean-token-mean", "seq-mean-token-sum-norm"]
++_WHOLE = [list(range(_BATCH))]
++_SPLITS = {
++    "uneven_1_2_5": [[0], [1, 2], [3, 4, 5, 6, 7]],  # padded widths 12, 3, 12
++    "even_4_4": [[0, 1, 2, 3], [4, 5, 6, 7]],  # padded widths 12, 12
++    "singles": [[i] for i in range(_BATCH)],  # padded width = each response length
++}
++
++
++@pytest.fixture(scope="module")
++def model_dir(tmp_path_factory):
++    """A model directory holding only a tiny ``config.json``: ``HFModelConfig`` needs nothing else once tokenizer
++    loading is off, so the tests run without the ``~/models`` snapshot. pytest cleans the directory up."""
++    path = tmp_path_factory.mktemp("loss_horizon_stub_model")
++    hf_config = {
++        "model_type": "qwen2",
++        "architectures": ["Qwen2ForCausalLM"],
++        "hidden_size": 16,
++        "intermediate_size": 32,
++        "num_attention_heads": 2,
++        "num_key_value_heads": 2,
++        "num_hidden_layers": 1,
++        "vocab_size": 128,
++        "max_position_embeddings": 64,
++    }
++    (path / "config.json").write_text(json.dumps(hf_config))
++    return str(path)
++
++
++@functools.cache
++def _validated_config(model_dir, mode, factor=None, loss_mode="vanilla", critic_mode=None, response_length=None):
++    """Compose ``ppo_trainer`` and run ``validate_config`` on it, as ``main_ppo`` does before launching. The values
++    are formatted into Hydra overrides as a user would type them (``nan``, ``inf``, ``True``, ``sixteen``, ...).
++    ``response_length`` overrides ``actor_rollout_ref.rollout.response_length`` directly when given (``"null"``
++    unsets it); by default the ``oc.select`` of ``data.max_response_length`` (16) stays in place."""
++    overrides = [
++        f"data.max_response_length={_RESPONSE_LENGTH}",
++        f"actor_rollout_ref.model.path={model_dir}",
++        f"critic.model.path={model_dir}",
++        "+critic.model.load_tokenizer=false",  # validate_config instantiates the critic's HFModelConfig
++        f"actor_rollout_ref.actor.loss_agg_mode={mode}",
++        f"actor_rollout_ref.actor.loss_scale_factor={'null' if factor is None else factor}",
++        f"actor_rollout_ref.actor.policy_loss.loss_mode={loss_mode}",
++        "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1",
++        "actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1",
++        "critic.ppo_micro_batch_size_per_gpu=1",
++    ]
++    if critic_mode is not None:
++        overrides.append(f"critic.loss_agg_mode={critic_mode}")
++    if response_length is not None:
++        overrides.append(f"actor_rollout_ref.rollout.response_length={response_length}")
++    with initialize_config_dir(version_base=None, config_dir=_CONFIG_DIR):
++        config = compose(config_name="ppo_trainer", overrides=overrides)
++    validate_config(config, use_reference_policy=False, use_critic=True)
++    return config
++
++
++@functools.cache
++def _worker_configs(model_dir, mode, loss_mode="vanilla"):
++    """The dataclasses the workers build from the validated config (engine_workers.py / v1/trainer_base.py)."""
++    config = _validated_config(model_dir, mode, loss_mode=loss_mode)
++    return omega_conf_to_dataclass(config.actor_rollout_ref.actor), omega_conf_to_dataclass(config.critic)
++
++
++def _nested(tensors):
++    return torch.nested.as_nested_tensor(tensors, layout=torch.jagged)
++
++
++def _make_batch(seed=0):
++    """A mini-batch as the V1 trainer stores it: nested per-row tensors plus the global batch info the engine
++    assigns (``dp_size`` / ``batch_num_tokens`` in ``transformer_impl.py``, ``global_batch_size`` in the trainer)."""
++    g = torch.Generator().manual_seed(seed)
++
++    def rand(n):
++        return torch.randn(n, generator=g)
++
++    prompts = [torch.randint(10, 100, (p,), generator=g) for p in _PROMPT_LENS]
++    responses = [torch.randint(10, 100, (r,), generator=g) for r in _RESP_LENS]
++    response_mask = [torch.ones(r, dtype=torch.int64) for r in _RESP_LENS]
++    response_mask[0][4:7] = 0  # a masked tool span inside the longest response
++    data = TensorDict(
++        {
++            "prompts": _nested(prompts),
++            "responses": _nested(responses),
++            "response_mask": _nested(response_mask),
++            "old_log_probs": _nested([-1.5 + 0.5 * rand(r) for r in _RESP_LENS]),
++            "advantages": _nested([rand(r) for r in _RESP_LENS]),
++            "values": _nested([rand(r) for r in _RESP_LENS]),
++            "returns": _nested([rand(r) for r in _RESP_LENS]),
++        },
++        batch_size=[_BATCH],
++    )
++    num_tokens = int(sum(int(m.sum()) for m in response_mask))
++    tu.assign_non_tensor(data, dp_size=1, batch_num_tokens=num_tokens, global_batch_size=_BATCH)
++    seq_lens = torch.tensor([p + r for p, r in zip(_PROMPT_LENS, _RESP_LENS, strict=True)])
++    model_output = -1.2 + 0.4 * rand(int(seq_lens.sum()))  # one flat leaf (log-probs / values) for all rows
++    return data, model_output, seq_lens
++
++
++def _accumulate(kind, config, data, model_output, seq_lens, splits):
++    """Sum of the per-micro-batch losses and the accumulated gradient on the flat model output, the way the
++    engine's per-micro-batch ``loss.backward()`` produces them (no rescaling, ``fsdp/transformer_impl.py``)."""
++    leaf = model_output.clone().requires_grad_(True)
++    offsets = torch.cat([torch.zeros(1, dtype=torch.long), seq_lens.cumsum(0)])
++    total = torch.zeros(())
++    for rows in splits:
++        micro_batch = tu.index_select_tensor_dict(data, torch.tensor(rows))
++        pieces = torch.cat([leaf[offsets[i] : offsets[i + 1]] for i in rows])
++        row_offsets = torch.cat([torch.zeros(1, dtype=torch.long), seq_lens[rows].cumsum(0)])
++        output = torch.nested.nested_tensor_from_jagged(pieces, row_offsets)
++        if kind == "actor":
++            loss, _ = ppo_loss(config, {"log_probs": output}, micro_batch)
++        else:
++            loss, _ = value_loss(config, {"values": output}, micro_batch)
++        loss.backward()
++        total = total + loss.detach()
++    return total, leaf.grad.clone()
++
++
++@pytest.mark.parametrize("split", list(_SPLITS))
++@pytest.mark.parametrize("mode", _MODES)
++@pytest.mark.parametrize("kind", ["actor", "critic"])
++def test_loss_and_gradient_invariant_to_micro_batch_split(kind, mode, split, model_dir):
++    """Summing the per-micro-batch losses (and accumulating their gradients) gives the whole-mini-batch loss and
++    gradient for every ``loss_agg_mode`` and every split, actor and critic. For "seq-mean-token-sum-norm" this
++    holds because the resolved ``loss_scale_factor`` gives every micro-batch the same horizon; without the
++    resolution the uneven splits fail (loss ratios 8.996x / 48.2x actor, 1.155x / 2.076x critic)."""
++    actor_config, critic_config = _worker_configs(model_dir, mode)
++    config = actor_config if kind == "actor" else critic_config
++    data, model_output, seq_lens = _make_batch()
++
++    whole_loss, whole_grad = _accumulate(kind, config, data, model_output, seq_lens, _WHOLE)
++    split_loss, split_grad = _accumulate(kind, config, data, model_output, seq_lens, _SPLITS[split])
++
++    torch.testing.assert_close(split_loss, whole_loss)
++    torch.testing.assert_close(split_grad, whole_grad)
++
++
++@pytest.mark.parametrize("split", ["whole", *_SPLITS])
++@pytest.mark.parametrize("kind", ["actor", "critic"])
++def test_seq_mean_token_sum_norm_horizon_is_response_length(kind, split, model_dir):
++    """The Dr. GRPO normalizer is the configured ``rollout.response_length`` (16 here), not the padded width of
++    the micro-batch at hand (12, 3 or less): "seq-mean-token-sum-norm" equals "seq-mean-token-sum" divided by
++    ``response_length`` for every micro-batch, in loss and gradient."""
++    index = 0 if kind == "actor" else 1
++    norm_config = _worker_configs(model_dir, "seq-mean-token-sum-norm")[index]
++    sum_config = _worker_configs(model_dir, "seq-mean-token-sum")[index]
++    data, model_output, seq_lens = _make_batch()
++    splits = _WHOLE if split == "whole" else _SPLITS[split]
++
++    norm_loss, norm_grad = _accumulate(kind, norm_config, data, model_output, seq_lens, splits)
++    sum_loss, sum_grad = _accumulate(kind, sum_config, data, model_output, seq_lens, splits)
++
++    torch.testing.assert_close(norm_loss, sum_loss / _RESPONSE_LENGTH)
++    torch.testing.assert_close(norm_grad, sum_grad / _RESPONSE_LENGTH)
++
++
++def test_validate_config_resolves_null_factor_to_response_length(model_dir):
++    """``loss_scale_factor: null`` under "seq-mean-token-sum-norm" becomes ``rollout.response_length`` for the
++    actor and the critic, and the worker dataclasses carry the resolved constant."""
++    config = _validated_config(model_dir, "seq-mean-token-sum-norm")
++    assert config.actor_rollout_ref.actor.loss_scale_factor == _RESPONSE_LENGTH
++    assert config.critic.loss_scale_factor == _RESPONSE_LENGTH
++
++    actor_config, critic_config = _worker_configs(model_dir, "seq-mean-token-sum-norm")
++    assert actor_config.loss_scale_factor == _RESPONSE_LENGTH
++    assert critic_config.loss_scale_factor == _RESPONSE_LENGTH
++
++
++@pytest.mark.parametrize("factor", [4096, 0.5, 2**63 - 1])
++def test_validate_config_keeps_an_explicit_factor(factor, model_dir):
++    """Any finite positive number is kept as given (a float divides the loss just as well; an int may go up to the int64
++    maximum torch accepts as a scalar); the critic inherits it."""
++    config = _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)
++    assert config.actor_rollout_ref.actor.loss_scale_factor == factor
++    assert config.critic.loss_scale_factor == factor
++
++
++@pytest.mark.parametrize("mode", [mode for mode in _MODES if mode != "seq-mean-token-sum-norm"])
++def test_validate_config_leaves_other_modes_untouched(mode, model_dir):
++    config = _validated_config(model_dir, mode)
++    assert config.actor_rollout_ref.actor.loss_scale_factor is None
++    assert config.critic.loss_scale_factor is None
++
++
++@pytest.mark.parametrize(
++    "factor",
++    [
++        float("nan"),
++        float("inf"),
++        float("-inf"),
++        0,
++        -1,
++        "sixteen",
++        True,
++        pytest.param(2**63, id="int64-overflow"),
++        pytest.param(10**400, id="beyond-float"),
++    ],
++)
++def test_validate_config_rejects_an_invalid_explicit_factor(factor, model_dir):
++    """An explicit factor divides the loss, so NaN, an infinity, 0, a negative value, a non-number, a bool or an int
++    torch cannot take as a scalar (2**63 and above: OverflowError inside ``agg_loss``) is a configuration error with a
++    message naming the key and the value, not a NaN / inf / zero-division / overflow inside the loss or a TypeError
++    later. (``nan <= 0`` and ``inf <= 0`` are both False, so a sign check alone lets them through.)"""
++    pattern = r"actor_rollout_ref\.actor\.loss_scale_factor must be a finite positive number"
++    with pytest.raises(ValueError, match=pattern) as e:
++        _validated_config(model_dir, "seq-mean-token-sum-norm", factor=factor)
++    assert f"got {factor!r}" in str(e.value)
++
++
++@pytest.mark.parametrize("response_length", [0, -16, 2.5, True])
++def test_validate_config_rejects_an_invalid_inferred_horizon(response_length, model_dir):
++    """A null factor is resolved from ``rollout.response_length``, which must then be a positive integer: 0 or a
++    negative value is no horizon, 2.5 would be truncated and ``True`` would silently resolve to 1."""
++    pattern = r"actor_rollout_ref\.rollout\.response_length must be a positive integer"
++    with pytest.raises(ValueError, match=pattern) as e:
++        _validated_config(model_dir, "seq-mean-token-sum-norm", response_length=response_length)
++    assert f"got {response_length!r}" in str(e.value)
++
++
++def test_validate_config_resolves_an_overridden_response_length(model_dir):
++    """The constant is ``actor_rollout_ref.rollout.response_length`` itself, also when it is overridden directly
++    rather than through ``data.max_response_length``."""
++    config = _validated_config(model_dir, "seq-mean-token-sum-norm", response_length=2 * _RESPONSE_LENGTH)
++    assert config.actor_rollout_ref.actor.loss_scale_factor == 2 * _RESPONSE_LENGTH
++    assert config.critic.loss_scale_factor == 2 * _RESPONSE_LENGTH
++
++
++def test_validate_config_warns_when_response_length_is_unset(model_dir, caplog):
++    """Without ``rollout.response_length`` there is nothing to resolve to: the factor stays null and a warning says
++    that each micro-batch will be normalized by its own padded width (the pre-existing behaviour, not an error)."""
++    with caplog.at_level(logging.WARNING):
++        config = _validated_config(model_dir, "seq-mean-token-sum-norm", response_length="null")
++    assert config.actor_rollout_ref.actor.loss_scale_factor is None
++    assert config.critic.loss_scale_factor is None
++    assert "actor_rollout_ref.rollout.response_length is unset" in caplog.text
++
++
++def test_validate_config_resolves_the_critic_on_its_own(model_dir):
++    """The critic inherits the actor's mode by default but may select Dr. GRPO normalization alone."""
++    config = _validated_config(model_dir, "token-mean", critic_mode="seq-mean-token-sum-norm")
++    assert config.actor_rollout_ref.actor.loss_scale_factor is None
++    assert config.critic.loss_scale_factor == _RESPONSE_LENGTH
++
++
++# Non-strict on purpose: these record the state of other open PRs (#7916 for geo_mean, #7830 for kl_cov). Once one
++# merges, its case XPASSes, which must not fail that PR's CPU job (cpu_unit_tests.yml runs pytest -x); drop the
++# mark then.
++@pytest.mark.parametrize(
++    "loss_mode",
++    [
++        pytest.param(
++            "geo_mean",
++            marks=pytest.mark.xfail(
++                strict=False,
++                reason="geo_mean takes a micro-batch-local torch.mean and bypasses agg_loss (issue #7913, PR #7916)",
++            ),
++        ),
++        pytest.param(
++            "kl_cov",
++            marks=pytest.mark.xfail(
++                strict=False,
++                reason="kl_cov selects its top-k covariance tokens per micro-batch (issue #7829, PR #7830)",
++            ),
++        ),
++    ],
++)
++def test_known_non_invariant_policy_losses(loss_mode, model_dir):
++    """Policy losses known not to be micro-batch invariant, recorded as (non-strict) xfails. Not touched here."""
++    actor_config, _ = _worker_configs(model_dir, "token-mean", loss_mode=loss_mode)
++    data, model_output, seq_lens = _make_batch()
++
++    whole_loss, whole_grad = _accumulate("actor", actor_config, data, model_output, seq_lens, _WHOLE)
++    split_loss, split_grad = _accumulate("actor", actor_config, data, model_output, seq_lens, _SPLITS["uneven_1_2_5"])
++
++    torch.testing.assert_close(split_loss, whole_loss)
++    torch.testing.assert_close(split_grad, whole_grad)
+diff --git a/verl/trainer/config/actor/actor.yaml b/verl/trainer/config/actor/actor.yaml
+index 3f3e0dbe..94f87816 100644
+--- a/verl/trainer/config/actor/actor.yaml
++++ b/verl/trainer/config/actor/actor.yaml
+@@ -85,8 +85,10 @@ clip_ratio_c: 3.0
+ # Loss aggregation mode: "token-mean", "token-sum", "seq-mean-token-sum", "seq-mean-token-mean", or "seq-mean-token-sum-norm"
+ loss_agg_mode: token-mean
+ 
+-# Scale factor for "seq-mean-token-sum-norm" loss aggregation mode.
+-# If null, uses response_length. Set to a constant to ensure consistent normalization.
++# Scale factor for "seq-mean-token-sum-norm" loss aggregation mode (the Dr. GRPO constant normalizer); must be a finite number > 0.
++# null = resolved to actor_rollout_ref.rollout.response_length by validate_config when the trainer launches
++# (main_ppo and the other in-tree launchers; logged at INFO; `--cfg job` still prints null), so every
++# micro-batch is normalized by the same constant. A launcher that bypasses validate_config must set it.
+ loss_scale_factor: null
+ 
+ # Entropy regularization coefficient in PPO loss
+diff --git a/verl/trainer/config/critic/critic.yaml b/verl/trainer/config/critic/critic.yaml
+index 766e2237..080fe699 100644
+--- a/verl/trainer/config/critic/critic.yaml
++++ b/verl/trainer/config/critic/critic.yaml
+@@ -63,8 +63,9 @@ cliprange_value: 0.5
+ # Loss aggregation mode: "token-mean", "seq-mean-token-sum", or "seq-mean-token-mean"
+ loss_agg_mode: ${oc.select:actor_rollout_ref.actor.loss_agg_mode,token-mean}
+ 
+-# Scale factor for "seq-mean-token-sum-norm" loss aggregation mode.
+-# If null, uses response_length. Set to a constant to ensure consistent normalization.
++# Scale factor for "seq-mean-token-sum-norm" loss aggregation mode; must be a finite number > 0. Inherits the actor's value;
++# null = resolved to actor_rollout_ref.rollout.response_length by validate_config when the trainer launches
++# (see actor.yaml), so every micro-batch is normalized by the same constant.
+ loss_scale_factor: ${oc.select:actor_rollout_ref.actor.loss_scale_factor,null}
+ 
+ # checkpoint configs
+diff --git a/verl/utils/config.py b/verl/utils/config.py
+index 83ca7e72..a330ee17 100644
+--- a/verl/utils/config.py
++++ b/verl/utils/config.py
+@@ -12,11 +12,15 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import logging
++import math
+ from dataclasses import is_dataclass
+ from typing import Any, Optional
+ 
+ from omegaconf import DictConfig, ListConfig, OmegaConf
+ 
++logger = logging.getLogger(__name__)
++
+ __all__ = ["omega_conf_to_dataclass", "validate_config"]
+ 
+ 
+@@ -85,6 +89,70 @@ def _validate_router_replay_config(actor_config: Any, rollout_correction: Any) -
+         )
+ 
+ 
++_INT64_MAX = 2**63 - 1  # torch wraps a Python int scalar as int64; a larger int raises OverflowError inside the loss
++
++
++def _is_finite_positive_number(value: Any) -> bool:
++    """An ``int`` or ``float`` (not a ``bool``), ``> 0``, that torch takes as a scalar divisor: a finite float or an
++    int that fits int64 (``loss /= loss_scale_factor`` in ``agg_loss`` raises OverflowError on a larger int)."""
++    if isinstance(value, bool) or not isinstance(value, int | float):
++        return False
++    if isinstance(value, int):
++        return 0 < value <= _INT64_MAX
++    return math.isfinite(value) and value > 0
++
++
++def _resolve_loss_scale_factor(config: DictConfig, use_critic: bool) -> None:
++    """Resolve ``loss_scale_factor=null`` to ``rollout.response_length`` for "seq-mean-token-sum-norm".
++
++    ``agg_loss`` divides by ``loss_mask.shape[-1]`` when the factor is None. Under the V1 trainer the loss
++    functions receive nested (jagged) micro-batches and pad them to the micro-batch's own max response length,
++    so that fallback horizon would differ between micro-batches and the accumulated gradient would depend on how
++    the mini-batch was split. Resolving the factor here keeps the documented constant
++    (``actor_rollout_ref.rollout.response_length``, the padded width the legacy trainer always had) for every
++    micro-batch, for the actor and the critic alike. A factor set explicitly by the user is left untouched (it must
++    be a finite positive number), and ``response_length`` must be a positive integer to be resolved to. The
++    resolution happens here, in the hook every in-tree launcher runs before building the worker dataclasses; a
++    launcher that bypasses ``validate_config`` has to set ``loss_scale_factor`` itself.
++    """
++    response_length = config.actor_rollout_ref.rollout.get("response_length", None)
++    sections = [("actor_rollout_ref.actor", config.actor_rollout_ref.actor)]
++    if use_critic and config.get("critic") is not None:
++        sections.append(("critic", config.critic))
++    for name, section in sections:
++        if section.get("loss_agg_mode") != "seq-mean-token-sum-norm":
++            continue
++        factor = section.get("loss_scale_factor")
++        if factor is not None:
++            if not _is_finite_positive_number(factor):
++                raise ValueError(
++                    f"{name}.loss_scale_factor must be a finite positive number for "
++                    f"loss_agg_mode=seq-mean-token-sum-norm (it divides the loss), got {factor!r}. Leave it null to "
++                    "use actor_rollout_ref.rollout.response_length."
++                )
++            continue
++        if response_length is None:
++            logger.warning(
++                "%s.loss_scale_factor is null and actor_rollout_ref.rollout.response_length is unset: "
++                "seq-mean-token-sum-norm will normalize each micro-batch by its own padded width.",
++                name,
++            )
++            continue
++        if isinstance(response_length, bool) or not isinstance(response_length, int) or response_length <= 0:
++            raise ValueError(
++                f"actor_rollout_ref.rollout.response_length must be a positive integer to resolve "
++                f"{name}.loss_scale_factor=null (loss_agg_mode=seq-mean-token-sum-norm), got {response_length!r}. "
++                f"Fix it or set {name}.loss_scale_factor explicitly."
++            )
++        section.loss_scale_factor = response_length
++        logger.info(
++            "%s.loss_agg_mode=seq-mean-token-sum-norm with loss_scale_factor=null: resolved loss_scale_factor to "
++            "actor_rollout_ref.rollout.response_length=%d so every micro-batch is normalized by the same constant.",
++            name,
++            response_length,
++        )
++
++
+ def _validate_score_centering_config(config: DictConfig) -> None:
+     algorithm_rc = config.algorithm.get("rollout_correction") or {}
+     actor_rc = config.actor_rollout_ref.actor.policy_loss.get("rollout_correction") or {}
+@@ -194,6 +262,9 @@ def validate_config(
+                     f"'{name}.{param}' because only '*_{param_per_gpu}' is supported (the former is deprecated)."
+                 )
+ 
++    # Resolve the seq-mean-token-sum-norm normalizer before the worker configs are built from this DictConfig.
++    _resolve_loss_scale_factor(config, use_critic)
++
+     # Actor validation done in ActorConfig.__post_init__ and validate()
+     actor_config = omega_conf_to_dataclass(config.actor_rollout_ref.actor)
+     actor_config.validate(n_gpus, config.data.train_batch_size, config.actor_rollout_ref.model)

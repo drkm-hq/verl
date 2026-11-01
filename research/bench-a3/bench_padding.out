@@ -1,0 +1,44 @@
+W1028 21:44:14.766000 20009 torch/fx/_symbolic_trace.py:57] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+# machine: arm64 macOS-26.5.1-arm64-arm-64bit | python 3.12.14 | torch 2.15.0 | tensordict 0.10.0 | numpy 2.5.4 | torch threads 6
+
+## N=1024 P=2048 L=8192
+dense batch payload: 0.54 GB
+left_right_2_no_padding (padding.py:23) full batch                     median       60.7 ms   min       59.7 ms   (n=3)
+  .. unpad_input(input_ids, attention_mask) alone                      median       10.0 ms   min        9.4 ms   (n=3)
+  .. position_ids python loop over N rows (padding.py:52-62)           median       51.5 ms   min       51.3 ms   (n=3)
+  .. position_ids vectorized (boolean mask + from_jagged)              median        5.9 ms   min        5.9 ms   (n=3)
+no_padding_2_padding (padding.py:103) python loop                      median        7.8 ms   min        7.6 ms   (n=3)
+no_padding_2_padding vectorized (gather)                               median        4.4 ms   min        4.1 ms   (n=3)
+response_from_nested (padding.py:166) python loop                      median        5.5 ms   min        5.4 ms   (n=3)
+response_from_nested vectorized (index gather)                         median        5.3 ms   min        5.3 ms   (n=3)
+NestedTensor.to_padded_tensor (N x L fp32)                             median        1.6 ms   min        1.6 ms   (n=3)
+response_to_nested (padding.py:184) python loop                        median        2.8 ms   min        2.8 ms   (n=3)
+response_to_nested vectorized (mask + from_jagged)                     median        5.0 ms   min        5.0 ms   (n=3)
+
+## N=4096 P=2048 L=8192
+dense batch payload: 2.15 GB
+left_right_2_no_padding (padding.py:23) full batch                     median      245.3 ms   min      244.0 ms   (n=3)
+  .. unpad_input(input_ids, attention_mask) alone                      median       38.7 ms   min       38.4 ms   (n=3)
+  .. position_ids python loop over N rows (padding.py:52-62)           median      213.5 ms   min      210.9 ms   (n=3)
+  .. position_ids vectorized (boolean mask + from_jagged)              median       22.2 ms   min       21.6 ms   (n=3)
+no_padding_2_padding (padding.py:103) python loop                      median       31.0 ms   min       29.7 ms   (n=3)
+no_padding_2_padding vectorized (gather)                               median       16.0 ms   min       15.4 ms   (n=3)
+response_from_nested (padding.py:166) python loop                      median       22.2 ms   min       21.2 ms   (n=3)
+response_from_nested vectorized (index gather)                         median       18.1 ms   min       17.0 ms   (n=3)
+NestedTensor.to_padded_tensor (N x L fp32)                             median        5.9 ms   min        5.6 ms   (n=3)
+response_to_nested (padding.py:184) python loop                        median       10.7 ms   min       10.5 ms   (n=3)
+response_to_nested vectorized (mask + from_jagged)                     median       19.6 ms   min       19.4 ms   (n=3)
+
+## N=4096 P=2048 L=32768
+dense batch payload: 7.78 GB
+left_right_2_no_padding (padding.py:23) full batch                     median      834.8 ms   min      801.4 ms   (n=2)
+  .. unpad_input(input_ids, attention_mask) alone                      median      123.8 ms   min      121.7 ms   (n=2)
+  .. position_ids python loop over N rows (padding.py:52-62)           median      922.5 ms   min      851.5 ms   (n=2)
+  .. position_ids vectorized (boolean mask + from_jagged)              median       75.0 ms   min       74.6 ms   (n=2)
+no_padding_2_padding (padding.py:103) python loop                      median       46.7 ms   min       46.2 ms   (n=2)
+no_padding_2_padding vectorized (gather)                               median       60.1 ms   min       59.1 ms   (n=2)
+response_from_nested (padding.py:166) python loop                      median       25.1 ms   min       23.7 ms   (n=2)
+response_from_nested vectorized (index gather)                         median       64.4 ms   min       61.0 ms   (n=2)
+NestedTensor.to_padded_tensor (N x L fp32)                             median       10.5 ms   min       10.4 ms   (n=2)
+response_to_nested (padding.py:184) python loop                        median       13.8 ms   min       13.7 ms   (n=2)
+response_to_nested vectorized (mask + from_jagged)                     median       78.2 ms   min       77.0 ms   (n=2)
