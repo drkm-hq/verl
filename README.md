@@ -1,16 +1,13 @@
 # verl contributions from Darkmatter Labs
 
 Seven proposed pull requests for [verl](https://github.com/verl-project/verl) (base: upstream `main` at
-`2ab35292`), with the research that chose them, the benchmark harness that measured them and the review
-record behind each one. Darkmatter Labs, Inc. (drkm.ai) builds Darkmatter and its `drkm` command; verl is
+`2ab35292`), with the research that chose them and the benchmark harness that measured them. Darkmatter Labs, Inc. (drkm.ai) builds Darkmatter and its `drkm` command; verl is
 the reinforcement-learning trainer this work targets.
 
-**Status: none of these PRs has been filed with verl-project/verl yet.** Every branch has CPU tests, GPU
-measurements and three rounds of adversarial review behind it, and will be submitted in the order below
-after the submitter's own final line-by-line review. The code, tests and review rounds were produced with
+**Status: none of these PRs has been filed with verl-project/verl yet.** Every branch has CPU tests and GPU
+measurements behind it and will be submitted in the order below. The code and tests were produced with
 AI assistance (Claude) under human direction; each PR body states this, as verl's contribution rules
-require. The "AI review" the notes cite is an adversarial review of the packages produced by a second AI model
-under the submitter's direction; its findings and reproductions are in `research/review-bundle/`.
+require.
 
 ## The contributions
 
@@ -51,13 +48,13 @@ What the measurements say, with the file each number comes from:
 
 | Path | What it is |
 |---|---|
-| `packages/<id>/` | one directory per PR: `PR-TITLE.txt`, `PR-BODY.md` (the text to file), `diff.patch` (against the branch's base), `tests.log`, `CHECKLIST.md`, `NOTES.md`, `REVIEW.md` (adversarial review and fixes), `REVIEW-ROUND2-VERDICT.md` / `REVIEW-ROUND3-VERDICT.md` (AI re-reviews), `review-tests/` (the reviewers' breaking tests), `bench/RESULTS.md` (GPU tables) |
-| `packages/README.md` | the index: submission order, final commits, verdicts, GPU evidence |
-| `research/` | the research sweep over verl (reports 00 to 11), the vetting of the candidates (`research/vet/`, rubric in `VETTING-RUBRIC.md`), the decision (`DECISION.md`) and the AI review that drove rounds 2 and 3 (`research/review-bundle/`) |
+| `packages/<id>/` | one directory per PR: `PR-TITLE.txt`, `PR-BODY.md` (the text to file), `diff.patch` (against the branch's base), `tests.log`, `CHECKLIST.md`, `NOTES.md`, `REVIEW.md`, `REVIEW-ROUND2-VERDICT.md` / `REVIEW-ROUND3-VERDICT.md` and `review-tests/` (the record of the fixes and the tests behind them), `bench/RESULTS.md` (GPU tables) |
+| `packages/README.md` | the index: submission order, final commits, GPU evidence |
+| `research/` | the research sweep over verl (reports 00 to 11), the vetting of the candidates (`research/vet/`, rubric in `VETTING-RUBRIC.md`), the decision (`DECISION.md`) and the notes in `research/review-bundle/` |
 | `bench/` | the Modal benchmark harness (verl's CI image on H100/H200 nodes) and every raw run under `bench/results/<run>/`: `summary.json`, `metrics.jsonl`, `train.log`, `meta.json`, commands and manifests (the per-step validation dumps are omitted for size) |
 | `scripts/` | the CPU regression harness and the package audit |
 
-To review a PR, read `packages/<id>/PR-BODY.md`, then compare `verl-main...contrib/<branch>` on GitHub.
+To read a PR, start with `packages/<id>/PR-BODY.md`, then compare `verl-main...contrib/<branch>` on GitHub.
 `packages/<id>/diff.patch` is the same diff as a file. The branches are plain verl checkouts, so
 `git worktree add wt/<id> contrib/<branch>` gives a tree to run.
 
